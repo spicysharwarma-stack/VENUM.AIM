@@ -1097,7 +1097,7 @@ local function CreatePremiumUI()
 
     -- Premium control buttons with hover effects
     local buttons = {
-        {Name = "Toggle", Text = "TOGGLE AIMBOT (F)", Key = "Enabled", OnColor = VenomColors.Primary, OffColor = VenomColors.Danger},
+        {Name = "Toggle", Text = "TOGGLE AIMBOT (RSHIFT)", Key = "Enabled", OnColor = VenomColors.Primary, OffColor = VenomColors.Danger},
         {Name = "Prediction", Text = "PREDICTION", Key = "Prediction.Enabled", OnColor = VenomColors.Secondary, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "WallCheck", Text = "WALL CHECK", Key = "VisibilityCheck", OnColor = VenomColors.Accent, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "TeamCheck", Text = "TEAM CHECK", Key = "TeamCheck", OnColor = VenomColors.Light, OffColor = Color3.fromRGB(60, 60, 60)},
