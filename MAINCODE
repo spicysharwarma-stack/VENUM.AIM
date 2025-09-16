@@ -1,7 +1,8 @@
 --[[
-    🐍 Venom Reptile v6.0 - Elite Premium Edition
+    🐍 Venom Reptile v6.1 - Elite Premium Edition
     Next-Gen Threat Assessment & Targeting System
     Universal Xeno Executor Version - Optimized
+    POLISHED TARGETING SYSTEMS - FIXED SWITCHING ISSUES
 ]]
 
 -- Services
@@ -49,8 +50,10 @@ local Settings = {
     SmartSwitch = {
         Enabled = true,
         ThreatEvaluationInterval = 0.3,
-        TargetLockDuration = 1.5,  -- Keep target for minimum time
-        TargetSwitchCooldown = 0.4  -- Prevent rapid switching
+        TargetLockDuration = 1.8,  -- Increased from 1.5 for better target retention
+        TargetSwitchCooldown = 0.5,  -- Increased from 0.4 to prevent rapid switching
+        MinThreatDifference = 25,    -- NEW: Minimum threat difference required to switch
+        RecentTargetBonus = 15       -- NEW: Bonus for recently targeted players
     },
     Radar = {
         Enabled = true,
@@ -60,27 +63,36 @@ local Settings = {
         Position = UDim2.new(1, -140, 1, -140),
         RefreshRate = 0.2
     },
-    FOVChangeOnAim = true,
+    FOVChangeOnAim = false,
     AimKey = Enum.UserInputType.MouseButton2,
-    ToggleKey = Enum.KeyCode.P,
+    ToggleKey = Enum.KeyCode.RightShift,
     
     -- Enhanced threat evaluation settings (REVISED)
-    CloseRangePriority = 120,  -- SIGNIFICANTLY increased priority for close targets
-    ImmediateThreatBonus = 80,  -- Bonus for targets actively engaging you
+    CloseRangePriority = 120,
+    ImmediateThreatBonus = 80,
     AnticipationMode = true,
     AnticipationRange = 150,
     RecentTargetMemory = 3,
     
-    -- Revised threat evaluation factors (FIXED high ground issue)
+    -- Revised threat evaluation factors
     FacingPlayerBonus = 40,
-    HighGroundBonus = 15,      -- REDUCED from 25 to prevent over-prioritization
+    HighGroundBonus = 15,
     WeaponThreatMultiplier = 1.5,
-    VisibleTargetBonus = 50,   -- INCREASED visibility importance
+    VisibleTargetBonus = 50,
     
     -- New threat evaluation factors
-    DamageDealtBonus = 30,     -- Bonus for players who recently damaged you
-    MovementThreatFactor = 0.8, -- Threat reduction for stationary targets
-    RecentCombatMemory = 5,    -- Remember combat events for 5 seconds
+    DamageDealtBonus = 30,
+    MovementThreatFactor = 0.8,
+    RecentCombatMemory = 5,
+    
+    -- Playstyle adaptation settings
+    PlaystyleAdaptation = {
+        Enabled = true,
+        AggressionThreshold = 70,    -- Threat level to be considered aggressive
+        StealthTime = 10,            -- Seconds without combat to enter stealth mode
+        RecentTargetWeight = 0.7,    -- Weight for recent targets in stealth mode
+        LearningRate = 0.1           -- How quickly the system adapts to playstyle
+    },
     
     -- Premium features
     SoundEffects = true,
@@ -107,12 +119,23 @@ local combatEvents = {}
 local lastDamageTaken = 0
 local damageSource = nil
 
+-- Playstyle tracking
+local playstyleMetrics = {
+    isStealthMode = false,
+    lastCombatTime = 0,
+    averageEngagementDistance = 0,
+    engagementCount = 0,
+    targetSwitchFrequency = 0,
+    recentTargets = {},
+    preferredTargets = {}
+}
+
 -- Premium sound effects
 local soundEffects = {
-    TargetLock = "rbxassetid://6284519546",
-    TargetSwitch = "rbxassetid://72841109192126",
+    TargetLock = "rbxassetid://125994029506927",
+    TargetSwitch = "rbxassetid://9125639499",
     ToggleOn = "rbxassetid://9119303864",
-    ToggleOff = "rbxassetid://7229097896"
+    ToggleOff = "rbxassetid://117751546358455"
 }
 
 -- Venom Color Scheme
@@ -124,7 +147,7 @@ local VenomColors = {
     Light = Color3.fromRGB(144, 238, 144),
     Danger = Color3.fromRGB(220, 20, 60),
     Success = Color3.fromRGB(0, 255, 127),
-    Elite = Color3.fromRGB(138, 43, 226)  -- Premium elite color
+    Elite = Color3.fromRGB(138, 43, 226)
 }
 
 -- FOV Circle with premium effects
@@ -176,6 +199,59 @@ local function PlaySound(soundType)
     end
 end
 
+-- Track playstyle metrics
+local function UpdatePlaystyleMetrics()
+    local currentTime = tick()
+    
+    -- Check if we should enter stealth mode
+    if currentTime - playstyleMetrics.lastCombatTime > Settings.PlaystyleAdaptation.StealthTime then
+        playstyleMetrics.isStealthMode = true
+    else
+        playstyleMetrics.isStealthMode = false
+    end
+    
+    -- Update target switch frequency (exponential moving average)
+    if Target and currentTime - lastTargetSwitch < 2 then
+        local switchWeight = 0.1
+        playstyleMetrics.targetSwitchFrequency = playstyleMetrics.targetSwitchFrequency * (1 - switchWeight) + switchWeight
+    else
+        playstyleMetrics.targetSwitchFrequency = playstyleMetrics.targetSwitchFrequency * 0.99
+    end
+end
+
+-- Apply playstyle adaptation to threat evaluation
+local function ApplyPlaystyleAdaptation(threatScore, player, isVisible)
+    if not Settings.PlaystyleAdaptation.Enabled then return threatScore end
+    
+    UpdatePlaystyleMetrics()
+    
+    -- In stealth mode, prioritize recent targets and visible targets
+    if playstyleMetrics.isStealthMode then
+        -- Bonus for recently targeted players in stealth mode
+        if playstyleMetrics.recentTargets[player] then
+            threatScore = threatScore + Settings.SmartSwitch.RecentTargetBonus
+        end
+        
+        -- Higher priority for visible targets in stealth mode
+        if isVisible then
+            threatScore = threatScore * 1.2
+        end
+    else
+        -- In combat mode, be more aggressive with target selection
+        if threatScore > Settings.PlaystyleAdaptation.AggressionThreshold then
+            threatScore = threatScore * 1.1
+        end
+    end
+    
+    -- Adjust based on player's preferred targets (learning)
+    if playstyleMetrics.preferredTargets[player] then
+        local preferenceBonus = playstyleMetrics.preferredTargets[player] * 0.5
+        threatScore = threatScore + preferenceBonus
+    end
+    
+    return threatScore
+end
+
 -- Improved Prediction Engine
 local function CalculatePrediction(targetChar, aimPart)
     if not Settings.Prediction.Enabled then return aimPart.Position end
@@ -206,8 +282,8 @@ local function GetRandomizedAimPart(character)
     
     -- Smart body part selection with hit probability optimization
     local parts = {
-        {Name = "Head", Weight = 45, Offset = Vector3.new(0, -0.2, 0)}, -- Aim slightly below head
-        {Name = "UpperTorso", Weight = 30, Offset = Vector3.new(0, 0.3, 0)}, -- Aim at center mass
+        {Name = "Head", Weight = 45, Offset = Vector3.new(0, -0.2, 0)},
+        {Name = "UpperTorso", Weight = 30, Offset = Vector3.new(0, 0.3, 0)},
         {Name = "HumanoidRootPart", Weight = 15, Offset = Vector3.new(0, 0, 0)},
         {Name = "LowerTorso", Weight = 10, Offset = Vector3.new(0, 0, 0)}
     }
@@ -227,7 +303,6 @@ local function GetRandomizedAimPart(character)
         if part then
             cumulativeWeight = cumulativeWeight + partData.Weight
             if randomValue <= cumulativeWeight then
-                -- Apply offset to improve hit probability
                 return part, partData.Offset
             end
         end
@@ -250,7 +325,7 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
             lastMissTime = currentTime
             -- Add significant offset to simulate a miss
             local missOffset = Vector3.new(
-                (math.random() - 0.5) * 5,  -- Larger offset for misses
+                (math.random() - 0.5) * 5,
                 (math.random() - 0.5) * 5,
                 (math.random() - 0.5) * 3
             )
@@ -260,10 +335,8 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
     
     -- Apply part-specific aiming adjustments
     if aimPart and aimPart.Name == "Head" then
-        -- Always aim slightly below the head for better hit probability
         targetPosition = targetPosition - Vector3.new(0, math.random() * 0.4 + 0.2, 0)
     elseif aimPart and aimPart.Name == "UpperTorso" then
-        -- Aim at center mass
         targetPosition = targetPosition + Vector3.new(0, math.random() * 0.3 - 0.15, 0)
     end
     
@@ -326,8 +399,11 @@ local function RecordCombatEvent(attacker, damage)
     combatEvents[attacker] = {
         Time = currentTime,
         Damage = damage,
-        ThreatLevel = math.min(100, damage * 2)  -- Scale damage to threat
+        ThreatLevel = math.min(100, damage * 2)
     }
+    
+    -- Update combat time for playstyle tracking
+    playstyleMetrics.lastCombatTime = currentTime
 end
 
 -- Clean up old combat events
@@ -340,7 +416,7 @@ local function CleanCombatEvents()
     end
 end
 
--- Advanced threat evaluation system (FIXED high ground issue)
+-- Advanced threat evaluation system
 local lastThreatEvaluation = 0
 local function EvaluateThreatLevel(player)
     local character = player.Character
@@ -352,9 +428,9 @@ local function EvaluateThreatLevel(player)
     
     if not rootPart or not humanoid or humanoid.Health <= 0 then return 0 end
     
-    -- Distance factor (closer = more threat) - PRIORITIZED
+    -- Distance factor (closer = more threat)
     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
-    threatScore = threatScore + (2000 / math.max(1, distance))  -- Increased from 1500
+    threatScore = threatScore + (2000 / math.max(1, distance))
     
     -- EXTREME priority for very close targets
     if distance < 25 then
@@ -392,10 +468,10 @@ local function EvaluateThreatLevel(player)
     local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if localRoot then
         local elevationDifference = rootPart.Position.Y - localRoot.Position.Y
-        if elevationDifference > 5 then  -- Target has high ground
+        if elevationDifference > 5 then
             threatScore = threatScore + Settings.HighGroundBonus
-        elseif elevationDifference < -5 then  -- We have high ground
-            threatScore = threatScore - 10  -- Reduced penalty
+        elseif elevationDifference < -5 then
+            threatScore = threatScore - 10
         end
     end
     
@@ -413,7 +489,7 @@ local function EvaluateThreatLevel(player)
     
     -- Movement-based threat reduction (stationary targets are less threatening)
     local speed = rootPart.Velocity.Magnitude
-    if speed < 2 then  -- Essentially stationary
+    if speed < 2 then
         threatScore = threatScore * Settings.MovementThreatFactor
     end
     
@@ -422,25 +498,26 @@ local function EvaluateThreatLevel(player)
     if Settings.AnticipationMode and recentTargets[player] then
         local timeSinceLastSeen = currentTime - recentTargets[player]
         if timeSinceLastSeen < Settings.RecentTargetMemory then
-            -- Add threat based on how recently they were seen
             threatScore = threatScore + (40 * (1 - timeSinceLastSeen / Settings.RecentTargetMemory))
         end
     end
     
     -- Health-based threat (weaker targets are less threatening)
     local healthPercent = humanoid.Health / humanoid.MaxHealth
-    threatScore = threatScore * (0.5 + healthPercent * 0.5)  -- Scale from 50% to 100%
+    threatScore = threatScore * (0.5 + healthPercent * 0.5)
+    
+    -- Apply playstyle adaptation
+    threatScore = ApplyPlaystyleAdaptation(threatScore, player, isVisible)
     
     return math.max(0, threatScore)
 end
 
--- Enhanced target selection with smart switching (FIXED high ground issue)
+-- Enhanced target selection with smart switching (FIXED switching issues)
 local function FindOptimalTarget()
     UpdatePlayerCache()
     
     local bestTarget = nil
     local highestThreat = -1
-    local mousePos = UserInputService:GetMouseLocation()
     local currentTime = tick()
     
     -- Clean up old recent targets
@@ -501,10 +578,8 @@ local function FindOptimalTarget()
         local isVisible = IsVisible(character)
         
         if isVisible then
-            -- Update recent target memory
             recentTargets[player] = currentTime
         elseif distance > Settings.AnticipationRange then
-            -- Skip targets that are too far and not visible
             continue
         end
         
@@ -533,10 +608,28 @@ local function FindOptimalTarget()
         return a.Threat > b.Threat
     end)
     
-    -- Select the best target
+    -- Select the best target with minimum threat difference requirement
     if #potentialTargets > 0 then
-        bestTarget = potentialTargets[1].Player
-        highestThreat = potentialTargets[1].Threat
+        local topThreat = potentialTargets[1].Threat
+        
+        -- Check if we should switch from current target
+        if Target and Target.Character then
+            local currentThreat = EvaluateThreatLevel(Target)
+            
+            -- Only switch if new target has significantly higher threat
+            if topThreat > currentThreat + Settings.SmartSwitch.MinThreatDifference then
+                bestTarget = potentialTargets[1].Player
+                highestThreat = topThreat
+            else
+                -- Keep current target if threat difference is small
+                bestTarget = Target
+                highestThreat = currentThreat
+            end
+        else
+            -- No current target, select the best one
+            bestTarget = potentialTargets[1].Player
+            highestThreat = topThreat
+        end
         
         -- If we're switching targets, update the cooldown and play sound
         if bestTarget ~= Target then
@@ -545,6 +638,16 @@ local function FindOptimalTarget()
                 PlaySound("TargetSwitch")
             end
             targetLockTime = currentTime
+            
+            -- Update playstyle metrics for target switching
+            playstyleMetrics.recentTargets[bestTarget] = currentTime
+            
+            -- Update preferred targets (learning)
+            if not playstyleMetrics.preferredTargets[bestTarget] then
+                playstyleMetrics.preferredTargets[bestTarget] = 0
+            end
+            playstyleMetrics.preferredTargets[bestTarget] = playstyleMetrics.preferredTargets[bestTarget] + 
+                Settings.PlaystyleAdaptation.LearningRate
         end
     end
     
@@ -623,8 +726,8 @@ local function CreateRadar()
     
     -- Radar grid lines
     local gridLines = {
-        {From = UDim2.new(0.5, 0, 0, 0), To = UDim2.new(0.5, 0, 1, 0)}, -- Vertical center
-        {From = UDim2.new(0, 0, 0.5, 0), To = UDim2.new(1, 0, 0.5, 0)}, -- Horizontal center
+        {From = UDim2.new(0.5, 0, 0, 0), To = UDim2.new(0.5, 0, 1, 0)},
+        {From = UDim2.new(0, 0, 0.5, 0), To = UDim2.new(1, 0, 0.5, 0)},
     }
     
     for _, line in ipairs(gridLines) do
@@ -721,7 +824,6 @@ local function UpdateRadar()
                 local normalizedDistance = distance / Settings.Radar.Range
                 
                 -- FIXED: Always face forward relative to player (not camera)
-                -- Use the player's rotation to determine forward direction
                 local playerRotation = localRoot.CFrame - localRoot.CFrame.Position
                 local forwardVector = playerRotation.LookVector
                 
@@ -863,7 +965,6 @@ local function TrackDamage()
                 if player ~= LocalPlayer and player.Character then
                     local tool = player.Character:FindFirstChildOfClass("Tool")
                     if tool then
-                        -- Simple assumption: if player has a tool and we took damage, they might be the source
                         RecordCombatEvent(player, humanoid.MaxHealth - humanoid.Health)
                         lastDamageTaken = tick()
                         damageSource = player
@@ -968,7 +1069,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v6.0 ELITE"
+    title.Text = "🐍 VENOM REPTILE v6.1 ELITE"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -996,7 +1097,7 @@ local function CreatePremiumUI()
 
     -- Premium control buttons with hover effects
     local buttons = {
-        {Name = "Toggle", Text = "TOGGLE AIMBOT (P)", Key = "Enabled", OnColor = VenomColors.Primary, OffColor = VenomColors.Danger},
+        {Name = "Toggle", Text = "TOGGLE AIMBOT (F)", Key = "Enabled", OnColor = VenomColors.Primary, OffColor = VenomColors.Danger},
         {Name = "Prediction", Text = "PREDICTION", Key = "Prediction.Enabled", OnColor = VenomColors.Secondary, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "WallCheck", Text = "WALL CHECK", Key = "VisibilityCheck", OnColor = VenomColors.Accent, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "TeamCheck", Text = "TEAM CHECK", Key = "TeamCheck", OnColor = VenomColors.Light, OffColor = Color3.fromRGB(60, 60, 60)},
@@ -1004,7 +1105,8 @@ local function CreatePremiumUI()
         {Name = "SmartSwitch", Text = "SMART SWITCH", Key = "SmartSwitch.Enabled", OnColor = Color3.fromRGB(160, 90, 255), OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Radar", Text = "RADAR SYSTEM", Key = "Radar.Enabled", OnColor = Color3.fromRGB(0, 150, 255), OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Anticipation", Text = "ANTICIPATION MODE", Key = "AnticipationMode", OnColor = Color3.fromRGB(255, 105, 180), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "Sounds", Text = "SOUND EFFECTS", Key = "SoundEffects", OnColor = Color3.fromRGB(255, 215, 0), OffColor = Color3.fromRGB(60, 60, 60)}
+        {Name = "Sounds", Text = "SOUND EFFECTS", Key = "SoundEffects", OnColor = Color3.fromRGB(255, 215, 0), OffColor = Color3.fromRGB(60, 60, 60)},
+        {Name = "Adaptation", Text = "PLAYSTYLE ADAPTATION", Key = "PlaystyleAdaptation.Enabled", OnColor = Color3.fromRGB(0, 200, 200), OffColor = Color3.fromRGB(60, 60, 60)}
     }
 
     local buttonInstances = {}
@@ -1261,6 +1363,8 @@ function UpdateUI()
                     button.Text = "📡 " .. btnData.Text
                 elseif name == "Sounds" then
                     button.Text = "🔊 " .. btnData.Text
+                elseif name == "Adaptation" then
+                    button.Text = "🧠 " .. btnData.Text
                 else
                     button.Text = "✓ " .. btnData.Text
                 end
@@ -1315,11 +1419,22 @@ RunService.RenderStepped:Connect(function()
                 UI.TargetLabel.Text = "🎯 Target: " .. Target.Name
                 UI.StatusLabel.Text = "📊 Status: Locked 🔒"
                 
+                -- Update playstyle metrics
+                playstyleMetrics.lastCombatTime = tick()
+                
                 -- Update distance label
                 local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
                 if rootPart then
                     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
                     UI.DistanceLabel.Text = "📏 Distance: " .. math.floor(distance) .. " studs"
+                    
+                    -- Update engagement distance average
+                    if playstyleMetrics.engagementCount < 100 then
+                        playstyleMetrics.engagementCount = playstyleMetrics.engagementCount + 1
+                    end
+                    playstyleMetrics.averageEngagementDistance = 
+                        (playstyleMetrics.averageEngagementDistance * (playstyleMetrics.engagementCount - 1) + distance) / 
+                        playstyleMetrics.engagementCount
                 end
                 
                 -- Update target indicator
@@ -1372,11 +1487,12 @@ if Settings.Radar.Enabled then
     CreateRadar()
 end
 
-print("🐍 Venom Reptile v6.0 Elite Premium Loaded!")
-print("🎯 REVISED Threat Targeting | Fixed High Ground Issue | Premium Features")
+print("🐍 Venom Reptile v6.1 Elite Premium Loaded!")
+print("🎯 POLISHED Threat Targeting | Fixed Switching Issues | Adaptive Playstyle")
 print("🔧 Press F to toggle | Right-click to aim")
 print("📡 Radar with 300 stud range and proper forward orientation")
-print("🎯 Smart threat system prioritizes immediate threats over elevation")
-print("⚡ Target locking prevents unwanted switching to high ground targets")
+print("🎯 Smart threat system prevents rapid switching between similar threats")
+print("🧠 Adaptive system learns your playstyle (stealth/aggressive)")
+print("⚡ Target locking with minimum threat difference requirement")
 print("💥 Enhanced combat awareness with damage tracking")
 print("🔊 Premium sound effects and visual feedback")
