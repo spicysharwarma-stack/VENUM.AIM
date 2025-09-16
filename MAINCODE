@@ -109,10 +109,10 @@ local damageSource = nil
 
 -- Premium sound effects
 local soundEffects = {
-    TargetLock = "rbxassetid://9119668364",
-    TargetSwitch = "rbxassetid://9119668877",
-    ToggleOn = "rbxassetid://9119669201",
-    ToggleOff = "rbxassetid://9119669563"
+    TargetLock = "rbxassetid://6284519546",
+    TargetSwitch = "rbxassetid://72841109192126",
+    ToggleOn = "rbxassetid://9119303864",
+    ToggleOff = "rbxassetid://7229097896"
 }
 
 -- Venom Color Scheme
