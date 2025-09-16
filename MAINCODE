@@ -1,7 +1,6 @@
 --[[
-    🐍 Venom Reptile v5.5 - Premium Edition
+    🐍 Venom Reptile v5.4 - Premium Edition
     Universal Xeno Executor Version - Optimized
-    Updated with Advanced Aim Features, Radar Improvements, and Visual Feedback
 ]]
 
 -- Services
@@ -12,7 +11,6 @@ local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
-local HttpService = game:GetService("HttpService")
 
 -- Configuration
 local Settings = {
@@ -56,30 +54,7 @@ local Settings = {
         Size = 120,
         Range = 200,
         BackgroundTransparency = 0.8,
-        Position = UDim2.new(1, -140, 1, -140),
-        ShowTeammates = false,
-        TeammateColor = Color3.fromRGB(0, 150, 255)
-    },
-    AimSmoothing = {
-        Enabled = true,
-        BaseSmoothing = 0.2,
-        DistanceFactor = 0.001,
-        ThreatFactor = 0.1
-    },
-    MultiTarget = {
-        Enabled = true,
-        CoverTimeout = 5, -- seconds
-        ReacquireDelay = 0.5 -- seconds
-    },
-    VisualFeedback = {
-        HitIndicator = true,
-        HitIndicatorColor = Color3.fromRGB(255, 50, 50),
-        DamageNumbers = true,
-        ThreatPulsing = true
-    },
-    Performance = {
-        FPSOptimization = true,
-        CleanupInterval = 5 -- seconds
+        Position = UDim2.new(1, -140, 1, -140)
     },
     FOVChangeOnAim = true,
     AimKey = Enum.UserInputType.MouseButton2,
@@ -101,11 +76,6 @@ local radarDots = {}
 local lastMissTime = 0
 local lastHumanizerUpdate = 0
 local recentTargets = {} -- Track recent targets for anticipation
-local hitIndicators = {}
-local damageNumbers = {}
-local targetCoverTimers = {} -- Track when targets go into cover
-local lastCleanup = tick()
-local lastTargetSwitch = 0
 
 -- FOV Circle
 local FOVCircle = Drawing.new("Circle")
@@ -127,15 +97,6 @@ TargetIndicator.Color = Settings.Highlight.Color
 TargetIndicator.Transparency = 0.6
 TargetIndicator.Thickness = 2
 
--- Hit Indicator
-local HitIndicator = Drawing.new("Circle")
-HitIndicator.Visible = false
-HitIndicator.Radius = 20
-HitIndicator.Filled = false
-HitIndicator.Color = Settings.VisualFeedback.HitIndicatorColor
-HitIndicator.Transparency = 1
-HitIndicator.Thickness = 3
-
 -- Performance Optimization
 local cachedPlayers = {}
 local lastPlayerUpdate = 0
@@ -151,149 +112,6 @@ local VenomColors = {
     Danger = Color3.fromRGB(220, 20, 60),
     Success = Color3.fromRGB(0, 255, 127)
 }
-
--- Load saved configuration
-local function LoadConfig()
-    local success, saved = pcall(function()
-        return HttpService:JSONDecode(readfile("venom_reptile_config.json"))
-    end)
-    
-    if success and saved then
-        for key, value in pairs(saved) do
-            if Settings[key] ~= nil then
-                if type(value) == "table" then
-                    for subkey, subvalue in pairs(value) do
-                        if Settings[key][subkey] ~= nil then
-                            Settings[key][subkey] = subvalue
-                        end
-                    end
-                else
-                    Settings[key] = value
-                end
-            end
-        end
-        print("✅ Configuration loaded successfully")
-    else
-        print("ℹ️ No saved configuration found, using defaults")
-    end
-end
-
--- Save configuration
-local function SaveConfig()
-    local success, err = pcall(function()
-        writefile("venom_reptile_config.json", HttpService:JSONEncode(Settings))
-    end)
-    
-    if success then
-        print("✅ Configuration saved successfully")
-    else
-        warn("❌ Failed to save configuration: " .. tostring(err))
-    end
-end
-
--- Adaptive aim smoothing based on distance and threat
-local function GetAdaptiveSmoothing(distance, threatLevel)
-    if not Settings.AimSmoothing.Enabled then
-        return Settings.Sensitivity
-    end
-    
-    local base = Settings.AimSmoothing.BaseSmoothing
-    local distanceFactor = Settings.AimSmoothing.DistanceFactor
-    local threatFactor = Settings.AimSmoothing.ThreatFactor
-    
-    -- More smoothing for distant targets, less for close ones
-    local smoothing = base + (distance * distanceFactor)
-    
-    -- Less smoothing for high-threat targets (more responsive)
-    smoothing = smoothing - (threatLevel * threatFactor / 100)
-    
-    -- Clamp to reasonable values
-    return math.max(0.05, math.min(0.5, smoothing))
-end
-
--- Show hit indicator
-local function ShowHitIndicator()
-    if not Settings.VisualFeedback.HitIndicator then return end
-    
-    HitIndicator.Position = FOVCircle.Position
-    HitIndicator.Visible = true
-    HitIndicator.Transparency = 1
-    
-    -- Animate the hit indicator
-    local startTime = tick()
-    local duration = 0.5
-    
-    local animate
-    animate = RunService.RenderStepped:Connect(function()
-        local elapsed = tick() - startTime
-        if elapsed >= duration then
-            HitIndicator.Visible = false
-            animate:Disconnect()
-            return
-        end
-        
-        local progress = elapsed / duration
-        HitIndicator.Transparency = progress
-        HitIndicator.Radius = 20 + 10 * math.sin(progress * math.pi)
-    end)
-end
-
--- Show damage number
-local function ShowDamageNumber(position, damage)
-    if not Settings.VisualFeedback.DamageNumbers then return end
-    
-    local screenPoint, onScreen = Camera:WorldToViewportPoint(position)
-    if not onScreen then return end
-    
-    local text = Drawing.new("Text")
-    text.Text = tostring(damage)
-    text.Size = 20
-    text.Color = Settings.VisualFeedback.HitIndicatorColor
-    text.Outline = true
-    text.OutlineColor = Color3.new(0, 0, 0)
-    text.Visible = true
-    text.Position = Vector2.new(screenPoint.X, screenPoint.Y)
-    text.Center = true
-    
-    local startTime = tick()
-    local duration = 1.5
-    local startY = screenPoint.Y
-    
-    table.insert(damageNumbers, {
-        drawing = text,
-        startTime = startTime,
-        duration = duration,
-        startY = startY,
-        startX = screenPoint.X
-    })
-end
-
--- Clean up old damage numbers
-local function CleanupDamageNumbers()
-    local currentTime = tick()
-    local toRemove = {}
-    
-    for i, data in ipairs(damageNumbers) do
-        if currentTime - data.startTime > data.duration then
-            data.drawing.Visible = false
-            data.drawing:Remove()
-            table.insert(toRemove, i)
-        else
-            -- Animate the damage number
-            local progress = (currentTime - data.startTime) / data.duration
-            data.drawing.Position = Vector2.new(
-                data.startX,
-                data.startY - 50 * progress
-            )
-            data.drawing.Transparency = progress
-        end
-    end
-    
-    -- Remove in reverse order to avoid index issues
-    for i = #toRemove, 1, -1 do
-        table.remove(damageNumbers, toRemove[i])
-    end
-end
 
 -- Improved Prediction Engine
 local function CalculatePrediction(targetChar, aimPart)
@@ -426,26 +244,6 @@ local function IsVisible(character)
     return false
 end
 
--- Check if target is in cover
-local function IsInCover(character)
-    if not Settings.MultiTarget.Enabled then return false end
-    
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return false end
-    
-    -- Simple cover check - if we can't see the head or torso, assume cover
-    local head = character:FindFirstChild("Head")
-    local torso = character:FindFirstChild("UpperTorso")
-    
-    if not head or not torso then return true end
-    
-    -- Check visibility to both head and torso
-    local headVisible = IsVisible(character, head)
-    local torsoVisible = IsVisible(character, torso)
-    
-    return not headVisible and not torsoVisible
-end
-
 -- Efficient Player Cache System
 local function UpdatePlayerCache()
     if tick() - lastPlayerUpdate < playerUpdateInterval then return end
@@ -526,21 +324,6 @@ local function FindOptimalTarget()
     for player, lastSeen in pairs(recentTargets) do
         if currentTime - lastSeen > Settings.RecentTargetMemory then
             recentTargets[player] = nil
-        end
-    end
-    
-    -- Multi-target: Check if current target is in cover for too long
-    if Settings.MultiTarget.Enabled and Target and Target.Character then
-        if IsInCover(Target.Character) then
-            if not targetCoverTimers[Target] then
-                targetCoverTimers[Target] = currentTime
-            elseif currentTime - targetCoverTimers[Target] > Settings.MultiTarget.CoverTimeout then
-                -- Target has been in cover for too long, switch to a new one
-                Target = nil
-                targetCoverTimers[Target] = nil
-            end
-        else
-            targetCoverTimers[Target] = nil
         end
     end
     
@@ -650,14 +433,12 @@ local function FindOptimalTarget()
     return bestTarget
 end
 
--- Smooth Aiming System with adaptive smoothing
-local function SmoothAim(targetPosition, distance, threatLevel)
+-- Smooth Aiming System
+local function SmoothAim(targetPosition)
     local currentCFrame = Camera.CFrame
     local targetCFrame = CFrame.new(currentCFrame.Position, targetPosition)
     
-    local smoothing = GetAdaptiveSmoothing(distance, threatLevel)
-    
-    TweenService:Create(Camera, TweenInfo.new(smoothing, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+    TweenService:Create(Camera, TweenInfo.new(Settings.Sensitivity, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
         CFrame = targetCFrame
     }):Play()
 end
@@ -739,18 +520,6 @@ local function CreateRadar()
     })
     pulseTween:Play()
     
-    -- Enemy count label
-    local enemyCountLabel = Instance.new("TextLabel")
-    enemyCountLabel.Size = UDim2.new(1, 0, 0, 15)
-    enemyCountLabel.Position = UDim2.new(0, 0, 0, -20)
-    enemyCountLabel.Text = "Enemies: 0"
-    enemyCountLabel.BackgroundTransparency = 1
-    enemyCountLabel.TextColor3 = VenomColors.Light
-    enemyCountLabel.Font = Enum.Font.GothamBold
-    enemyCountLabel.TextSize = 10
-    enemyCountLabel.TextXAlignment = Enum.TextXAlignment.Center
-    enemyCountLabel.Parent = radarFrame
-    
     -- Radar range indicator
     local rangeLabel = Instance.new("TextLabel")
     rangeLabel.Size = UDim2.new(1, 0, 0, 15)
@@ -764,10 +533,9 @@ local function CreateRadar()
     rangeLabel.Parent = radarFrame
     
     radarFrame.Parent = screenGui
-    return screenGui, enemyCountLabel
+    return screenGui
 end
 
-local enemyCountLabel
 local function UpdateRadar()
     if not Settings.Radar.Enabled or not radarFrame then return end
     
@@ -779,8 +547,6 @@ local function UpdateRadar()
     end
     radarDots = {}
     
-    local enemyCount = 0
-    
     -- Get player positions and update radar
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
@@ -789,18 +555,6 @@ local function UpdateRadar()
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             
             if humanoidRootPart and humanoid and humanoid.Health > 0 then
-                -- Check if teammate
-                local isTeammate = Settings.TeamCheck and player.Team == LocalPlayer.Team
-                
-                -- Skip teammates if not showing them
-                if isTeammate and not Settings.Radar.ShowTeammates then
-                    continue
-                end
-                
-                if not isTeammate then
-                    enemyCount = enemyCount + 1
-                end
-                
                 -- Calculate position relative to local player
                 local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if not localRoot then continue end
@@ -838,27 +592,23 @@ local function UpdateRadar()
                 dot.BorderSizePixel = 0
                 dot.ZIndex = 2
                 
-                -- Color code based on team or threat level
+                -- Color code based on threat level
+                local threatLevel = EvaluateThreatLevel(player)
                 local dotColor
-                if isTeammate then
-                    dotColor = Settings.Radar.TeammateColor
+                
+                if threatLevel > 100 then
+                    dotColor = VenomColors.Danger
+                elseif threatLevel > 70 then
+                    local ratio = (threatLevel - 70) / 30
+                    dotColor = Color3.fromRGB(255, 140, 0):Lerp(VenomColors.Danger, ratio)
+                elseif threatLevel > 50 then
+                    local ratio = (threatLevel - 50) / 20
+                    dotColor = VenomColors.Accent:Lerp(Color3.fromRGB(255, 140, 0), ratio)
+                elseif threatLevel > 30 then
+                    local ratio = (threatLevel - 30) / 20
+                    dotColor = Color3.fromRGB(144, 238, 144):Lerp(VenomColors.Accent, ratio)
                 else
-                    local threatLevel = EvaluateThreatLevel(player)
-                    
-                    if threatLevel > 100 then
-                        dotColor = VenomColors.Danger
-                    elseif threatLevel > 70 then
-                        local ratio = (threatLevel - 70) / 30
-                        dotColor = Color3.fromRGB(255, 140, 0):Lerp(VenomColors.Danger, ratio)
-                    elseif threatLevel > 50 then
-                        local ratio = (threatLevel - 50) / 20
-                        dotColor = VenomColors.Accent:Lerp(Color3.fromRGB(255, 140, 0), ratio)
-                    elseif threatLevel > 30 then
-                        local ratio = (threatLevel - 30) / 20
-                        dotColor = Color3.fromRGB(144, 238, 144):Lerp(VenomColors.Accent, ratio)
-                    else
-                        dotColor = VenomColors.Light
-                    end
+                    dotColor = VenomColors.Light
                 end
                 
                 dot.BackgroundColor3 = dotColor
@@ -869,7 +619,7 @@ local function UpdateRadar()
                 dotCorner.Parent = dot
                 
                 -- Add glow effect for high threat targets
-                if not isTeammate and EvaluateThreatLevel(player) > 70 then
+                if threatLevel > 70 then
                     local glow = Instance.new("UIStroke")
                     glow.Color = dotColor
                     glow.Thickness = 2
@@ -912,11 +662,6 @@ local function UpdateRadar()
             end
         end
     end
-    
-    -- Update enemy count
-    if enemyCountLabel then
-        enemyCountLabel.Text = "Enemies: " .. enemyCount
-    end
 end
 
 -- Input Handling
@@ -954,7 +699,7 @@ local function CreatePremiumUI()
 
     -- Main container with premium design
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 500) -- Increased height for new options
+    mainFrame.Size = UDim2.new(0, 320, 0, 450)
     mainFrame.Position = UDim2.new(0, 10, 0, 10)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 25, 22)
     mainFrame.BorderSizePixel = 0
@@ -1037,7 +782,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v5.5 PREMIUM"
+    title.Text = "🐍 VENOM REPTILE v5.4 PREMIUM"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1072,35 +817,16 @@ local function CreatePremiumUI()
         {Name = "Humanizer", Text = "BODY RANDOMIZER", Key = "Humanizer.Enabled", OnColor = VenomColors.Success, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "SmartSwitch", Text = "SMART SWITCH", Key = "SmartSwitch.Enabled", OnColor = Color3.fromRGB(160, 90, 255), OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Radar", Text = "RADAR SYSTEM", Key = "Radar.Enabled", OnColor = Color3.fromRGB(0, 150, 255), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "Anticipation", Text = "ANTICIPATION MODE", Key = "AnticipationMode", OnColor = Color3.fromRGB(255, 105, 180), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "AimSmoothing", Text = "ADAPTIVE SMOOTHING", Key = "AimSmoothing.Enabled", OnColor = Color3.fromRGB(255, 165, 0), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "MultiTarget", Text = "MULTI-TARGET", Key = "MultiTarget.Enabled", OnColor = Color3.fromRGB(138, 43, 226), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "HitIndicator", Text = "HIT INDICATOR", Key = "VisualFeedback.HitIndicator", OnColor = Color3.fromRGB(255, 50, 50), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "DamageNumbers", Text = "DAMAGE NUMBERS", Key = "VisualFeedback.DamageNumbers", OnColor = Color3.fromRGB(255, 50, 50), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "ThreatPulsing", Text = "THREAT PULSING", Key = "VisualFeedback.ThreatPulsing", OnColor = Color3.fromRGB(220, 20, 60), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "FPSOptimization", Text = "FPS OPTIMIZATION", Key = "Performance.FPSOptimization", OnColor = Color3.fromRGB(30, 144, 255), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "ShowTeammates", Text = "SHOW TEAMMATES", Key = "Radar.ShowTeammates", OnColor = Color3.fromRGB(0, 150, 255), OffColor = Color3.fromRGB(60, 60, 60)}
+        {Name = "Anticipation", Text = "ANTICIPATION MODE", Key = "AnticipationMode", OnColor = Color3.fromRGB(255, 105, 180), OffColor = Color3.fromRGB(60, 60, 60)}
     }
 
     local buttonInstances = {}
     local yOffset = 50
 
-    -- Create scroll frame for buttons
-    local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(0.95, 0, 0, 300)
-    scrollFrame.Position = UDim2.new(0.025, 0, 0, 45)
-    scrollFrame.BackgroundTransparency = 1
-    scrollFrame.BorderSizePixel = 0
-    scrollFrame.ScrollBarThickness = 4
-    scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #buttons * 45 + 10)
-    
-    local uiListLayout = Instance.new("UIListLayout")
-    uiListLayout.Padding = UDim.new(0, 5)
-    uiListLayout.Parent = scrollFrame
-
     for i, btn in ipairs(buttons) do
         local buttonContainer = Instance.new("Frame")
-        buttonContainer.Size = UDim2.new(1, 0, 0, 40)
+        buttonContainer.Size = UDim2.new(0.9, 0, 0, 40)
+        buttonContainer.Position = UDim2.new(0.05, 0, 0, yOffset)
         buttonContainer.BackgroundTransparency = 1
         
         local button = Instance.new("TextButton")
@@ -1186,18 +912,18 @@ local function CreatePremiumUI()
             end
             
             UpdateUI()
-            SaveConfig()
         end)
 
         buttonInstances[btn.Name] = button
         button.Parent = buttonContainer
-        buttonContainer.Parent = scrollFrame
+        buttonContainer.Parent = mainFrame
+        yOffset = yOffset + 45
     end
 
     -- Premium stats panel with animated elements
     local statsPanel = Instance.new("Frame")
     statsPanel.Size = UDim2.new(0.9, 0, 0, 120)
-    statsPanel.Position = UDim2.new(0.05, 0, 0, 355)
+    statsPanel.Position = UDim2.new(0.05, 0, 0, yOffset + 15)
     statsPanel.BackgroundColor3 = Color3.fromRGB(25, 35, 30)
     statsPanel.BorderSizePixel = 0
 
@@ -1265,28 +991,27 @@ local function CreatePremiumUI()
     threatLabel.TextSize = 12
     threatLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    local smoothingLabel = Instance.new("TextLabel")
-    smoothingLabel.Size = UDim2.new(1, -10, 0, 22)
-    smoothingLabel.Position = UDim2.new(0, 10, 0, 98)
-    smoothingLabel.Text = "📐 Smoothing: 0.00"
-    smoothingLabel.BackgroundTransparency = 1
-    smoothingLabel.TextColor3 = VenomColors.Light
-    smoothingLabel.Font = Enum.Font.GothamBold
-    smoothingLabel.TextSize = 12
-    smoothingLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Size = UDim2.new(1, -10, 0, 22)
+    distanceLabel.Position = UDim2.new(0, 10, 0, 98)
+    distanceLabel.Text = "📏 Distance: 0 studs"
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.TextColor3 = VenomColors.Light
+    distanceLabel.Font = Enum.Font.GothamBold
+    distanceLabel.TextSize = 12
+    distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
 
     -- Assembly
     borderGlow.Parent = mainFrame
     titleBar.Parent = mainFrame
     title.Parent = titleBar
     statusLight.Parent = titleBar
-    scrollFrame.Parent = mainFrame
     statsPanel.Parent = mainFrame
     targetLabel.Parent = statsPanel
     statusLabel.Parent = statsPanel
     fpsLabel.Parent = statsPanel
     threatLabel.Parent = statsPanel
-    smoothingLabel.Parent = statsPanel
+    distanceLabel.Parent = statsPanel
     mainFrame.Parent = screenGui
 
     return {
@@ -1297,7 +1022,7 @@ local function CreatePremiumUI()
         StatusLabel = statusLabel,
         FPSLabel = fpsLabel,
         ThreatLabel = threatLabel,
-        SmoothingLabel = smoothingLabel,
+        DistanceLabel = distanceLabel,
         ButtonColors = buttons
     }
 end
@@ -1347,20 +1072,6 @@ function UpdateUI()
                     button.Text = "🔮 " .. btnData.Text
                 elseif name == "Radar" then
                     button.Text = "📡 " .. btnData.Text
-                elseif name == "AimSmoothing" then
-                    button.Text = "📐 " .. btnData.Text
-                elseif name == "MultiTarget" then
-                    button.Text = "🎯 " .. btnData.Text
-                elseif name == "HitIndicator" then
-                    button.Text = "💥 " .. btnData.Text
-                elseif name == "DamageNumbers" then
-                    button.Text = "🔢 " .. btnData.Text
-                elseif name == "ThreatPulsing" then
-                    button.Text = "⚠️ " .. btnData.Text
-                elseif name == "FPSOptimization" then
-                    button.Text = "⚡ " .. btnData.Text
-                elseif name == "ShowTeammates" then
-                    button.Text = "👥 " .. btnData.Text
                 else
                     button.Text = "✓ " .. btnData.Text
                 end
@@ -1389,41 +1100,10 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Performance optimization cleanup
-local function PerformanceCleanup()
-    if not Settings.Performance.FPSOptimization then return end
-    if tick() - lastCleanup < Settings.Performance.CleanupInterval then return end
-    
-    -- Clean up old damage numbers
-    CleanupDamageNumbers()
-    
-    -- Clean up radar dots for players who left
-    for playerName, dot in pairs(radarDots) do
-        if not Players:FindFirstChild(playerName) then
-            if dot and dot.Parent then
-                dot:Destroy()
-            end
-            radarDots[playerName] = nil
-        end
-    end
-    
-    -- Clean up target cover timers
-    for player, time in pairs(targetCoverTimers) do
-        if not player or not player.Parent then
-            targetCoverTimers[player] = nil
-        end
-    end
-    
-    lastCleanup = tick()
-end
-
 -- Enhanced main loop with threat level display and radar
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
     FOVCircle.Visible = Settings.FOV.Visible
-    
-    -- Performance cleanup
-    PerformanceCleanup()
     
     -- Update radar if enabled
     if Settings.Radar.Enabled then
@@ -1440,13 +1120,11 @@ RunService.RenderStepped:Connect(function()
                 UI.TargetLabel.Text = "🎯 Target: " .. Target.Name
                 UI.StatusLabel.Text = "📊 Status: Locked 🔒"
                 
-                -- Update smoothing label
+                -- Update distance label
                 local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
                 if rootPart then
                     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
-                    local threatLevel = EvaluateThreatLevel(Target)
-                    local smoothing = GetAdaptiveSmoothing(distance, threatLevel)
-                    UI.SmoothingLabel.Text = "📐 Smoothing: " .. string.format("%.2f", smoothing)
+                    UI.DistanceLabel.Text = "📏 Distance: " .. math.floor(distance) .. " studs"
                 end
                 
                 -- Update target indicator
@@ -1454,61 +1132,38 @@ RunService.RenderStepped:Connect(function()
                     local screenPoint = Camera:WorldToViewportPoint(aimPart.Position)
                     TargetIndicator.Position = Vector2.new(screenPoint.X, screenPoint.Y)
                     TargetIndicator.Visible = true
-                    
-                    -- Threat pulsing for high threat targets
-                    if Settings.VisualFeedback.ThreatPulsing then
-                        local threatLevel = EvaluateThreatLevel(Target)
-                        if threatLevel > 70 then
-                            local pulse = math.sin(tick() * 5) * 0.2 + 0.8
-                            TargetIndicator.Transparency = 1 - pulse
-                            TargetIndicator.Radius = 12 + 4 * math.sin(tick() * 3)
-                        else
-                            TargetIndicator.Transparency = 0.6
-                            TargetIndicator.Radius = 12
-                        end
-                    end
                 end
                 
                 -- Calculate and apply aim
                 local targetPos = CalculatePrediction(Target.Character, aimPart)
                 targetPos = ApplyHumanizer(targetPos, tick())
                 
-                local distance = (aimPart.Position - Camera.CFrame.Position).Magnitude
-                local threatLevel = EvaluateThreatLevel(Target)
-                SmoothAim(targetPos, distance, threatLevel)
+                SmoothAim(targetPos)
                 
                 LastTargetTime = tick()
             end
         else
             UI.TargetLabel.Text = "🎯 Target: None"
             UI.StatusLabel.Text = "📊 Status: Searching..."
-            UI.SmoothingLabel.Text = "📐 Smoothing: 0.00"
+            UI.DistanceLabel.Text = "📏 Distance: 0 studs"
             TargetIndicator.Visible = false
         end
     else
         UI.StatusLabel.Text = "📊 Status: Ready"
         if tick() - LastTargetTime > 0.5 then
             UI.TargetLabel.Text = "🎯 Target: None"
-            UI.SmoothingLabel.Text = "📐 Smoothing: 0.00"
+            UI.DistanceLabel.Text = "📏 Distance: 0 studs"
         end
         TargetIndicator.Visible = false
     end
 end)
 
--- Simulate hit detection (you'll need to connect this to your actual hit detection)
-local function OnHit(target, damage)
-    ShowHitIndicator()
-    ShowDamageNumber(target.Character.Head.Position, damage)
-end
-
 -- Initialization
-LoadConfig()
 UpdateUI()
 if Settings.Radar.Enabled then
-    local radarGui, countLabel = CreateRadar()
-    enemyCountLabel = countLabel
+    CreateRadar()
 end
-print("🐍 Venom Reptile v5.5 Premium Loaded!")
+print("🐍 Venom Reptile v5.4 Premium Loaded!")
 print("🎯 Toxic Precision | Premium Design | Undetectable")
 print("🔧 Press F to toggle | Right-click to aim")
 print("💚 Buttons show fun indicators when ON | ✗ when OFF")
@@ -1517,7 +1172,3 @@ print("🎯 Body Randomizer increases hit chance with smart part selection")
 print("⚠️ Threat Meter shows danger level of targets with color coding")
 print("📡 Radar System shows player positions with threat-based coloring")
 print("🔍 Anticipation Mode remembers recent targets behind cover")
-print("📐 Adaptive Smoothing adjusts based on distance and threat")
-print("🎯 Multi-Target switching when targets hide in cover")
-print("💥 Visual feedback with hit indicators and damage numbers")
-print("⚡ Performance optimization with automatic cleanup")
