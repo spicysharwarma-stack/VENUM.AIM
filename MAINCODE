@@ -1,8 +1,8 @@
 --[[
-    🐍 Venom Reptile v7.5 - Ultimate Premium Edition
-    Next-Gen Threat Assessment & Targeting System
+    🐍 Venom Reptile v8.0 - Ultimate Stealth Edition
+    Advanced Threat Assessment & Targeting System
     Universal Xeno Executor Version - Fully Optimized
-    REALISTIC THREAT SYSTEM - PERFECT STEALTH/COMBAT DETECTION
+    PERFECT STEALTH/COMBAT DETECTION - REALISTIC BEHAVIOR
     PREMIUM VISUALS & SMOOTH PERFORMANCE
 ]]
 
@@ -13,7 +13,6 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
 
 -- Premium Configuration
 local Settings = {
@@ -160,7 +159,8 @@ local playstyleMetrics = {
     lastMovementUpdate = 0,
     movementPattern = "stationary",
     lastShotTime = 0,
-    combatActions = 0
+    combatActions = 0,
+    lastDetectionUpdate = 0
 }
 
 -- Performance tracking
@@ -244,30 +244,35 @@ local function TrackAccuracy(hit)
     end
 end
 
--- REALISTIC Playstyle Detection System
+-- REALISTIC Playstyle Detection System - FIXED
 local function UpdatePlaystyleMetrics()
     local currentTime = tick()
     local character = LocalPlayer.Character
     
-    -- Update movement pattern detection
-    if character then
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if rootPart then
-            local speed = rootPart.Velocity.Magnitude
-            
-            if speed < 2 then
-                playstyleMetrics.movementPattern = "stationary"
-                playstyleMetrics.detectionLevel = math.max(0, playstyleMetrics.detectionLevel - 0.05)
-            elseif speed < 10 then
-                playstyleMetrics.movementPattern = "walking"
-                playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.02)
-            else
-                playstyleMetrics.movementPattern = "running"
-                playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.08)
+    -- Only update detection level periodically to prevent instant changes
+    if currentTime - playstyleMetrics.lastDetectionUpdate > 0.5 then
+        -- Update movement pattern detection
+        if character then
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                local speed = rootPart.Velocity.Magnitude
+                
+                if speed < 2 then
+                    playstyleMetrics.movementPattern = "stationary"
+                    playstyleMetrics.detectionLevel = math.max(0, playstyleMetrics.detectionLevel - 0.05)
+                elseif speed < 10 then
+                    playstyleMetrics.movementPattern = "walking"
+                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.01) -- Reduced from 0.02
+                else
+                    playstyleMetrics.movementPattern = "running"
+                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.04) -- Reduced from 0.08
+                end
+                
+                playstyleMetrics.lastMovementUpdate = currentTime
             end
-            
-            playstyleMetrics.lastMovementUpdate = currentTime
         end
+        
+        playstyleMetrics.lastDetectionUpdate = currentTime
     end
     
     -- Check if we're actively in combat (recent shots or damage)
@@ -285,9 +290,9 @@ local function UpdatePlaystyleMetrics()
     end
     
     -- If we're locked onto a target and actively engaging
-    if Holding and Target and currentTime - targetLockTime > 1 then
+    if Holding and Target and currentTime - targetLockTime > 1.5 then -- Increased from 1
         isInCombat = true
-        playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.1)
+        playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.05) -- Reduced from 0.1
     end
     
     -- If we've performed multiple combat actions recently
@@ -301,6 +306,7 @@ local function UpdatePlaystyleMetrics()
     end
     
     -- Set stealth mode based on combat status and detection level
+    -- FIXED: Movement alone shouldn't trigger combat mode
     playstyleMetrics.isStealthMode = not isInCombat and 
         playstyleMetrics.detectionLevel < Settings.PlaystyleAdaptation.DetectionThreshold
     
@@ -341,7 +347,7 @@ local function ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance
                 -- If target is looking at us, increase threat (they've detected us)
                 if dotProduct > 0.8 then
                     threatScore = threatScore * 1.3
-                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.2)
+                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.1) -- Reduced from 0.2
                 end
             end
         end
@@ -583,7 +589,6 @@ local function CleanCombatEvents()
 end
 
 -- Advanced threat evaluation system
-local lastThreatEvaluation = 0
 local function EvaluateThreatLevel(player)
     local character = player.Character
     if not character then return 0 end
@@ -854,6 +859,10 @@ end
 
 -- Fixed Radar System with forward-facing orientation
 local function CreateRadar()
+    if radarFrame and radarFrame.Parent then
+        radarFrame.Parent:Destroy()
+    end
+    
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "VenomRadar_" .. math.random(10000, 99999)
     screenGui.Parent = game.CoreGui
@@ -878,7 +887,7 @@ local function CreateRadar()
     
     -- Animate the border
     local borderTween = TweenService:Create(radarBorder, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
-        Color = PremiumColors.Secondary
+                Color = PremiumColors.Secondary
     })
     borderTween:Play()
     
@@ -1234,7 +1243,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v7.5 ULTIMATE"
+    title.Text = "🐍 VENOM REPTILE v8.0 STEALTH"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1683,8 +1692,8 @@ if Settings.Radar.Enabled then
     CreateRadar()
 end
 
-print("🐍 Venom Reptile v7.5 Ultimate Premium Loaded!")
-print("🎯 REALISTIC Threat System | Perfect Stealth/Combat Detection")
+print("🐍 Venom Reptile v8.0 Ultimate Stealth Edition Loaded!")
+print("🎯 PERFECT Stealth/Combat Detection | Realistic Behavior")
 print("🧠 Advanced Playstyle Adaptation | Movement-Based Detection")
 print("👁️  Intelligent Adaptive FOV | Performance & Engagement Based")
 print("🔧 Press F to toggle | Right-click to aim")
@@ -1692,3 +1701,4 @@ print("📡 Radar with 300 stud range and proper forward orientation")
 print("🎯 Smart threat system prevents rapid switching between similar threats")
 print("⚡ Target locking with minimum threat difference requirement")
 print("💥 Enhanced combat awareness with realistic detection")
+   
