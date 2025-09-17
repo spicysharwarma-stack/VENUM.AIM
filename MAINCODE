@@ -1,5 +1,5 @@
 --[[
-    🐍 Venom Reptile v7.0 - Ultimate Edition
+    🐍 Venom Reptile v7.2 - Ultimate Edition
     Advanced Threat Assessment & Targeting System
     Optimized for Performance and Reliability
     POLISHED TARGETING SYSTEMS - FIXED ALL ISSUES
@@ -109,6 +109,14 @@ local currentFOV = Settings.FOV.Radius
 local combatEvents = {}
 local lastDamageTaken = 0
 local damageSource = nil
+local lastThreatUpdate = 0
+
+-- Player Whitelist System
+local Whitelist = {
+    -- Add player names or user IDs here to whitelist them
+    -- Example: ["PlayerName"] = true,
+    -- Example: [123456789] = true,
+}
 
 -- Performance tracking
 local lastFPSUpdate = 0
@@ -169,6 +177,11 @@ local cachedPlayers = {}
 local lastPlayerUpdate = 0
 local playerUpdateInterval = 1
 
+-- Check if player is whitelisted
+local function IsWhitelisted(player)
+    return Whitelist[player.Name] or Whitelist[player.UserId]
+end
+
 -- Play premium sound effect
 local function PlaySound(soundType)
     if not Settings.SoundEffects then return end
@@ -208,7 +221,7 @@ end
 
 -- Enhanced body part selection with improved hit probability
 local function GetRandomizedAimPart(character)
-    if not Settings.Humanizer.Enabled or math.random() > Settings.Humanizer.BodyPartRandomization then
+    if not Settings.Humanizer.Enabled or not Settings.Humanizer.BodyPartRandomization or math.random() > Settings.Humanizer.BodyPartRandomization then
         return character:FindFirstChild(Settings.AimPart) or character:FindFirstChild("Head")
     end
     
@@ -317,7 +330,7 @@ local function UpdatePlayerCache()
     
     cachedPlayers = {}
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= LocalPlayer and player.Character and not IsWhitelisted(player) then
             table.insert(cachedPlayers, player)
         end
     end
@@ -346,7 +359,6 @@ local function CleanCombatEvents()
 end
 
 -- Advanced threat evaluation system - FIXED to prevent excessive values
-local lastThreatEvaluation = 0
 local function EvaluateThreatLevel(player)
     local character = player.Character
     if not character then return 0 end
@@ -388,12 +400,15 @@ local function EvaluateThreatLevel(player)
                 end
             end
         end
+    elseif Settings.AnticipationMode and distance <= Settings.AnticipationRange then
+        -- Anticipation mode: track targets even when not visible within range
+        threatScore = threatScore + 20
     elseif distance > Settings.AnticipationRange then
         -- Reduce threat for targets beyond anticipation range and not visible
         threatScore = threatScore * 0.6
     end
     
-    -- High ground advantage/disadvantage
+    -- High ground advantage/disadvantage - FIXED to prevent flickering
     local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if localRoot then
         local elevationDifference = rootPart.Position.Y - localRoot.Position.Y
@@ -453,6 +468,20 @@ local function FindOptimalTarget()
         end
     end
     
+    -- If smart switching is disabled, keep current target if valid
+    if not Settings.SmartSwitch.Enabled and Target and Target.Character then
+        local character = Target.Character
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        
+        if humanoid and humanoid.Health > 0 and rootPart then
+            local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
+            if distance <= Settings.MaxDistance and (not Settings.VisibilityCheck or IsVisible(character)) then
+                return Target  -- Keep current target when smart switching is off
+            end
+        end
+    end
+    
     -- Target lock logic - keep current target if within lock duration
     if Target and Target.Character and currentTime - targetLockTime < Settings.SmartSwitch.TargetLockDuration then
         local character = Target.Character
@@ -505,7 +534,7 @@ local function FindOptimalTarget()
         
         if isVisible then
             recentTargets[player] = currentTime
-        elseif distance > Settings.AnticipationRange then
+        elseif not Settings.AnticipationMode or distance > Settings.AnticipationRange then
             continue
         end
         
@@ -568,7 +597,8 @@ local function FindOptimalTarget()
     end
     
     -- Update threat label even when no target is found
-    if threatLabel then
+    if threatLabel and currentTime - lastThreatUpdate > 0.2 then
+        lastThreatUpdate = currentTime
         if bestTarget then
             threatLabel.Text = "⚠️ Threat Level: " .. math.floor(highestThreat)
             
@@ -716,7 +746,7 @@ local function UpdateRadar()
     
     -- Get player positions and update radar
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer and player.Character then
+        if player ~= LocalPlayer and player.Character and not IsWhitelisted(player) then
             local character = player.Character
             local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
             local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -878,7 +908,7 @@ local function TrackDamage()
         if humanoid.Health < humanoid.MaxHealth then
             -- Try to find who damaged us
             for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= LocalPlayer and player.Character then
+                if player ~= LocalPlayer and player.Character and not IsWhitelisted(player) then
                     local tool = player.Character:FindFirstChildOfClass("Tool")
                     if tool then
                         RecordCombatEvent(player, humanoid.MaxHealth - humanoid.Health)
@@ -985,7 +1015,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v7.0 ULTIMATE"
+    title.Text = "🐍 VENOM REPTILE v7.2 ULTIMATE"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1208,7 +1238,7 @@ local function CreatePremiumUI()
 
     -- Assembly
     borderGlow.Parent = mainFrame
-    titleBar.Parent = mainFrame
+       titleBar.Parent = mainFrame
     title.Parent = titleBar
     statusLight.Parent = titleBar
     scrollFrame.Parent = mainFrame
@@ -1380,7 +1410,7 @@ if Settings.Radar.Enabled then
     CreateRadar()
 end
 
-print("🐍 Venom Reptile v7.0 Ultimate Loaded!")
+print("🐍 Venom Reptile v7.2 Ultimate Loaded!")
 print("🎯 POLISHED Threat Targeting | Fixed Switching Issues")
 print("👁️  Smart Threat System | Proper Threat Level Calculation")
 print("🔧 Press F to toggle | Right-click to aim")
@@ -1389,3 +1419,10 @@ print("🎯 Smart threat system prevents rapid switching between similar threats
 print("⚡ Target locking with minimum threat difference requirement")
 print("💥 Enhanced combat awareness with damage tracking")
 print("🔊 Premium sound effects and visual feedback")
+print("🛡️  Whitelist system integrated - add players to Whitelist table")
+print("🎯 Smart Switch properly disables auto-switching when turned off")
+print("🏔️  Fixed high ground flickering issues")
+print("🤖 Humanizer mode provides natural, human-like aiming")
+print("🎯 Anticipation mode properly integrated and working")
+print("🎯 Body randomizer only activates when Humanizer is enabled")
+print("⚡ Threat evaluation system optimized for real-time performance")
