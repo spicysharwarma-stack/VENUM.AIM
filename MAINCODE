@@ -1,8 +1,9 @@
 --[[
-    🐍 Venom Reptile v6.1 - Elite Premium Edition
+    🐍 Venom Reptile v6.5 - Elite Premium Edition
     Next-Gen Threat Assessment & Targeting System
     Universal Xeno Executor Version - Optimized
     POLISHED TARGETING SYSTEMS - FIXED SWITCHING ISSUES
+    ADVANCED PLAYSTYLE ADAPTATION & ADAPTIVE FOV
 ]]
 
 -- Services
@@ -50,10 +51,10 @@ local Settings = {
     SmartSwitch = {
         Enabled = true,
         ThreatEvaluationInterval = 0.3,
-        TargetLockDuration = 1.8,  -- Increased from 1.5 for better target retention
-        TargetSwitchCooldown = 0.5,  -- Increased from 0.4 to prevent rapid switching
-        MinThreatDifference = 25,    -- NEW: Minimum threat difference required to switch
-        RecentTargetBonus = 15       -- NEW: Bonus for recently targeted players
+        TargetLockDuration = 1.8,
+        TargetSwitchCooldown = 0.5,
+        MinThreatDifference = 25,
+        RecentTargetBonus = 15
     },
     Radar = {
         Enabled = true,
@@ -63,11 +64,11 @@ local Settings = {
         Position = UDim2.new(1, -140, 1, -140),
         RefreshRate = 0.2
     },
-    FOVChangeOnAim = false,
+    FOVChangeOnAim = true,
     AimKey = Enum.UserInputType.MouseButton2,
-    ToggleKey = Enum.KeyCode.RightShift,
+    ToggleKey = Enum.KeyCode.F,
     
-    -- Enhanced threat evaluation settings (REVISED)
+    -- Enhanced threat evaluation settings
     CloseRangePriority = 120,
     ImmediateThreatBonus = 80,
     AnticipationMode = true,
@@ -85,13 +86,41 @@ local Settings = {
     MovementThreatFactor = 0.8,
     RecentCombatMemory = 5,
     
-    -- Playstyle adaptation settings
+    -- Enhanced Playstyle adaptation settings
     PlaystyleAdaptation = {
         Enabled = true,
-        AggressionThreshold = 70,    -- Threat level to be considered aggressive
-        StealthTime = 10,            -- Seconds without combat to enter stealth mode
-        RecentTargetWeight = 0.7,    -- Weight for recent targets in stealth mode
-        LearningRate = 0.1           -- How quickly the system adapts to playstyle
+        AggressionThreshold = 70,
+        StealthTime = 10,
+        RecentTargetWeight = 0.7,
+        LearningRate = 0.1,
+        EngagementDistanceWeight = 0.3,
+        TargetSwitchFrequencyWeight = 0.2,
+        AccuracyBasedAdaptation = true,
+        MinEngagementDistance = 50,
+        MaxEngagementDistance = 200,
+        CloseQuartersBonus = 25,
+        LongRangePenalty = 15
+    },
+    
+    -- Enhanced Adaptive FOV settings
+    DynamicFOVSettings = {
+        Enabled = true,
+        BaseFOV = 130,
+        PerformanceScaling = true,
+        EngagementScaling = true,
+        MinFOV = 80,
+        MaxFOV = 200,
+        StealthFOV = 120,
+        CombatFOV = 140,
+        TransitionSmoothness = 0.1
+    },
+    
+    -- Situational Awareness settings
+    SituationalAwareness = {
+        Enabled = true,
+        ThreatPrediction = true,
+        FlankDetection = true,
+        PriorityTargetHighlight = true
     },
     
     -- Premium features
@@ -123,19 +152,30 @@ local damageSource = nil
 local playstyleMetrics = {
     isStealthMode = false,
     lastCombatTime = 0,
-    averageEngagementDistance = 0,
+    averageEngagementDistance = 100,
     engagementCount = 0,
     targetSwitchFrequency = 0,
     recentTargets = {},
-    preferredTargets = {}
+    preferredTargets = {},
+    weaponUsage = {},
+    accuracyStats = {
+        shotsFired = 0,
+        shotsHit = 0,
+        lastAccuracyUpdate = 0
+    }
 }
+
+-- Performance tracking
+local lastFPSUpdate = 0
+local frameCount = 0
+local currentFPS = 60
 
 -- Premium sound effects
 local soundEffects = {
-    TargetLock = "rbxassetid://125994029506927",
-    TargetSwitch = "rbxassetid://9125639499",
-    ToggleOn = "rbxassetid://9119303864",
-    ToggleOff = "rbxassetid://117751546358455"
+    TargetLock = "rbxassetid://9119668364",
+    TargetSwitch = "rbxassetid://9119668877",
+    ToggleOn = "rbxassetid://9119669201",
+    ToggleOff = "rbxassetid://9119669563"
 }
 
 -- Venom Color Scheme
@@ -199,16 +239,41 @@ local function PlaySound(soundType)
     end
 end
 
--- Track playstyle metrics
+-- Calculate player accuracy
+local function CalculatePlayerAccuracy()
+    if playstyleMetrics.accuracyStats.shotsFired == 0 then
+        return 0.5 -- Default accuracy if no shots fired
+    end
+    
+    local accuracy = playstyleMetrics.accuracyStats.shotsHit / playstyleMetrics.accuracyStats.shotsFired
+    return math.clamp(accuracy, 0.1, 0.95) -- Keep within reasonable bounds
+end
+
+-- Track accuracy when targets are hit
+local function TrackAccuracy(hit)
+    local currentTime = tick()
+    
+    playstyleMetrics.accuracyStats.shotsFired = playstyleMetrics.accuracyStats.shotsFired + 1
+    
+    if hit then
+        playstyleMetrics.accuracyStats.shotsHit = playstyleMetrics.accuracyStats.shotsHit + 1
+    end
+    
+    -- Reset accuracy stats periodically to adapt to changing situations
+    if currentTime - playstyleMetrics.accuracyStats.lastAccuracyUpdate > 30 then
+        playstyleMetrics.accuracyStats.shotsFired = playstyleMetrics.accuracyStats.shotsFired * 0.5
+        playstyleMetrics.accuracyStats.shotsHit = playstyleMetrics.accuracyStats.shotsHit * 0.5
+        playstyleMetrics.accuracyStats.lastAccuracyUpdate = currentTime
+    end
+end
+
+-- Enhanced playstyle tracking
 local function UpdatePlaystyleMetrics()
     local currentTime = tick()
     
     -- Check if we should enter stealth mode
-    if currentTime - playstyleMetrics.lastCombatTime > Settings.PlaystyleAdaptation.StealthTime then
-        playstyleMetrics.isStealthMode = true
-    else
-        playstyleMetrics.isStealthMode = false
-    end
+    playstyleMetrics.isStealthMode = 
+        (currentTime - playstyleMetrics.lastCombatTime > Settings.PlaystyleAdaptation.StealthTime)
     
     -- Update target switch frequency (exponential moving average)
     if Target and currentTime - lastTargetSwitch < 2 then
@@ -219,8 +284,8 @@ local function UpdatePlaystyleMetrics()
     end
 end
 
--- Apply playstyle adaptation to threat evaluation
-local function ApplyPlaystyleAdaptation(threatScore, player, isVisible)
+-- Enhanced playstyle adaptation
+local function ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance)
     if not Settings.PlaystyleAdaptation.Enabled then return threatScore end
     
     UpdatePlaystyleMetrics()
@@ -243,6 +308,21 @@ local function ApplyPlaystyleAdaptation(threatScore, player, isVisible)
         end
     end
     
+    -- Distance-based adaptation
+    if distance < Settings.PlaystyleAdaptation.MinEngagementDistance then
+        -- Close quarters combat bonus
+        threatScore = threatScore + Settings.PlaystyleAdaptation.CloseQuartersBonus
+    elseif distance > Settings.PlaystyleAdaptation.MaxEngagementDistance then
+        -- Long range combat penalty
+        threatScore = threatScore - Settings.PlaystyleAdaptation.LongRangePenalty
+    end
+    
+    -- Accuracy-based adaptation (if enabled)
+    if Settings.PlaystyleAdaptation.AccuracyBasedAdaptation then
+        local accuracyFactor = CalculatePlayerAccuracy()
+        threatScore = threatScore * (0.8 + accuracyFactor * 0.4)
+    end
+    
     -- Adjust based on player's preferred targets (learning)
     if playstyleMetrics.preferredTargets[player] then
         local preferenceBonus = playstyleMetrics.preferredTargets[player] * 0.5
@@ -250,6 +330,145 @@ local function ApplyPlaystyleAdaptation(threatScore, player, isVisible)
     end
     
     return threatScore
+end
+
+-- Check if a player is flanking
+local function IsFlanking(player)
+    if not player.Character then return false end
+    
+    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not rootPart or not localRoot then return false end
+    
+    -- Calculate angle between player's forward vector and direction to local player
+    local directionToLocal = (localRoot.Position - rootPart.Position).Unit
+    local playerForward = rootPart.CFrame.LookVector
+    
+    local dotProduct = directionToLocal:Dot(playerForward)
+    
+    -- If player is looking away from us (dot product < 0), they might be flanking
+    return dotProduct < 0.3
+end
+
+-- Predict future threat level
+local function PredictFutureThreat(player)
+    if not player.Character then return 0 end
+    
+    local currentThreat = EvaluateThreatLevel(player)
+    local rootPart = player.Character:FindFirstChild("HumanoidRootPart")
+    
+    if not rootPart then return currentThreat end
+    
+    -- Simple prediction based on movement toward player
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return currentThreat end
+    
+    local directionToLocal = (localRoot.Position - rootPart.Position).Unit
+    local velocity = rootPart.Velocity
+    local speed = velocity.Magnitude
+    
+    -- If moving toward player, increase predicted threat
+    if speed > 5 and directionToLocal:Dot(velocity.Unit) > 0.7 then
+        return currentThreat * 1.3
+    end
+    
+    return currentThreat
+end
+
+-- Analyze the combat situation
+local function AnalyzeSituation()
+    if not Settings.SituationalAwareness.Enabled then return {} end
+    
+    local situation = {
+        highPriorityTargets = {},
+        flankingEnemies = {},
+        predictedThreats = {}
+    }
+    
+    -- Analyze all players for threats
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local character = player.Character
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            
+            if rootPart and humanoid and humanoid.Health > 0 then
+                -- Check if target is flanking
+                if Settings.SituationalAwareness.FlankDetection and IsFlanking(player) then
+                    table.insert(situation.flankingEnemies, player)
+                end
+                
+                -- Check if target is high priority
+                local threatLevel = EvaluateThreatLevel(player)
+                if threatLevel > 150 then
+                    table.insert(situation.highPriorityTargets, {
+                        player = player,
+                        threatLevel = threatLevel
+                    })
+                end
+                
+                -- Predict future threat
+                if Settings.SituationalAwareness.ThreatPrediction then
+                    local predictedThreat = PredictFutureThreat(player)
+                    if predictedThreat > threatLevel * 1.2 then
+                        table.insert(situation.predictedThreats, {
+                            player = player,
+                            currentThreat = threatLevel,
+                            predictedThreat = predictedThreat
+                        })
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Sort by priority
+    table.sort(situation.highPriorityTargets, function(a, b)
+        return a.threatLevel > b.threatLevel
+    end)
+    
+    table.sort(situation.predictedThreats, function(a, b)
+        return a.predictedThreat > b.predictedThreat
+    end)
+    
+    return situation
+end
+
+-- Advanced Adaptive FOV System
+local function UpdateAdaptiveFOV()
+    if not Settings.DynamicFOV or not Settings.DynamicFOVSettings.Enabled then 
+        FOVCircle.Radius = Settings.FOV.Radius
+        return 
+    end
+    
+    local targetFOV = Settings.DynamicFOVSettings.BaseFOV
+    
+    -- Performance-based scaling
+    if Settings.DynamicFOVSettings.PerformanceScaling then
+        local fpsFactor = math.clamp(currentFPS / 60, 0.5, 1.5)
+        targetFOV = targetFOV * fpsFactor
+    end
+    
+    -- Engagement distance scaling
+    if Settings.DynamicFOVSettings.EngagementScaling and playstyleMetrics.averageEngagementDistance > 0 then
+        local distanceFactor = math.clamp(playstyleMetrics.averageEngagementDistance / 100, 0.7, 1.5)
+        targetFOV = targetFOV * distanceFactor
+    end
+    
+    -- Playstyle-based scaling
+    if playstyleMetrics.isStealthMode then
+        targetFOV = Settings.DynamicFOVSettings.StealthFOV
+    else
+        targetFOV = Settings.DynamicFOVSettings.CombatFOV
+    end
+    
+    -- Apply limits
+    targetFOV = math.clamp(targetFOV, Settings.DynamicFOVSettings.MinFOV, Settings.DynamicFOVSettings.MaxFOV)
+    
+    -- Smooth transition
+    local smoothness = Settings.DynamicFOVSettings.TransitionSmoothness or 0.1
+    FOVCircle.Radius = FOVCircle.Radius + (targetFOV - FOVCircle.Radius) * smoothness
 end
 
 -- Improved Prediction Engine
@@ -329,6 +548,7 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
                 (math.random() - 0.5) * 5,
                 (math.random() - 0.5) * 3
             )
+            TrackAccuracy(false)
             return targetPosition + missOffset
         end
     end
@@ -350,6 +570,7 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
         (math.random() - 0.5) * Settings.Humanizer.Intensity * 0.2
     )
     
+    TrackAccuracy(true)
     return targetPosition + microShake
 end
 
@@ -507,12 +728,12 @@ local function EvaluateThreatLevel(player)
     threatScore = threatScore * (0.5 + healthPercent * 0.5)
     
     -- Apply playstyle adaptation
-    threatScore = ApplyPlaystyleAdaptation(threatScore, player, isVisible)
+    threatScore = ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance)
     
     return math.max(0, threatScore)
 end
 
--- Enhanced target selection with smart switching (FIXED switching issues)
+-- Enhanced target selection with situational awareness
 local function FindOptimalTarget()
     UpdatePlayerCache()
     
@@ -555,100 +776,119 @@ local function FindOptimalTarget()
         end
     end
     
-    -- Evaluate all potential targets
-    local potentialTargets = {}
-    
-    for _, player in ipairs(cachedPlayers) do
-        if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
+    -- Use situational awareness if enabled
+    if Settings.SituationalAwareness.Enabled then
+        local situation = AnalyzeSituation()
         
-        local character = player.Character
-        if not character then continue end
-        
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid or humanoid.Health <= 0 then continue end
-        
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if not rootPart then continue end
-        
-        -- Check distance
-        local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
-        if distance > Settings.MaxDistance then continue end
-        
-        -- Check if target is within anticipation range even if not visible
-        local isVisible = IsVisible(character)
-        
-        if isVisible then
-            recentTargets[player] = currentTime
-        elseif distance > Settings.AnticipationRange then
-            continue
+        -- Prioritize flanking enemies
+        if #situation.flankingEnemies > 0 and not playstyleMetrics.isStealthMode then
+            bestTarget = situation.flankingEnemies[1]
+            highestThreat = EvaluateThreatLevel(bestTarget)
         end
         
-        -- Calculate threat level
-        local threatLevel = EvaluateThreatLevel(player)
-        
-        -- Add to potential targets
-        table.insert(potentialTargets, {
-            Player = player,
-            Threat = threatLevel,
-            Distance = distance,
-            IsVisible = isVisible
-        })
+        -- Prioritize predicted threats if no flanking enemies
+        if not bestTarget and #situation.predictedThreats > 0 then
+            bestTarget = situation.predictedThreats[1].player
+            highestThreat = situation.predictedThreats[1].predictedThreat
+        end
     end
     
-    -- Sort by threat level (highest first)
-    table.sort(potentialTargets, function(a, b)
-        -- Prioritize visible targets with similar threat levels
-        if a.IsVisible and not b.IsVisible and a.Threat > b.Threat * 0.7 then
-            return true
-        elseif b.IsVisible and not a.IsVisible and b.Threat > a.Threat * 0.7 then
-            return false
+    -- If situational awareness didn't find a target, evaluate all potential targets
+    if not bestTarget then
+        local potentialTargets = {}
+        
+        for _, player in ipairs(cachedPlayers) do
+            if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
+            
+            local character = player.Character
+            if not character then continue end
+            
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if not humanoid or humanoid.Health <= 0 then continue end
+            
+            local rootPart = character:FindFirstChild("HumanoidRootPart")
+            if not rootPart then continue end
+            
+            -- Check distance
+            local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
+            if distance > Settings.MaxDistance then continue end
+            
+            -- Check if target is within anticipation range even if not visible
+            local isVisible = IsVisible(character)
+            
+            if isVisible then
+                recentTargets[player] = currentTime
+            elseif distance > Settings.AnticipationRange then
+                continue
+            end
+            
+            -- Calculate threat level
+            local threatLevel = EvaluateThreatLevel(player)
+            
+            -- Add to potential targets
+            table.insert(potentialTargets, {
+                Player = player,
+                Threat = threatLevel,
+                Distance = distance,
+                IsVisible = isVisible
+            })
         end
         
-        -- Otherwise sort by threat level
-        return a.Threat > b.Threat
-    end)
-    
-    -- Select the best target with minimum threat difference requirement
-    if #potentialTargets > 0 then
-        local topThreat = potentialTargets[1].Threat
-        
-        -- Check if we should switch from current target
-        if Target and Target.Character then
-            local currentThreat = EvaluateThreatLevel(Target)
+        -- Sort by threat level (highest first)
+        table.sort(potentialTargets, function(a, b)
+            -- Prioritize visible targets with similar threat levels
+            if a.IsVisible and not b.IsVisible and a.Threat > b.Threat * 0.7 then
+                return true
+            elseif b.IsVisible and not a.IsVisible and b.Threat > a.Threat * 0.7 then
+                return false
+            end
             
-            -- Only switch if new target has significantly higher threat
-            if topThreat > currentThreat + Settings.SmartSwitch.MinThreatDifference then
+            -- Otherwise sort by threat level
+            return a.Threat > b.Threat
+        end)
+        
+        -- Select the best target with minimum threat difference requirement
+        if #potentialTargets > 0 then
+            local topThreat = potentialTargets[1].Threat
+            
+            -- Check if we should switch from current target
+            if Target and Target.Character then
+                local currentThreat = EvaluateThreatLevel(Target)
+                
+                -- Only switch if new target has significantly higher threat
+                if topThreat > currentThreat + Settings.SmartSwitch.MinThreatDifference then
+                    bestTarget = potentialTargets[1].Player
+                    highestThreat = topThreat
+                else
+                    -- Keep current target if threat difference is small
+                    bestTarget = Target
+                    highestThreat = currentThreat
+                end
+            else
+                -- No current target, select the best one
                 bestTarget = potentialTargets[1].Player
                 highestThreat = topThreat
-            else
-                -- Keep current target if threat difference is small
-                bestTarget = Target
-                highestThreat = currentThreat
             end
-        else
-            -- No current target, select the best one
-            bestTarget = potentialTargets[1].Player
-            highestThreat = topThreat
         end
+    end
+    
+    -- If we're switching targets, update the cooldown and play sound
+    if bestTarget and bestTarget ~= Target then
+        lastTargetSwitch = currentTime
+        if Target ~= nil then
+            PlaySound("TargetSwitch")
+        end
+        targetLockTime = currentTime
         
-        -- If we're switching targets, update the cooldown and play sound
-        if bestTarget ~= Target then
-            lastTargetSwitch = currentTime
-            if Target ~= nil then
-                PlaySound("TargetSwitch")
-            end
-            targetLockTime = currentTime
-            
-            -- Update playstyle metrics for target switching
-            playstyleMetrics.recentTargets[bestTarget] = currentTime
-            
-            -- Update preferred targets (learning)
-            if not playstyleMetrics.preferredTargets[bestTarget] then
-                playstyleMetrics.preferredTargets[bestTarget] = 0
-            end
-            playstyleMetrics.preferredTargets[bestTarget] = playstyleMetrics.preferredTargets[bestTarget] + 
-                Settings.PlaystyleAdaptation.LearningRate
+        -- Update playstyle metrics for target switching
+        playstyleMetrics.recentTargets[bestTarget] = currentTime
+        
+        -- Update preferred targets (learning)
+        if not playstyleMetrics.preferredTargets[bestTarget] then
+            playstyleMetrics.preferredTargets[bestTarget] = 0
         end
+        playstyleMetrics.preferredTargets[bestTarget] = playstyleMetrics.preferredTargets[bestTarget] + 
+            Settings.PlaystyleAdaptation.LearningRate
     end
     
     -- Update threat label even when no target is found
@@ -1069,7 +1309,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v6.1 ELITE"
+    title.Text = "🐍 VENOM REPTILE v6.5 ELITE"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1097,7 +1337,7 @@ local function CreatePremiumUI()
 
     -- Premium control buttons with hover effects
     local buttons = {
-        {Name = "Toggle", Text = "TOGGLE AIMBOT (RSHIFT)", Key = "Enabled", OnColor = VenomColors.Primary, OffColor = VenomColors.Danger},
+        {Name = "Toggle", Text = "TOGGLE AIMBOT (F)", Key = "Enabled", OnColor = VenomColors.Primary, OffColor = VenomColors.Danger},
         {Name = "Prediction", Text = "PREDICTION", Key = "Prediction.Enabled", OnColor = VenomColors.Secondary, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "WallCheck", Text = "WALL CHECK", Key = "VisibilityCheck", OnColor = VenomColors.Accent, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "TeamCheck", Text = "TEAM CHECK", Key = "TeamCheck", OnColor = VenomColors.Light, OffColor = Color3.fromRGB(60, 60, 60)},
@@ -1106,7 +1346,9 @@ local function CreatePremiumUI()
         {Name = "Radar", Text = "RADAR SYSTEM", Key = "Radar.Enabled", OnColor = Color3.fromRGB(0, 150, 255), OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Anticipation", Text = "ANTICIPATION MODE", Key = "AnticipationMode", OnColor = Color3.fromRGB(255, 105, 180), OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Sounds", Text = "SOUND EFFECTS", Key = "SoundEffects", OnColor = Color3.fromRGB(255, 215, 0), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "Adaptation", Text = "PLAYSTYLE ADAPTATION", Key = "PlaystyleAdaptation.Enabled", OnColor = Color3.fromRGB(0, 200, 200), OffColor = Color3.fromRGB(60, 60, 60)}
+        {Name = "Adaptation", Text = "PLAYSTYLE ADAPTATION", Key = "PlaystyleAdaptation.Enabled", OnColor = Color3.fromRGB(0, 200, 200), OffColor = Color3.fromRGB(60, 60, 60)},
+        {Name = "Situational", Text = "SITUATIONAL AWARENESS", Key = "SituationalAwareness.Enabled", OnColor = Color3.fromRGB(200, 100, 255), OffColor = Color3.fromRGB(60, 60, 60)},
+        {Name = "DynamicFOV", Text = "ADAPTIVE FOV", Key = "DynamicFOVSettings.Enabled", OnColor = Color3.fromRGB(100, 200, 255), OffColor = Color3.fromRGB(60, 60, 60)}
     }
 
     local buttonInstances = {}
@@ -1211,7 +1453,7 @@ local function CreatePremiumUI()
 
     -- Premium stats panel with animated elements
     local statsPanel = Instance.new("Frame")
-    statsPanel.Size = UDim2.new(0.9, 0, 0, 120)
+    statsPanel.Size = UDim2.new(0.9, 0, 0, 150)
     statsPanel.Position = UDim2.new(0.05, 0, 0, yOffset + 15)
     statsPanel.BackgroundColor3 = Color3.fromRGB(25, 35, 30)
     statsPanel.BorderSizePixel = 0
@@ -1290,6 +1532,16 @@ local function CreatePremiumUI()
     distanceLabel.TextSize = 12
     distanceLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+    local playstyleLabel = Instance.new("TextLabel")
+    playstyleLabel.Size = UDim2.new(1, -10, 0, 22)
+    playstyleLabel.Position = UDim2.new(0, 10, 0, 120)
+    playstyleLabel.Text = "🎭 Mode: Analyzing..."
+    playstyleLabel.BackgroundTransparency = 1
+    playstyleLabel.TextColor3 = VenomColors.Light
+    playstyleLabel.Font = Enum.Font.GothamBold
+    playstyleLabel.TextSize = 12
+    playstyleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
     -- Assembly
     borderGlow.Parent = mainFrame
     titleBar.Parent = mainFrame
@@ -1301,6 +1553,7 @@ local function CreatePremiumUI()
     fpsLabel.Parent = statsPanel
     threatLabel.Parent = statsPanel
     distanceLabel.Parent = statsPanel
+    playstyleLabel.Parent = statsPanel
     mainFrame.Parent = screenGui
 
     return {
@@ -1312,6 +1565,7 @@ local function CreatePremiumUI()
         FPSLabel = fpsLabel,
         ThreatLabel = threatLabel,
         DistanceLabel = distanceLabel,
+        PlaystyleLabel = playstyleLabel,
         ButtonColors = buttons
     }
 end
@@ -1323,6 +1577,15 @@ threatLabel = UI.ThreatLabel
 -- Enhanced UI Update Function with visual feedback
 function UpdateUI()
     UI.StatusLight.BackgroundColor3 = Settings.Enabled and VenomColors.Success or VenomColors.Danger
+    
+    -- Update playstyle label
+    if playstyleMetrics.isStealthMode then
+        UI.PlaystyleLabel.Text = "🎭 Mode: Stealth"
+        UI.PlaystyleLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
+    else
+        UI.PlaystyleLabel.Text = "🎭 Mode: Combat"
+        UI.PlaystyleLabel.TextColor3 = VenomColors.Danger
+    end
     
     for name, button in pairs(UI.Buttons) do
         local btnData
@@ -1365,6 +1628,10 @@ function UpdateUI()
                     button.Text = "🔊 " .. btnData.Text
                 elseif name == "Adaptation" then
                     button.Text = "🧠 " .. btnData.Text
+                elseif name == "Situational" then
+                    button.Text = "👁️ " .. btnData.Text
+                elseif name == "DynamicFOV" then
+                    button.Text = "👁️ " .. btnData.Text
                 else
                     button.Text = "✓ " .. btnData.Text
                 end
@@ -1376,10 +1643,6 @@ function UpdateUI()
 end
 
 -- FPS Counter
-local lastFPSUpdate = 0
-local frameCount = 0
-local currentFPS = 60
-
 RunService.Heartbeat:Connect(function()
     frameCount = frameCount + 1
     if tick() - lastFPSUpdate >= 1 then
@@ -1389,22 +1652,19 @@ RunService.Heartbeat:Connect(function()
         
         if UI then
             UI.FPSLabel.Text = "⚡ FPS: " .. currentFPS
-            
-            -- Dynamic FOV adjustment based on FPS
-            if Settings.DynamicFOV then
-                local targetFOV = Settings.FOV.Radius * (60 / math.max(30, currentFPS))
-                FOVCircle.Radius = targetFOV
-            end
         end
     end
 end)
 
--- Enhanced main loop with threat level display and radar
+-- Enhanced main loop with all systems integrated
 RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
     FOVCircle.Visible = Settings.FOV.Visible
     
-    -- Update radar if enabled (with optimized refresh rate)
+    -- Update adaptive FOV
+    UpdateAdaptiveFOV()
+    
+    -- Update radar if enabled
     if Settings.Radar.Enabled then
         UpdateRadar()
     end
@@ -1478,6 +1738,11 @@ RunService.RenderStepped:Connect(function()
         TargetIndicator.Visible = false
         LockIndicator.Visible = false
     end
+    
+    -- Update UI periodically
+    if tick() % 1 < 0.05 then
+        UpdateUI()
+    end
 end)
 
 -- Initialization
@@ -1487,12 +1752,14 @@ if Settings.Radar.Enabled then
     CreateRadar()
 end
 
-print("🐍 Venom Reptile v6.1 Elite Premium Loaded!")
+print("🐍 Venom Reptile v6.5 Elite Premium Loaded!")
 print("🎯 POLISHED Threat Targeting | Fixed Switching Issues | Adaptive Playstyle")
+print("🧠 Advanced Playstyle Adaptation | Stealth/Combat Mode Detection")
+print("👁️  Intelligent Adaptive FOV | Performance & Engagement Based")
+print("👁️  Situational Awareness | Flank Detection & Threat Prediction")
 print("🔧 Press F to toggle | Right-click to aim")
 print("📡 Radar with 300 stud range and proper forward orientation")
 print("🎯 Smart threat system prevents rapid switching between similar threats")
-print("🧠 Adaptive system learns your playstyle (stealth/aggressive)")
 print("⚡ Target locking with minimum threat difference requirement")
 print("💥 Enhanced combat awareness with damage tracking")
 print("🔊 Premium sound effects and visual feedback")
