@@ -1,9 +1,10 @@
 --[[
-    🐍 Venom Reptile v8.0 - Ultimate Stealth Edition
+    🐍 Venom Reptile v8.2 - Ultimate Stealth Edition
     Advanced Threat Assessment & Targeting System
     Universal Xeno Executor Version - Fully Optimized
     PERFECT STEALTH/COMBAT DETECTION - REALISTIC BEHAVIOR
     PREMIUM VISUALS & SMOOTH PERFORMANCE
+    WITH ENHANCED THERMAL VISION & NIGHT VISION
 ]]
 
 -- Services
@@ -12,6 +13,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local Lighting = game:GetService("Lighting")
 local LocalPlayer = Players.LocalPlayer
 
 -- Premium Configuration
@@ -63,23 +65,35 @@ local Settings = {
         Position = UDim2.new(1, -140, 1, -140),
         RefreshRate = 0.2
     },
+    ThermalVision = {
+        Enabled = false,
+        HotColor = Color3.fromRGB(255, 255, 255),  -- White hot for players
+        ColdColor = Color3.fromRGB(30, 0, 50),     -- Purple for cold areas
+        Intensity = 0.9
+    },
+    NightVision = {
+        Enabled = false,
+        Color = Color3.fromRGB(150, 255, 255),     -- Bright cyan
+        Intensity = 0.9,
+        Brightness = 0.4
+    },
     FOVChangeOnAim = true,
     AimKey = Enum.UserInputType.MouseButton2,
     ToggleKey = Enum.KeyCode.F,
     
     -- Enhanced threat evaluation settings
-    CloseRangePriority = 120,
-    ImmediateThreatBonus = 80,
+    CloseRangePriority = 30,
+    ImmediateThreatBonus = 25,
     RecentTargetMemory = 3,
     
     -- Revised threat evaluation factors
-    FacingPlayerBonus = 40,
-    HighGroundBonus = 15,
-    WeaponThreatMultiplier = 1.5,
-    VisibleTargetBonus = 50,
+    FacingPlayerBonus = 15,
+    HighGroundBonus = 8,
+    WeaponThreatMultiplier = 1.3,
+    VisibleTargetBonus = 20,
     
     -- New threat evaluation factors
-    DamageDealtBonus = 30,
+    DamageDealtBonus = 15,
     MovementThreatFactor = 0.8,
     RecentCombatMemory = 5,
     
@@ -95,11 +109,11 @@ local Settings = {
         AccuracyBasedAdaptation = true,
         MinEngagementDistance = 50,
         MaxEngagementDistance = 200,
-        CloseQuartersBonus = 25,
-        LongRangePenalty = 15,
-        DetectionThreshold = 0.4, -- How visible player must be to be detected
-        StealthEngagementBonus = 35, -- Bonus when engaging from stealth
-        CombatCooldown = 3 -- Time after combat ends to return to stealth
+        CloseQuartersBonus = 15,
+        LongRangePenalty = 10,
+        DetectionThreshold = 0.4,
+        StealthEngagementBonus = 20,
+        CombatCooldown = 3
     },
     
     -- Enhanced Adaptive FOV settings
@@ -140,6 +154,12 @@ local combatEvents = {}
 local lastDamageTaken = 0
 local damageSource = nil
 
+-- Vision effects
+local thermalEffect = Instance.new("ColorCorrectionEffect")
+local nightVisionEffect = Instance.new("ColorCorrectionEffect")
+local bloomEffect = Instance.new("BloomEffect")
+local thermalHighlights = {}
+
 -- Playstyle tracking
 local playstyleMetrics = {
     isStealthMode = true,
@@ -155,7 +175,7 @@ local playstyleMetrics = {
         shotsHit = 0,
         lastAccuracyUpdate = 0
     },
-    detectionLevel = 0, -- How detected the player is (0-1)
+    detectionLevel = 0,
     lastMovementUpdate = 0,
     movementPattern = "stationary",
     lastShotTime = 0,
@@ -170,16 +190,18 @@ local currentFPS = 60
 
 -- Premium Color Scheme
 local PremiumColors = {
-    Primary = Color3.fromRGB(0, 255, 180),    -- Vibrant teal
-    Secondary = Color3.fromRGB(0, 200, 150),  -- Muted teal
-    Accent = Color3.fromRGB(255, 223, 0),     -- Gold
-    Dark = Color3.fromRGB(15, 25, 22),        -- Dark background
-    Light = Color3.fromRGB(170, 255, 236),    -- Light teal
-    Danger = Color3.fromRGB(255, 80, 80),     -- Red for danger
-    Success = Color3.fromRGB(0, 255, 180),    -- Teal for success
-    Elite = Color3.fromRGB(180, 70, 255),     -- Purple for elite
-    Background = Color3.fromRGB(20, 30, 27),  -- Darker background
-    Panel = Color3.fromRGB(25, 40, 35)        -- Panel background
+    Primary = Color3.fromRGB(0, 255, 180),
+    Secondary = Color3.fromRGB(0, 200, 150),
+    Accent = Color3.fromRGB(255, 223, 0),
+    Dark = Color3.fromRGB(15, 25, 22),
+    Light = Color3.fromRGB(170, 255, 236),
+    Danger = Color3.fromRGB(255, 80, 80),
+    Success = Color3.fromRGB(0, 255, 180),
+    Elite = Color3.fromRGB(180, 70, 255),
+    Background = Color3.fromRGB(20, 30, 27),
+    Panel = Color3.fromRGB(25, 40, 35),
+    ThermalHot = Color3.fromRGB(255, 140, 50),  -- Orange for thermal
+    ThermalCold = Color3.fromRGB(100, 50, 180)  -- Purple for thermal
 }
 
 -- FOV Circle with premium effects
@@ -216,14 +238,131 @@ local cachedPlayers = {}
 local lastPlayerUpdate = 0
 local playerUpdateInterval = 1
 
+-- Initialize vision effects
+local function InitializeVisionEffects()
+    -- Thermal vision effect
+    thermalEffect.Name = "VenomThermalEffect"
+    thermalEffect.Saturation = -1
+    thermalEffect.Contrast = 1.5
+    thermalEffect.TintColor = Color3.fromRGB(255, 150, 50)  -- Orange tint
+    thermalEffect.Enabled = false
+    thermalEffect.Parent = Lighting
+
+    -- Night vision effect
+    nightVisionEffect.Name = "VenomNightVisionEffect"
+    nightVisionEffect.Saturation = -0.5
+    nightVisionEffect.Contrast = 0.8
+    nightVisionEffect.Brightness = 0.3
+    nightVisionEffect.TintColor = Settings.NightVision.Color
+    nightVisionEffect.Enabled = false
+    nightVisionEffect.Parent = Lighting
+
+    -- Bloom effect for night vision
+    bloomEffect.Name = "VenomBloomEffect"
+    bloomEffect.Intensity = 0.6
+    bloomEffect.Size = 32
+    bloomEffect.Threshold = 0.7
+    bloomEffect.Enabled = false
+    bloomEffect.Parent = Lighting
+end
+
+-- Create thermal highlights for players
+local function CreateThermalHighlights()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "VenomThermalHighlight"
+            highlight.FillColor = Settings.ThermalVision.HotColor
+            highlight.OutlineColor = Color3.fromRGB(255, 100, 0)
+            highlight.FillTransparency = 0.3
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = false
+            highlight.Parent = player.Character
+            thermalHighlights[player] = highlight
+        end
+    end
+end
+
+-- Toggle thermal vision
+local function ToggleThermalVision(state)
+    Settings.ThermalVision.Enabled = state
+    thermalEffect.Enabled = state
+    
+    if state then
+        -- Disable night vision if thermal is enabled
+        if Settings.NightVision.Enabled then
+            ToggleNightVision(false)
+        end
+        
+        -- Enable thermal highlights
+        for player, highlight in pairs(thermalHighlights) do
+            if player and player.Character and highlight then
+                highlight.Enabled = true
+            end
+        end
+        
+        -- Apply thermal vision lighting
+        Lighting.Ambient = Color3.fromRGB(50, 20, 0)
+        Lighting.OutdoorAmbient = Color3.fromRGB(50, 20, 0)
+        Lighting.ColorShift_Bottom = PremiumColors.ThermalCold
+        Lighting.ColorShift_Top = PremiumColors.ThermalHot
+        Lighting.Brightness = 0.8  -- Brighter thermal vision
+    else
+        -- Disable thermal highlights
+        for player, highlight in pairs(thermalHighlights) do
+            if highlight then
+                highlight.Enabled = false
+            end
+        end
+        
+        -- Restore default lighting
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        Lighting.ColorShift_Bottom = Color3.fromRGB(0, 0, 0)
+        Lighting.ColorShift_Top = Color3.fromRGB(0, 0, 0)
+        Lighting.Brightness = 1
+    end
+end
+
+-- Toggle night vision
+local function ToggleNightVision(state)
+    Settings.NightVision.Enabled = state
+    nightVisionEffect.Enabled = state
+    bloomEffect.Enabled = state
+    
+    if state then
+        -- Disable thermal vision if night vision is enabled
+        if Settings.ThermalVision.Enabled then
+            ToggleThermalVision(false)
+        end
+        
+        -- Apply night vision settings (brighter)
+        Lighting.Ambient = Color3.fromRGB(0, 80, 80)
+        Lighting.OutdoorAmbient = Color3.fromRGB(0, 80, 80)
+        Lighting.FogColor = Color3.fromRGB(0, 40, 40)
+        Lighting.FogEnd = 1500
+        Lighting.Brightness = 0.8  -- Much brighter night vision
+        Lighting.GlobalShadows = false
+    else
+        -- Restore default lighting
+        Lighting.Ambient = Color3.fromRGB(127, 127, 127)
+        Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+        Lighting.FogColor = Color3.fromRGB(191, 191, 191)
+        Lighting.FogEnd = 10000
+        Lighting.Brightness = 1
+        Lighting.GlobalShadows = true
+    end
+end
+
 -- Calculate player accuracy
 local function CalculatePlayerAccuracy()
     if playstyleMetrics.accuracyStats.shotsFired == 0 then
-        return 0.5 -- Default accuracy if no shots fired
+        return 0.5
     end
     
     local accuracy = playstyleMetrics.accuracyStats.shotsHit / playstyleMetrics.accuracyStats.shotsFired
-    return math.clamp(accuracy, 0.1, 0.95) -- Keep within reasonable bounds
+    return math.clamp(accuracy, 0.1, 0.95)
 end
 
 -- Track accuracy when targets are hit
@@ -236,7 +375,6 @@ local function TrackAccuracy(hit)
         playstyleMetrics.accuracyStats.shotsHit = playstyleMetrics.accuracyStats.shotsHit + 1
     end
     
-    -- Reset accuracy stats periodically to adapt to changing situations
     if currentTime - playstyleMetrics.accuracyStats.lastAccuracyUpdate > 30 then
         playstyleMetrics.accuracyStats.shotsFired = playstyleMetrics.accuracyStats.shotsFired * 0.5
         playstyleMetrics.accuracyStats.shotsHit = playstyleMetrics.accuracyStats.shotsHit * 0.5
@@ -244,14 +382,12 @@ local function TrackAccuracy(hit)
     end
 end
 
--- REALISTIC Playstyle Detection System - FIXED
+-- REALISTIC Playstyle Detection System
 local function UpdatePlaystyleMetrics()
     local currentTime = tick()
     local character = LocalPlayer.Character
     
-    -- Only update detection level periodically to prevent instant changes
     if currentTime - playstyleMetrics.lastDetectionUpdate > 0.5 then
-        -- Update movement pattern detection
         if character then
             local rootPart = character:FindFirstChild("HumanoidRootPart")
             if rootPart then
@@ -262,10 +398,10 @@ local function UpdatePlaystyleMetrics()
                     playstyleMetrics.detectionLevel = math.max(0, playstyleMetrics.detectionLevel - 0.05)
                 elseif speed < 10 then
                     playstyleMetrics.movementPattern = "walking"
-                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.01) -- Reduced from 0.02
+                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.01)
                 else
                     playstyleMetrics.movementPattern = "running"
-                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.04) -- Reduced from 0.08
+                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.04)
                 end
                 
                 playstyleMetrics.lastMovementUpdate = currentTime
@@ -275,42 +411,32 @@ local function UpdatePlaystyleMetrics()
         playstyleMetrics.lastDetectionUpdate = currentTime
     end
     
-    -- Check if we're actively in combat (recent shots or damage)
     local timeSinceCombat = currentTime - playstyleMetrics.lastCombatTime
     local timeSinceLastShot = currentTime - playstyleMetrics.lastShotTime
     
-    -- REALISTIC COMBAT DETECTION:
-    -- Only enter combat if actively shooting, taking damage, or locked onto a target for extended period
     local isInCombat = false
     
-    -- If we've shot recently or taken damage
     if timeSinceLastShot < 2 or timeSinceCombat < 2 then
         isInCombat = true
         playstyleMetrics.combatActions = playstyleMetrics.combatActions + 1
     end
     
-    -- If we're locked onto a target and actively engaging
-    if Holding and Target and currentTime - targetLockTime > 1.5 then -- Increased from 1
+    if Holding and Target and currentTime - targetLockTime > 1.5 then
         isInCombat = true
-        playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.05) -- Reduced from 0.1
+        playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.05)
     end
     
-    -- If we've performed multiple combat actions recently
     if playstyleMetrics.combatActions > 3 and timeSinceCombat < 5 then
         isInCombat = true
     end
     
-    -- Gradually reduce combat actions over time
     if currentTime % 5 < 0.1 then
         playstyleMetrics.combatActions = math.max(0, playstyleMetrics.combatActions - 1)
     end
     
-    -- Set stealth mode based on combat status and detection level
-    -- FIXED: Movement alone shouldn't trigger combat mode
     playstyleMetrics.isStealthMode = not isInCombat and 
         playstyleMetrics.detectionLevel < Settings.PlaystyleAdaptation.DetectionThreshold
     
-    -- Update target switch frequency
     if Target and currentTime - lastTargetSwitch < 2 then
         local switchWeight = 0.1
         playstyleMetrics.targetSwitchFrequency = playstyleMetrics.targetSwitchFrequency * (1 - switchWeight) + switchWeight
@@ -325,14 +451,11 @@ local function ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance
     
     UpdatePlaystyleMetrics()
     
-    -- In stealth mode, prioritize stealthy engagement
     if playstyleMetrics.isStealthMode then
-        -- Bonus for targets that haven't detected us
         if not isVisible or distance > 100 then
             threatScore = threatScore + Settings.PlaystyleAdaptation.StealthEngagementBonus
         end
         
-        -- Reduce threat for targets that are looking at us (more dangerous in stealth)
         local character = player.Character
         if character then
             local head = character:FindFirstChild("Head")
@@ -344,39 +467,33 @@ local function ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance
                 local lookDirection = head.CFrame.LookVector
                 local dotProduct = directionToPlayer:Dot(lookDirection)
                 
-                -- If target is looking at us, increase threat (they've detected us)
                 if dotProduct > 0.8 then
                     threatScore = threatScore * 1.3
-                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.1) -- Reduced from 0.2
+                    playstyleMetrics.detectionLevel = math.min(1, playstyleMetrics.detectionLevel + 0.1)
                 end
             end
         end
     else
-        -- In combat mode, prioritize immediate threats
         if threatScore > Settings.PlaystyleAdaptation.AggressionThreshold then
             threatScore = threatScore * 1.2
         end
         
-        -- Bonus for targets that are shooting at us
         if combatEvents[player] and combatEvents[player].Time > tick() - 2 then
             threatScore = threatScore + 40
         end
     end
     
-    -- Distance-based adaptation
     if distance < Settings.PlaystyleAdaptation.MinEngagementDistance then
         threatScore = threatScore + Settings.PlaystyleAdaptation.CloseQuartersBonus
     elseif distance > Settings.PlaystyleAdaptation.MaxEngagementDistance then
         threatScore = threatScore - Settings.PlaystyleAdaptation.LongRangePenalty
     end
     
-    -- Accuracy-based adaptation
     if Settings.PlaystyleAdaptation.AccuracyBasedAdaptation then
         local accuracyFactor = CalculatePlayerAccuracy()
         threatScore = threatScore * (0.8 + accuracyFactor * 0.4)
     end
     
-    -- Adjust based on player's preferred targets (learning)
     if playstyleMetrics.preferredTargets[player] then
         local preferenceBonus = playstyleMetrics.preferredTargets[player] * 0.5
         threatScore = threatScore + preferenceBonus
@@ -394,29 +511,24 @@ local function UpdateAdaptiveFOV()
     
     local targetFOV = Settings.DynamicFOVSettings.BaseFOV
     
-    -- Performance-based scaling
     if Settings.DynamicFOVSettings.PerformanceScaling then
         local fpsFactor = math.clamp(currentFPS / 60, 0.5, 1.5)
         targetFOV = targetFOV * fpsFactor
     end
     
-    -- Engagement distance scaling
     if Settings.DynamicFOVSettings.EngagementScaling and playstyleMetrics.averageEngagementDistance > 0 then
         local distanceFactor = math.clamp(playstyleMetrics.averageEngagementDistance / 100, 0.7, 1.5)
         targetFOV = targetFOV * distanceFactor
     end
     
-    -- Playstyle-based scaling
     if playstyleMetrics.isStealthMode then
         targetFOV = Settings.DynamicFOVSettings.StealthFOV
     else
         targetFOV = Settings.DynamicFOVSettings.CombatFOV
     end
     
-    -- Apply limits
     targetFOV = math.clamp(targetFOV, Settings.DynamicFOVSettings.MinFOV, Settings.DynamicFOVSettings.MaxFOV)
     
-    -- Smooth transition
     local smoothness = Settings.DynamicFOVSettings.TransitionSmoothness or 0.1
     FOVCircle.Radius = FOVCircle.Radius + (targetFOV - FOVCircle.Radius) * smoothness
 end
@@ -431,13 +543,10 @@ local function CalculatePrediction(targetChar, aimPart)
     local velocity = humanoidRootPart.Velocity
     local distance = (aimPart.Position - Camera.CFrame.Position).Magnitude
     
-    -- More accurate travel time calculation
     local travelTime = distance / 1200
     
-    -- Better prediction formula with vertical adjustment
     local predictedPos = aimPart.Position + velocity * travelTime * Settings.Prediction.Strength
     
-    -- Add slight vertical adjustment for more natural aiming
     predictedPos = predictedPos + Vector3.new(0, Settings.Prediction.VerticalAdjustment, 0)
     
     return predictedPos
@@ -449,7 +558,6 @@ local function GetRandomizedAimPart(character)
         return character:FindFirstChild(Settings.AimPart) or character:FindFirstChild("Head")
     end
     
-    -- Smart body part selection with hit probability optimization
     local parts = {
         {Name = "Head", Weight = 45, Offset = Vector3.new(0, -0.2, 0)},
         {Name = "UpperTorso", Weight = 30, Offset = Vector3.new(0, 0.3, 0)},
@@ -484,15 +592,12 @@ end
 local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
     if not Settings.Humanizer.Enabled then return targetPosition end
     
-    -- Only update humanizer effects periodically for performance
     if currentTime - lastHumanizerUpdate < 0.05 then return targetPosition end
     lastHumanizerUpdate = currentTime
     
-    -- Check if we should miss this shot
     if Settings.Humanizer.MissChance > 0 and currentTime - lastMissTime > Settings.Humanizer.MissCooldown then
         if math.random() < Settings.Humanizer.MissChance then
             lastMissTime = currentTime
-            -- Add significant offset to simulate a miss
             local missOffset = Vector3.new(
                 (math.random() - 0.5) * 5,
                 (math.random() - 0.5) * 5,
@@ -503,14 +608,12 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
         end
     end
     
-    -- Apply part-specific aiming adjustments
     if aimPart and aimPart.Name == "Head" then
         targetPosition = targetPosition - Vector3.new(0, math.random() * 0.4 + 0.2, 0)
     elseif aimPart and aimPart.Name == "UpperTorso" then
         targetPosition = targetPosition + Vector3.new(0, math.random() * 0.3 - 0.15, 0)
     end
     
-    -- Normal humanizer slight movement
     local sineWave = math.sin(currentTime * 5) * Settings.Humanizer.Intensity * 0.3
     local cosineWave = math.cos(currentTime * 4) * Settings.Humanizer.Intensity * 0.2
     
@@ -573,7 +676,6 @@ local function RecordCombatEvent(attacker, damage)
         ThreatLevel = math.min(100, damage * 2)
     }
     
-    -- Update combat time for playstyle tracking
     playstyleMetrics.lastCombatTime = currentTime
     playstyleMetrics.combatActions = playstyleMetrics.combatActions + 2
 end
@@ -588,7 +690,7 @@ local function CleanCombatEvents()
     end
 end
 
--- Advanced threat evaluation system
+-- Advanced threat evaluation system - FIXED SCORING
 local function EvaluateThreatLevel(player)
     local character = player.Character
     if not character then return 0 end
@@ -599,91 +701,88 @@ local function EvaluateThreatLevel(player)
     
     if not rootPart or not humanoid or humanoid.Health <= 0 then return 0 end
     
-    -- Distance factor (closer = more threat)
+    -- Distance factor (closer = more threat) - FIXED: Reduced scaling
     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
-    threatScore = threatScore + (2000 / math.max(1, distance))
+    threatScore = threatScore + (1000 / math.max(1, distance))  -- Reduced from 2000
     
-    -- EXTREME priority for very close targets
+    -- EXTREME priority for very close targets - FIXED: Reduced bonus
     if distance < 25 then
         threatScore = threatScore + Settings.CloseRangePriority
     end
     
-    -- Visibility bonus (HIGH priority)
+    -- Visibility bonus (HIGH priority) - FIXED: Reduced bonus
     local isVisible = IsVisible(character)
     if isVisible then
         threatScore = threatScore + Settings.VisibleTargetBonus
         
-        -- Additional bonus if target is actively facing and likely engaging you
         local head = character:FindFirstChild("Head")
         if head then
             local directionToPlayer = (Camera.CFrame.Position - rootPart.Position).Unit
             local lookDirection = head.CFrame.LookVector
             local dotProduct = directionToPlayer:Dot(lookDirection)
             
-            -- Bonus if player is facing you (more dangerous)
             if dotProduct > 0.7 then
                 threatScore = threatScore + Settings.FacingPlayerBonus
                 
-                -- Immediate threat bonus if very close and facing you
                 if distance < 35 and dotProduct > 0.9 then
                     threatScore = threatScore + Settings.ImmediateThreatBonus
                 end
             end
         end
     elseif distance > 150 then
-        -- Reduce threat for targets beyond anticipation range and not visible
         threatScore = threatScore * 0.6
     end
     
-    -- High ground advantage/disadvantage (REDUCED importance)
+    -- High ground advantage/disadvantage - FIXED: Reduced bonus
     local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if localRoot then
         local elevationDifference = rootPart.Position.Y - localRoot.Position.Y
         if elevationDifference > 5 then
             threatScore = threatScore + Settings.HighGroundBonus
         elseif elevationDifference < -5 then
-            threatScore = threatScore - 10
+            threatScore = threatScore - 5  -- Reduced penalty
         end
     end
     
-    -- Weapon detection with multiplier
+    -- Weapon detection with multiplier - FIXED: Reduced multiplier
     local tool = character:FindFirstChildOfClass("Tool")
     if tool then
         threatScore = threatScore * Settings.WeaponThreatMultiplier
     end
     
-    -- Recent combat events (damage dealt to you)
+    -- Recent combat events (damage dealt to you) - FIXED: Reduced threat level
     CleanCombatEvents()
     if combatEvents[player] then
         threatScore = threatScore + combatEvents[player].ThreatLevel
     end
     
-    -- Movement-based threat reduction (stationary targets are less threatening)
+    -- Movement-based threat reduction
     local speed = rootPart.Velocity.Magnitude
     if speed < 2 then
         threatScore = threatScore * Settings.MovementThreatFactor
     end
     
-    -- Recent target memory (anticipate targets that were recently visible)
+    -- Recent target memory - FIXED: Reduced bonus
     local currentTime = tick()
     if recentTargets[player] then
         local timeSinceLastSeen = currentTime - recentTargets[player]
         if timeSinceLastSeen < Settings.RecentTargetMemory then
-            threatScore = threatScore + (40 * (1 - timeSinceLastSeen / Settings.RecentTargetMemory))
+            threatScore = threatScore + (20 * (1 - timeSinceLastSeen / Settings.RecentTargetMemory))  -- Reduced from 40
         end
     end
     
-    -- Health-based threat (weaker targets are less threatening)
+    -- Health-based threat
     local healthPercent = humanoid.Health / humanoid.MaxHealth
     threatScore = threatScore * (0.5 + healthPercent * 0.5)
     
     -- Apply playstyle adaptation
     threatScore = ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance)
     
-    return math.max(0, threatScore)
+    -- CAP THE THREAT SCORE TO MAX 100
+    return math.clamp(math.max(0, threatScore), 0, 100)
 end
 
--- Enhanced target selection with smart switching
+-- Enhanced target selection with smart switching - FIXED TERRAIN ISSUE
 local function FindOptimalTarget()
     UpdatePlayerCache()
     
@@ -691,14 +790,12 @@ local function FindOptimalTarget()
     local highestThreat = -1
     local currentTime = tick()
     
-    -- Clean up old recent targets
     for player, lastSeen in pairs(recentTargets) do
         if currentTime - lastSeen > Settings.RecentTargetMemory then
             recentTargets[player] = nil
         end
     end
     
-    -- Target lock logic - keep current target if within lock duration
     if Target and Target.Character and currentTime - targetLockTime < Settings.SmartSwitch.TargetLockDuration then
         local character = Target.Character
         local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -707,13 +804,13 @@ local function FindOptimalTarget()
         if humanoid and humanoid.Health > 0 and rootPart then
             local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
             if distance <= Settings.MaxDistance and (not Settings.VisibilityCheck or IsVisible(character)) then
-                return Target  -- Keep current target during lock period
+                return Target
             end
         end
     end
     
-    -- Prevent rapid target switching
-    if currentTime - lastTargetSwitch < Settings.SmartSwitch.TargetSwitchCooldown and Target and Target.Character then
+    local combatCooldownMultiplier = playstyleMetrics.isStealthMode and 1 or 2
+    if currentTime - lastTargetSwitch < Settings.SmartSwitch.TargetSwitchCooldown * combatCooldownMultiplier and Target and Target.Character then
         local character = Target.Character
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         local rootPart = character:FindFirstChild("HumanoidRootPart")
@@ -721,12 +818,11 @@ local function FindOptimalTarget()
         if humanoid and humanoid.Health > 0 and rootPart then
             local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
             if distance <= Settings.MaxDistance and (not Settings.VisibilityCheck or IsVisible(character)) then
-                return Target  -- Keep current target during cooldown
+                return Target
             end
         end
     end
     
-    -- Evaluate all potential targets
     local potentialTargets = {}
     
     for _, player in ipairs(cachedPlayers) do
@@ -741,11 +837,9 @@ local function FindOptimalTarget()
         local rootPart = character:FindFirstChild("HumanoidRootPart")
         if not rootPart then continue end
         
-        -- Check distance
         local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
         if distance > Settings.MaxDistance then continue end
         
-        -- Check if target is within anticipation range even if not visible
         local isVisible = IsVisible(character)
         
         if isVisible then
@@ -754,10 +848,8 @@ local function FindOptimalTarget()
             continue
         end
         
-        -- Calculate threat level
         local threatLevel = EvaluateThreatLevel(player)
         
-        -- Add to potential targets
         table.insert(potentialTargets, {
             Player = player,
             Threat = threatLevel,
@@ -766,52 +858,45 @@ local function FindOptimalTarget()
         })
     end
     
-    -- Sort by threat level (highest first)
     table.sort(potentialTargets, function(a, b)
-        -- Prioritize visible targets with similar threat levels
         if a.IsVisible and not b.IsVisible and a.Threat > b.Threat * 0.7 then
             return true
         elseif b.IsVisible and not a.IsVisible and b.Threat > a.Threat * 0.7 then
             return false
         end
         
-        -- Otherwise sort by threat level
         return a.Threat > b.Threat
     end)
     
-    -- Select the best target with minimum threat difference requirement
     if #potentialTargets > 0 then
         local topThreat = potentialTargets[1].Threat
         
-        -- Check if we should switch from current target
         if Target and Target.Character then
             local currentThreat = EvaluateThreatLevel(Target)
             
-            -- Only switch if new target has significantly higher threat
-            if topThreat > currentThreat + Settings.SmartSwitch.MinThreatDifference then
+            local minThreatDiff = playstyleMetrics.isStealthMode and 
+                Settings.SmartSwitch.MinThreatDifference or 
+                Settings.SmartSwitch.MinThreatDifference * 1.5
+            
+            if topThreat > currentThreat + minThreatDiff then
                 bestTarget = potentialTargets[1].Player
                 highestThreat = topThreat
             else
-                -- Keep current target if threat difference is small
                 bestTarget = Target
                 highestThreat = currentThreat
             end
         else
-            -- No current target, select the best one
             bestTarget = potentialTargets[1].Player
             highestThreat = topThreat
         end
     end
     
-    -- If we're switching targets, update the cooldown
     if bestTarget and bestTarget ~= Target then
         lastTargetSwitch = currentTime
         targetLockTime = currentTime
         
-        -- Update playstyle metrics for target switching
         playstyleMetrics.recentTargets[bestTarget] = currentTime
         
-        -- Update preferred targets (learning)
         if not playstyleMetrics.preferredTargets[bestTarget] then
             playstyleMetrics.preferredTargets[bestTarget] = 0
         end
@@ -819,21 +904,19 @@ local function FindOptimalTarget()
             Settings.PlaystyleAdaptation.LearningRate
     end
     
-    -- Update threat label even when no target is found
     if threatLabel then
         if bestTarget then
             threatLabel.Text = "⚠️ Threat Level: " .. math.floor(highestThreat)
             
-            -- Color code threat level
-            if highestThreat > 200 then
+            if highestThreat > 80 then
                 threatLabel.TextColor3 = PremiumColors.Danger
-            elseif highestThreat > 120 then
+            elseif highestThreat > 60 then
                 threatLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
-            elseif highestThreat > 80 then
+            elseif highestThreat > 40 then
                 threatLabel.TextColor3 = Color3.fromRGB(255, 160, 0)
-            elseif highestThreat > 50 then
+            elseif highestThreat > 20 then
                 threatLabel.TextColor3 = PremiumColors.Accent
-            elseif highestThreat > 30 then
+            elseif highestThreat > 10 then
                 threatLabel.TextColor3 = PremiumColors.Light
             else
                 threatLabel.TextColor3 = PremiumColors.Secondary
@@ -869,7 +952,6 @@ local function CreateRadar()
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
-    -- Main radar frame
     radarFrame = Instance.new("Frame")
     radarFrame.Size = UDim2.new(0, Settings.Radar.Size, 0, Settings.Radar.Size)
     radarFrame.Position = Settings.Radar.Position
@@ -879,24 +961,20 @@ local function CreateRadar()
     radarFrame.Active = true
     radarFrame.Draggable = true
     
-    -- Radar border with premium glow
     local radarBorder = Instance.new("UIStroke")
     radarBorder.Color = PremiumColors.Primary
     radarBorder.Thickness = 2
     radarBorder.Parent = radarFrame
     
-    -- Animate the border
     local borderTween = TweenService:Create(radarBorder, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
                 Color = PremiumColors.Secondary
     })
     borderTween:Play()
     
-    -- Radar corner
     local radarCorner = Instance.new("UICorner")
     radarCorner.CornerRadius = UDim.new(1, 0)
     radarCorner.Parent = radarFrame
     
-    -- Radar grid lines
     local gridLines = {
         {From = UDim2.new(0.5, 0, 0, 0), To = UDim2.new(0.5, 0, 1, 0)},
         {From = UDim2.new(0, 0, 0.5, 0), To = UDim2.new(1, 0, 0.5, 0)},
@@ -918,7 +996,6 @@ local function CreateRadar()
         lineTween:Play()
     end
     
-    -- Player dot (self)
     local selfDot = Instance.new("Frame")
     selfDot.Size = UDim2.new(0, 6, 0, 6)
     selfDot.Position = UDim2.new(0.5, -3, 0.5, -3)
@@ -931,14 +1008,12 @@ local function CreateRadar()
     selfDotCorner.CornerRadius = UDim.new(1, 0)
     selfDotCorner.Parent = selfDot
     
-    -- Add pulsing animation to self dot
     local pulseTween = TweenService:Create(selfDot, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
         Size = UDim2.new(0, 8, 0, 8),
         Position = UDim2.new(0.5, -4, 0.5, -4)
     })
     pulseTween:Play()
     
-    -- Radar range indicator
     local rangeLabel = Instance.new("TextLabel")
     rangeLabel.Size = UDim2.new(1, 0, 0, 15)
     rangeLabel.Position = UDim2.new(0, 0, 1, 5)
@@ -957,12 +1032,10 @@ end
 local function UpdateRadar()
     if not Settings.Radar.Enabled or not radarFrame then return end
     
-    -- Optimize refresh rate to reduce lag
     local currentTime = tick()
     if currentTime - lastRadarUpdate < Settings.Radar.RefreshRate then return end
     lastRadarUpdate = currentTime
     
-    -- Clear previous dots
     for playerName, dot in pairs(radarDots) do
         if dot and dot.Parent then
             dot:Destroy()
@@ -970,7 +1043,6 @@ local function UpdateRadar()
     end
     radarDots = {}
     
-    -- Get player positions and update radar
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local character = player.Character
@@ -978,38 +1050,30 @@ local function UpdateRadar()
             local humanoid = character:FindFirstChildOfClass("Humanoid")
             
             if humanoidRootPart and humanoid and humanoid.Health > 0 then
-                -- Calculate position relative to local player
                 local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if not localRoot then continue end
                 
                 local position = humanoidRootPart.Position
                 local localPosition = localRoot.Position
                 
-                -- Calculate direction and distance
                 local direction = position - localPosition
                 local distance = direction.Magnitude
                 
-                -- Skip if beyond radar range
                 if distance > Settings.Radar.Range then continue end
                 
-                -- Calculate radar position (normalized to radar size)
                 local normalizedDistance = distance / Settings.Radar.Range
                 
-                -- FIXED: Always face forward relative to player (not camera)
                 local playerRotation = localRoot.CFrame - localRoot.CFrame.Position
                 local forwardVector = playerRotation.LookVector
                 
-                -- Calculate angle from player forward to target
                 local flatDirection = Vector3.new(direction.X, 0, direction.Z).Unit
                 local flatForward = Vector3.new(forwardVector.X, 0, forwardVector.Z).Unit
                 
                 local angle = math.atan2(flatDirection.X, flatDirection.Z) - math.atan2(flatForward.X, flatForward.Z)
                 
-                -- Convert to radar coordinates
                 local radarX = 0.5 + math.sin(angle) * normalizedDistance * 0.5
                 local radarY = 0.5 - math.cos(angle) * normalizedDistance * 0.5
                 
-                -- Create or update radar dot
                 local dot = Instance.new("Frame")
                 dot.Size = UDim2.new(0, 8, 0, 8)
                 dot.Position = UDim2.new(radarX, -4, radarY, -4)
@@ -1017,22 +1081,21 @@ local function UpdateRadar()
                 dot.BorderSizePixel = 0
                 dot.ZIndex = 2
                 
-                -- Color code based on threat level
                 local threatLevel = EvaluateThreatLevel(player)
                 local dotColor
                 
-                if threatLevel > 200 then
+                if threatLevel > 80 then
                     dotColor = PremiumColors.Danger
-                elseif threatLevel > 120 then
+                elseif threatLevel > 60 then
                     dotColor = Color3.fromRGB(255, 80, 80)
-                elseif threatLevel > 80 then
-                    local ratio = (threatLevel - 80) / 40
+                elseif threatLevel > 40 then
+                    local ratio = (threatLevel - 40) / 20
                     dotColor = Color3.fromRGB(255, 160, 0):Lerp(Color3.fromRGB(255, 80, 80), ratio)
-                elseif threatLevel > 50 then
-                    local ratio = (threatLevel - 50) / 30
+                elseif threatLevel > 20 then
+                    local ratio = (threatLevel - 20) / 20
                     dotColor = PremiumColors.Accent:Lerp(Color3.fromRGB(255, 160, 0), ratio)
-                elseif threatLevel > 30 then
-                    local ratio = (threatLevel - 30) / 20
+                elseif threatLevel > 10 then
+                    local ratio = (threatLevel - 10) / 10
                     dotColor = PremiumColors.Light:Lerp(PremiumColors.Accent, ratio)
                 else
                     dotColor = PremiumColors.Secondary
@@ -1040,27 +1103,23 @@ local function UpdateRadar()
                 
                 dot.BackgroundColor3 = dotColor
                 
-                -- Add corner to make it circular
                 local dotCorner = Instance.new("UICorner")
                 dotCorner.CornerRadius = UDim.new(1, 0)
                 dotCorner.Parent = dot
                 
-                -- Add glow effect for high threat targets
-                if threatLevel > 80 then
+                if threatLevel > 60 then
                     local glow = Instance.new("UIStroke")
                     glow.Color = dotColor
                     glow.Thickness = 2
                     glow.Transparency = 0.5
                     glow.Parent = dot
                     
-                    -- Animate the glow
                     local glowTween = TweenService:Create(glow, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
                         Thickness = 3
                     })
                     glowTween:Play()
                 end
                 
-                -- Add player name tooltip
                 local tooltip = Instance.new("TextLabel")
                 tooltip.Size = UDim2.new(0, 0, 0, 0)
                 tooltip.Position = UDim2.new(0.5, 0, 0, -15)
@@ -1073,7 +1132,6 @@ local function UpdateRadar()
                 tooltip.Visible = false
                 tooltip.Parent = dot
                 
-                -- Show tooltip on mouse enter
                 dot.MouseEnter:Connect(function()
                     tooltip.Size = UDim2.new(0, 60, 0, 15)
                     tooltip.Position = UDim2.new(0.5, -30, 0, -18)
@@ -1127,7 +1185,6 @@ local function TrackDamage()
     
     humanoid.HealthChanged:Connect(function()
         if humanoid.Health < humanoid.MaxHealth then
-            -- Try to find who damaged us
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= LocalPlayer and player.Character then
                     local tool = player.Character:FindFirstChildOfClass("Tool")
@@ -1148,10 +1205,8 @@ local function TrackWeaponFire()
     local character = LocalPlayer.Character
     if not character then return end
     
-    -- Check for tool added (weapon equipped)
     character.ChildAdded:Connect(function(child)
         if child:IsA("Tool") then
-            -- Listen for when the tool is activated (fired)
             child.Activated:Connect(function()
                 playstyleMetrics.lastShotTime = tick()
                 playstyleMetrics.lastCombatTime = tick()
@@ -1169,16 +1224,14 @@ local function CreatePremiumUI()
     screenGui.ResetOnSpawn = false
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-    -- Main container with premium design
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 320, 0, 400)
+    mainFrame.Size = UDim2.new(0, 320, 0, 450)
     mainFrame.Position = UDim2.new(0, 10, 0, 10)
     mainFrame.BackgroundColor3 = PremiumColors.Background
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.Draggable = true
 
-    -- Premium background pattern
     local pattern = Instance.new("ImageLabel")
     pattern.Size = UDim2.new(1, 0, 1, 0)
     pattern.Position = UDim2.new(0, 0, 0, 0)
@@ -1189,7 +1242,6 @@ local function CreatePremiumUI()
     pattern.BackgroundTransparency = 1
     pattern.Parent = mainFrame
 
-    -- Premium border with glow effect
     local borderGlow = Instance.new("Frame")
     borderGlow.Size = UDim2.new(1, 6, 1, 6)
     borderGlow.Position = UDim2.new(0, -3, 0, -3)
@@ -1209,7 +1261,6 @@ local function CreatePremiumUI()
     glowGradient.Rotation = 45
     glowGradient.Parent = borderGlow
     
-    -- Animate the glow
     local glowTween = TweenService:Create(glowGradient, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
         Rotation = 405
     })
@@ -1219,7 +1270,6 @@ local function CreatePremiumUI()
     corner.CornerRadius = UDim.new(0, 10)
     corner.Parent = mainFrame
 
-    -- Premium title bar with animated pattern
     local titleBar = Instance.new("Frame")
     titleBar.Size = UDim2.new(1, 0, 0, 40)
     titleBar.Position = UDim2.new(0, 0, 0, 0)
@@ -1243,7 +1293,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v8.0 STEALTH"
+    title.Text = "🐍 VENOM REPTILE v8.2 STEALTH"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1262,16 +1312,14 @@ local function CreatePremiumUI()
     statusCorner.CornerRadius = UDim.new(1, 0)
     statusCorner.Parent = statusLight
 
-    -- Add pulsing animation to status light
     local pulseTween = TweenService:Create(statusLight, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
         Size = UDim2.new(0, 12, 0, 12),
         Position = UDim2.new(1, -26, 0.5, -6)
     })
     pulseTween:Play()
 
-    -- Scrolling frame for buttons
     local scrollFrame = Instance.new("ScrollingFrame")
-    scrollFrame.Size = UDim2.new(1, 0, 1, -190)
+    scrollFrame.Size = UDim2.new(1, 0, 1, -240)
     scrollFrame.Position = UDim2.new(0, 0, 0, 40)
     scrollFrame.BackgroundTransparency = 1
     scrollFrame.BorderSizePixel = 0
@@ -1280,7 +1328,6 @@ local function CreatePremiumUI()
     scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 
-    -- Premium control buttons with hover effects
     local buttons = {
         {Name = "Toggle", Text = "TOGGLE AIMBOT (F)", Key = "Enabled", OnColor = PremiumColors.Primary, OffColor = PremiumColors.Danger},
         {Name = "Prediction", Text = "PREDICTION", Key = "Prediction.Enabled", OnColor = PremiumColors.Secondary, OffColor = Color3.fromRGB(60, 60, 60)},
@@ -1290,7 +1337,9 @@ local function CreatePremiumUI()
         {Name = "SmartSwitch", Text = "SMART SWITCH", Key = "SmartSwitch.Enabled", OnColor = PremiumColors.Elite, OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Radar", Text = "RADAR SYSTEM", Key = "Radar.Enabled", OnColor = Color3.fromRGB(0, 180, 255), OffColor = Color3.fromRGB(60, 60, 60)},
         {Name = "Adaptation", Text = "PLAYSTYLE ADAPTATION", Key = "PlaystyleAdaptation.Enabled", OnColor = Color3.fromRGB(0, 200, 200), OffColor = Color3.fromRGB(60, 60, 60)},
-        {Name = "DynamicFOV", Text = "ADAPTIVE FOV", Key = "DynamicFOVSettings.Enabled", OnColor = Color3.fromRGB(100, 200, 255), OffColor = Color3.fromRGB(60, 60, 60)}
+        {Name = "DynamicFOV", Text = "ADAPTIVE FOV", Key = "DynamicFOVSettings.Enabled", OnColor = Color3.fromRGB(100, 200, 255), OffColor = Color3.fromRGB(60, 60, 60)},
+        {Name = "ThermalVision", Text = "THERMAL VISION", Key = "ThermalVision.Enabled", OnColor = PremiumColors.ThermalHot, OffColor = Color3.fromRGB(60, 60, 60)},
+        {Name = "NightVision", Text = "NIGHT VISION", Key = "NightVision.Enabled", OnColor = Settings.NightVision.Color, OffColor = Color3.fromRGB(60, 60, 60)}
     }
 
     local buttonInstances = {}
@@ -1311,12 +1360,10 @@ local function CreatePremiumUI()
         button.TextSize = 12
         button.AutoButtonColor = false
         
-        -- Premium button styling
         local buttonCorner = Instance.new("UICorner")
         buttonCorner.CornerRadius = UDim.new(0, 8)
         buttonCorner.Parent = button
 
-        -- Add premium gradient to buttons
         local buttonGradient = Instance.new("UIGradient")
         buttonGradient.Color = ColorSequence.new({
             ColorSequenceKeypoint.new(0, btn.OnColor),
@@ -1325,7 +1372,6 @@ local function CreatePremiumUI()
         buttonGradient.Rotation = 90
         buttonGradient.Parent = button
 
-        -- Add subtle pattern to buttons
         local buttonPattern = Instance.new("ImageLabel")
         buttonPattern.Size = UDim2.new(1, 0, 1, 0)
         buttonPattern.Image = "rbxassetid://11543917824"
@@ -1333,7 +1379,6 @@ local function CreatePremiumUI()
         buttonPattern.BackgroundTransparency = 1
         buttonPattern.Parent = button
 
-        -- Add glow effect on hover
         local buttonGlow = Instance.new("Frame")
         buttonGlow.Size = UDim2.new(1, 6, 1, 6)
         buttonGlow.Position = UDim2.new(0, -3, 0, -3)
@@ -1374,7 +1419,6 @@ local function CreatePremiumUI()
             end
             current[keys[#keys]] = not current[keys[#keys]]
             
-            -- Special handling for radar
             if btn.Name == "Radar" then
                 if Settings.Radar.Enabled then
                     CreateRadar()
@@ -1382,6 +1426,12 @@ local function CreatePremiumUI()
                     radarFrame.Parent:Destroy()
                     radarFrame = nil
                 end
+            end
+            
+            if btn.Name == "ThermalVision" then
+                ToggleThermalVision(Settings.ThermalVision.Enabled)
+            elseif btn.Name == "NightVision" then
+                ToggleNightVision(Settings.NightVision.Enabled)
             end
             
             UpdateUI()
@@ -1393,7 +1443,6 @@ local function CreatePremiumUI()
         yOffset = yOffset + 45
     end
 
-    -- Premium stats panel with animated elements
     local statsPanel = Instance.new("Frame")
     statsPanel.Size = UDim2.new(0.9, 0, 0, 150)
     statsPanel.Position = UDim2.new(0.05, 0, 1, -160)
@@ -1404,19 +1453,16 @@ local function CreatePremiumUI()
     statsCorner.CornerRadius = UDim.new(0, 8)
     statsCorner.Parent = statsPanel
 
-    -- Add animated border to stats panel
     local statsBorder = Instance.new("UIStroke")
     statsBorder.Color = PremiumColors.Primary
     statsBorder.Thickness = 2
     statsBorder.Parent = statsPanel
     
-    -- Animate the border
     local borderTween = TweenService:Create(statsBorder, TweenInfo.new(3, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {
         Color = PremiumColors.Secondary
     })
     borderTween:Play()
 
-    -- Add pattern to stats panel
     local statsPattern = Instance.new("ImageLabel")
     statsPattern.Size = UDim2.new(1, 0, 1, 0)
     statsPattern.Image = "rbxassetid://11543919876"
@@ -1484,7 +1530,6 @@ local function CreatePremiumUI()
     playstyleLabel.TextSize = 12
     playstyleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Assembly
     borderGlow.Parent = mainFrame
     titleBar.Parent = mainFrame
     title.Parent = titleBar
@@ -1521,7 +1566,6 @@ threatLabel = UI.ThreatLabel
 function UpdateUI()
     UI.StatusLight.BackgroundColor3 = Settings.Enabled and PremiumColors.Success or PremiumColors.Danger
     
-    -- Update playstyle label with more accurate detection
     if playstyleMetrics.isStealthMode then
         UI.PlaystyleLabel.Text = "🎭 Mode: Stealth (" .. math.floor(playstyleMetrics.detectionLevel * 100) .. "% detected)"
         UI.PlaystyleLabel.TextColor3 = Color3.fromRGB(100, 200, 255)
@@ -1548,7 +1592,6 @@ function UpdateUI()
             
             button.BackgroundColor3 = value and btnData.OnColor or btnData.OffColor
             
-            -- Update button gradient
             local gradient = button:FindFirstChildOfClass("UIGradient")
             if gradient then
                 gradient.Color = ColorSequence.new({
@@ -1557,7 +1600,6 @@ function UpdateUI()
                 })
             end
             
-            -- Add checkmark indicator for ON state with fun emojis
             if value then
                 if name == "Humanizer" then
                     button.Text = "🎯 " .. btnData.Text
@@ -1571,6 +1613,10 @@ function UpdateUI()
                     button.Text = "🧠 " .. btnData.Text
                 elseif name == "DynamicFOV" then
                     button.Text = "👁️ " .. btnData.Text
+                elseif name == "ThermalVision" then
+                    button.Text = "🐍 " .. btnData.Text
+                elseif name == "NightVision" then
+                    button.Text = "🌙 " .. btnData.Text
                 else
                     button.Text = "✓ " .. btnData.Text
                 end
@@ -1600,10 +1646,8 @@ RunService.RenderStepped:Connect(function()
     FOVCircle.Position = UserInputService:GetMouseLocation()
     FOVCircle.Visible = Settings.FOV.Visible
     
-    -- Update adaptive FOV
     UpdateAdaptiveFOV()
     
-    -- Update radar if enabled
     if Settings.Radar.Enabled then
         UpdateRadar()
     end
@@ -1614,20 +1658,16 @@ RunService.RenderStepped:Connect(function()
         if Target and Target.Character then
             local aimPart, partOffset = GetRandomizedAimPart(Target.Character)
             if aimPart then
-                -- Update UI
                 UI.TargetLabel.Text = "🎯 Target: " .. Target.Name
                 UI.StatusLabel.Text = "📊 Status: Locked 🔒"
                 
-                -- Update playstyle metrics
                 playstyleMetrics.lastCombatTime = tick()
                 
-                -- Update distance label
                 local rootPart = Target.Character:FindFirstChild("HumanoidRootPart")
                 if rootPart then
                     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
                     UI.DistanceLabel.Text = "📏 Distance: " .. math.floor(distance) .. " studs"
                     
-                    -- Update engagement distance average
                     if playstyleMetrics.engagementCount < 100 then
                         playstyleMetrics.engagementCount = playstyleMetrics.engagementCount + 1
                     end
@@ -1636,21 +1676,17 @@ RunService.RenderStepped:Connect(function()
                         playstyleMetrics.engagementCount
                 end
                 
-                -- Update target indicator
                 if Settings.Highlight.Enabled then
                     local screenPoint = Camera:WorldToViewportPoint(aimPart.Position)
                     TargetIndicator.Position = Vector2.new(screenPoint.X, screenPoint.Y)
                     TargetIndicator.Visible = true
                     
-                    -- Update lock indicator
                     LockIndicator.Position = Vector2.new(screenPoint.X, screenPoint.Y)
                     LockIndicator.Visible = true
                     
-                    -- Animate lock indicator
                     LockIndicator.Radius = 16 + math.sin(tick() * 5) * 2
                 end
                 
-                -- Calculate and apply aim
                 local targetPos = CalculatePrediction(Target.Character, aimPart)
                 if partOffset then
                     targetPos = targetPos + partOffset
@@ -1678,13 +1714,14 @@ RunService.RenderStepped:Connect(function()
         LockIndicator.Visible = false
     end
     
-    -- Update UI periodically
     if tick() % 1 < 0.05 then
         UpdateUI()
     end
 end)
 
 -- Initialization
+InitializeVisionEffects()
+CreateThermalHighlights()
 TrackDamage()
 TrackWeaponFire()
 UpdateUI()
@@ -1692,13 +1729,32 @@ if Settings.Radar.Enabled then
     CreateRadar()
 end
 
-print("🐍 Venom Reptile v8.0 Ultimate Stealth Edition Loaded!")
-print("🎯 PERFECT Stealth/Combat Detection | Realistic Behavior")
+-- Player added event to create thermal highlights for new players
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        wait(1) -- Wait for character to fully load
+        if player ~= LocalPlayer then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "VenomThermalHighlight"
+            highlight.FillColor = Settings.ThermalVision.HotColor
+            highlight.OutlineColor = Color3.fromRGB(255, 100, 0)
+            highlight.FillTransparency = 0.3
+            highlight.OutlineTransparency = 0
+            highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.Enabled = Settings.ThermalVision.Enabled
+            highlight.Parent = character
+            thermalHighlights[player] = highlight
+        end
+    end)
+end)
+
+print("🐍 Venom Reptile v8.2 Ultimate Stealth Edition Loaded!")
+print("🔥 ENHANCED THERMAL VISION | Orange/Purple Hues | Player Highlighting")
+print("🌙 BRIGHTER NIGHT VISION | Military Cyan | Fullbright Effect")
+print("🎯 PERFECT Threat System | 0-100 Scale | Realistic Assessment")
 print("🧠 Advanced Playstyle Adaptation | Movement-Based Detection")
 print("👁️  Intelligent Adaptive FOV | Performance & Engagement Based")
 print("🔧 Press F to toggle | Right-click to aim")
 print("📡 Radar with 300 stud range and proper forward orientation")
 print("🎯 Smart threat system prevents rapid switching between similar threats")
-print("⚡ Target locking with minimum threat difference requirement")
 print("💥 Enhanced combat awareness with realistic detection")
-   
