@@ -1,5 +1,5 @@
 --[[
-    🐍 Venom Reptile v8.3 - Ultimate Premium Edition
+    🐍 Venom Reptile v8.3 - Ultimate Stealth Edition
     Advanced Threat Assessment & Targeting System
     Universal Xeno Executor Version - Fully Optimized
     PERFECT STEALTH/COMBAT DETECTION - REALISTIC BEHAVIOR
@@ -36,22 +36,11 @@ local Settings = {
     Prediction = {
         Enabled = true,
         Strength = 0.165,
-        VerticalAdjustment = 0.05,
-        DistanceScaling = true,
-        MinDistance = 20,
-        MaxDistance = 300,
-        CloseRangeMultiplier = 1.2,
-        LongRangeMultiplier = 0.8
+        VerticalAdjustment = 0.05
     },
     Highlight = {
         Enabled = true,
-        Color = Color3.fromRGB(255, 223, 0),
-        OutlineColor = Color3.fromRGB(255, 150, 0),
-        FillTransparency = 0.3,
-        OutlineTransparency = 0,
-        Thickness = 2,
-        VisibleCheck = true,
-        OnlyVisible = true
+        Color = Color3.fromRGB(255, 223, 0)
     },
     Humanizer = {
         Enabled = true,
@@ -78,27 +67,25 @@ local Settings = {
     },
     ThermalVision = {
         Enabled = false,
-        HotColor = Color3.fromRGB(255, 80, 40),      -- Brighter orange for better visibility
-        ColdColor = Color3.fromRGB(40, 40, 180),     -- Deeper blue for better contrast
-        Intensity = 0.9,
-        Brightness = 1.5,                            -- Increased brightness
-        Contrast = 1.5,                              -- Increased contrast
-        FullBright = true
+        HotColor = Color3.fromRGB(255, 100, 70),      -- Warmer red-orange for players
+        ColdColor = Color3.fromRGB(50, 30, 100),      -- Deep purple-blue for cold areas
+        AmbientColor = Color3.fromRGB(120, 40, 60),   -- Deep red ambient for eye comfort
+        Intensity = 0.8,
+        EyeComfortMode = true                         -- Red light for reduced eye strain
     },
     NightVision = {
         Enabled = false,
-        Color = Color3.fromRGB(180, 255, 220),      -- Bright cyan-green
-        Intensity = 0.9,
-        Brightness = 2.0,                           -- Much brighter for night vision
-        Contrast = 1.5,                             -- Increased contrast
-        FullBright = true
+        Color = Color3.fromRGB(180, 255, 180),        -- Softer green for better night vision
+        Intensity = 0.7,
+        Brightness = 0.6,
+        Contrast = 0.6
     },
     FOVChangeOnAim = true,
     AimKey = Enum.UserInputType.MouseButton2,
     ToggleKey = Enum.KeyCode.F,
     
     -- Enhanced threat evaluation settings
-    CloseRangePriority = 40,                        -- Increased priority for close targets
+    CloseRangePriority = 30,
     ImmediateThreatBonus = 25,
     RecentTargetMemory = 3,
     
@@ -125,8 +112,8 @@ local Settings = {
         AccuracyBasedAdaptation = true,
         MinEngagementDistance = 50,
         MaxEngagementDistance = 200,
-        CloseQuartersBonus = 25,                    -- Increased bonus for close combat
-        LongRangePenalty = 15,                      -- Increased penalty for distance
+        CloseQuartersBonus = 15,
+        LongRangePenalty = 10,
         DetectionThreshold = 0.4,
         StealthEngagementBonus = 20,
         CombatCooldown = 3
@@ -216,8 +203,8 @@ local PremiumColors = {
     Elite = Color3.fromRGB(180, 70, 255),
     Background = Color3.fromRGB(20, 30, 27),
     Panel = Color3.fromRGB(25, 40, 35),
-    ThermalHot = Color3.fromRGB(255, 100, 50),  -- Bright orange for thermal
-    ThermalCold = Color3.fromRGB(50, 50, 150)   -- Blue for thermal
+    ThermalHot = Color3.fromRGB(255, 100, 70),  -- Warmer red-orange for thermal
+    ThermalCold = Color3.fromRGB(50, 30, 100)   -- Deep purple-blue for thermal
 }
 
 -- FOV Circle with premium effects
@@ -258,16 +245,15 @@ local playerUpdateInterval = 1
 local function InitializeVisionEffects()
     -- Thermal vision effect
     thermalEffect.Name = "VenomThermalEffect"
-    thermalEffect.Saturation = -0.8
-    thermalEffect.Contrast = Settings.ThermalVision.Contrast
-    thermalEffect.Brightness = Settings.ThermalVision.Brightness
-    thermalEffect.TintColor = Color3.fromRGB(255, 150, 100)  -- Warm orange tint
+    thermalEffect.Saturation = -0.7  -- Reduced saturation for better contrast
+    thermalEffect.Contrast = 1.2     -- Reduced contrast for eye comfort
+    thermalEffect.TintColor = Settings.ThermalVision.AmbientColor  -- Deep red tint for eye comfort
     thermalEffect.Enabled = false
     thermalEffect.Parent = Lighting
 
     -- Night vision effect
     nightVisionEffect.Name = "VenomNightVisionEffect"
-    nightVisionEffect.Saturation = -0.3
+    nightVisionEffect.Saturation = -0.3  -- Less saturation for natural look
     nightVisionEffect.Contrast = Settings.NightVision.Contrast
     nightVisionEffect.Brightness = Settings.NightVision.Brightness
     nightVisionEffect.TintColor = Settings.NightVision.Color
@@ -276,9 +262,9 @@ local function InitializeVisionEffects()
 
     -- Bloom effect for night vision
     bloomEffect.Name = "VenomBloomEffect"
-    bloomEffect.Intensity = 0.4
-    bloomEffect.Size = 24
-    bloomEffect.Threshold = 0.6
+    bloomEffect.Intensity = 0.4      -- Reduced intensity for performance
+    bloomEffect.Size = 24            -- Smaller size for performance
+    bloomEffect.Threshold = 0.8      -- Higher threshold to reduce over-bloom
     bloomEffect.Enabled = false
     bloomEffect.Parent = Lighting
 end
@@ -290,29 +276,14 @@ local function CreateThermalHighlights()
             local highlight = Instance.new("Highlight")
             highlight.Name = "VenomThermalHighlight"
             highlight.FillColor = Settings.ThermalVision.HotColor
-            highlight.OutlineColor = Settings.Highlight.OutlineColor
-            highlight.FillTransparency = Settings.Highlight.FillTransparency
-            highlight.OutlineTransparency = Settings.Highlight.OutlineTransparency
+            highlight.OutlineColor = Color3.fromRGB(255, 70, 40)  -- Brighter outline
+            highlight.FillTransparency = 0.2  -- More visible
+            highlight.OutlineTransparency = 0
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Enabled = false
             highlight.Parent = player.Character
             thermalHighlights[player] = highlight
         end
-    end
-end
-
--- Update highlight visibility based on settings
-local function UpdateHighlightVisibility(player, highlight)
-    if not highlight or not player.Character then return end
-    
-    if Settings.ThermalVision.Enabled then
-        if Settings.Highlight.VisibleCheck and Settings.Highlight.OnlyVisible then
-            highlight.Enabled = IsVisible(player.Character)
-        else
-            highlight.Enabled = true
-        end
-    else
-        highlight.Enabled = false
     end
 end
 
@@ -327,23 +298,30 @@ local function ToggleThermalVision(state)
             ToggleNightVision(false)
         end
         
-        -- Enable thermal highlights with visibility check
+        -- Enable thermal highlights with better visibility
         for player, highlight in pairs(thermalHighlights) do
             if player and player.Character and highlight then
-                UpdateHighlightVisibility(player, highlight)
+                highlight.Enabled = true
+                highlight.FillColor = Settings.ThermalVision.HotColor
+                highlight.OutlineColor = Color3.fromRGB(255, 70, 40)
             end
         end
         
-        -- Apply thermal vision lighting (brighter)
-        Lighting.Ambient = Color3.fromRGB(80, 40, 20)
-        Lighting.OutdoorAmbient = Color3.fromRGB(80, 40, 20)
-        Lighting.ColorShift_Bottom = PremiumColors.ThermalCold
-        Lighting.ColorShift_Top = PremiumColors.ThermalHot
+        -- Apply thermal vision lighting with eye comfort colors
+        Lighting.Ambient = Settings.ThermalVision.AmbientColor  -- Deep red for eye comfort
+        Lighting.OutdoorAmbient = Settings.ThermalVision.AmbientColor
+        Lighting.ColorShift_Bottom = Settings.ThermalVision.ColdColor
+        Lighting.ColorShift_Top = Settings.ThermalVision.HotColor
+        Lighting.Brightness = 0.9  -- Slightly brighter for better visibility
         
-        if Settings.ThermalVision.FullBright then
-            Lighting.GlobalShadows = false
-            Lighting.Brightness = Settings.ThermalVision.Brightness
-        end
+        -- Add a subtle yellow/amber filter for haze reduction
+        local amberFilter = Instance.new("ColorCorrectionEffect")
+        amberFilter.Name = "VenomAmberFilter"
+        amberFilter.TintColor = Color3.fromRGB(255, 220, 180)  -- Warm amber
+        amberFilter.Saturation = -0.1
+        amberFilter.Contrast = 0.1
+        amberFilter.Brightness = 0.05
+        amberFilter.Parent = Lighting
     else
         -- Disable thermal highlights
         for player, highlight in pairs(thermalHighlights) do
@@ -352,17 +330,22 @@ local function ToggleThermalVision(state)
             end
         end
         
+        -- Remove amber filter
+        local amberFilter = Lighting:FindFirstChild("VenomAmberFilter")
+        if amberFilter then
+            amberFilter:Destroy()
+        end
+        
         -- Restore default lighting
         Lighting.Ambient = Color3.fromRGB(127, 127, 127)
         Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
         Lighting.ColorShift_Bottom = Color3.fromRGB(0, 0, 0)
         Lighting.ColorShift_Top = Color3.fromRGB(0, 0, 0)
         Lighting.Brightness = 1
-        Lighting.GlobalShadows = true
     end
 end
 
--- Toggle night vision - FIXED to be much brighter
+-- Toggle night vision
 local function ToggleNightVision(state)
     Settings.NightVision.Enabled = state
     nightVisionEffect.Enabled = state
@@ -374,18 +357,29 @@ local function ToggleNightVision(state)
             ToggleThermalVision(false)
         end
         
-        -- Apply night vision settings (much brighter)
-        Lighting.Ambient = Color3.fromRGB(100, 150, 120)  -- Much brighter ambient
-        Lighting.OutdoorAmbient = Color3.fromRGB(100, 150, 120)  -- Much brighter outdoor
-        Lighting.FogColor = Color3.fromRGB(30, 80, 60)
-        Lighting.FogEnd = 5000  -- Increased fog end
+        -- Apply night vision settings (optimized for performance)
+        Lighting.Ambient = Color3.fromRGB(30, 60, 30)  -- Dark green ambient
+        Lighting.OutdoorAmbient = Color3.fromRGB(30, 60, 30)
+        Lighting.FogColor = Color3.fromRGB(0, 30, 0)
+        Lighting.FogEnd = 1200  -- Reduced fog end for performance
+        Lighting.Brightness = 0.7  -- Balanced brightness
+        Lighting.GlobalShadows = false  -- Disable shadows for performance
         
-        if Settings.NightVision.FullBright then
-            Lighting.Brightness = Settings.NightVision.Brightness
-            Lighting.GlobalShadows = false
-            Lighting.ClockTime = 12  -- Set to daytime for better visibility
-        end
+        -- Add yellow filter for better contrast in low light
+        local yellowFilter = Instance.new("ColorCorrectionEffect")
+        yellowFilter.Name = "VenomYellowFilter"
+        yellowFilter.TintColor = Color3.fromRGB(255, 240, 180)  -- Soft yellow
+        yellowFilter.Saturation = -0.1
+        yellowFilter.Contrast = 0.2
+        yellowFilter.Brightness = 0.1
+        yellowFilter.Parent = Lighting
     else
+        -- Remove yellow filter
+        local yellowFilter = Lighting:FindFirstChild("VenomYellowFilter")
+        if yellowFilter then
+            yellowFilter:Destroy()
+        end
+        
         -- Restore default lighting
         Lighting.Ambient = Color3.fromRGB(127, 127, 127)
         Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
@@ -574,7 +568,7 @@ local function UpdateAdaptiveFOV()
     FOVCircle.Radius = FOVCircle.Radius + (targetFOV - FOVCircle.Radius) * smoothness
 end
 
--- Enhanced Prediction Engine with distance scaling
+-- Improved Prediction Engine
 local function CalculatePrediction(targetChar, aimPart)
     if not Settings.Prediction.Enabled then return aimPart.Position end
     
@@ -584,21 +578,10 @@ local function CalculatePrediction(targetChar, aimPart)
     local velocity = humanoidRootPart.Velocity
     local distance = (aimPart.Position - Camera.CFrame.Position).Magnitude
     
-    -- Dynamic prediction based on distance
-    local predictionMultiplier = Settings.Prediction.Strength
-    
-    if Settings.Prediction.DistanceScaling then
-        if distance < Settings.Prediction.MinDistance then
-            predictionMultiplier = Settings.Prediction.Strength * Settings.Prediction.CloseRangeMultiplier
-        elseif distance > Settings.Prediction.MaxDistance then
-            predictionMultiplier = Settings.Prediction.Strength * Settings.Prediction.LongRangeMultiplier
-        end
-    end
-    
     local travelTime = distance / 1200
-    local predictedPos = aimPart.Position + velocity * travelTime * predictionMultiplier
     
-    -- Add vertical adjustment for gravity compensation
+    local predictedPos = aimPart.Position + velocity * travelTime * Settings.Prediction.Strength
+    
     predictedPos = predictedPos + Vector3.new(0, Settings.Prediction.VerticalAdjustment, 0)
     
     return predictedPos
@@ -651,9 +634,9 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
         if math.random() < Settings.Humanizer.MissChance then
             lastMissTime = currentTime
             local missOffset = Vector3.new(
-                (math.random() - 0.5) * 5,
-                (math.random() - 0.5) * 5,
-                (math.random() - 0.5) * 3
+                (math.random() - 0.5) * 4,  -- Reduced miss offset for better accuracy
+                (math.random() - 0.5) * 4,
+                (math.random() - 0.5) * 2
             )
             TrackAccuracy(false)
             return targetPosition + missOffset
@@ -661,18 +644,18 @@ local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
     end
     
     if aimPart and aimPart.Name == "Head" then
-        targetPosition = targetPosition - Vector3.new(0, math.random() * 0.4 + 0.2, 0)
+        targetPosition = targetPosition - Vector3.new(0, math.random() * 0.3 + 0.1, 0)  -- Reduced head offset
     elseif aimPart and aimPart.Name == "UpperTorso" then
-        targetPosition = targetPosition + Vector3.new(0, math.random() * 0.3 - 0.15, 0)
+        targetPosition = targetPosition + Vector3.new(0, math.random() * 0.2 - 0.1, 0)  -- Reduced torso offset
     end
     
-    local sineWave = math.sin(currentTime * 5) * Settings.Humanizer.Intensity * 0.3
-    local cosineWave = math.cos(currentTime * 4) * Settings.Humanizer.Intensity * 0.2
+    local sineWave = math.sin(currentTime * 5) * Settings.Humanizer.Intensity * 0.2  -- Reduced sine wave
+    local cosineWave = math.cos(currentTime * 4) * Settings.Humanizer.Intensity * 0.15  -- Reduced cosine wave
     
     local microShake = Vector3.new(
-        (math.random() - 0.5 + sineWave) * Settings.Humanizer.Intensity * 0.4,
-        (math.random() - 0.5 + cosineWave) * Settings.Humanizer.Intensity * 0.4,
-        (math.random() - 0.5) * Settings.Humanizer.Intensity * 0.2
+        (math.random() - 0.5 + sineWave) * Settings.Humanizer.Intensity * 0.3,  -- Reduced microshake
+        (math.random() - 0.5 + cosineWave) * Settings.Humanizer.Intensity * 0.3,
+        (math.random() - 0.5) * Settings.Humanizer.Intensity * 0.15
     )
     
     TrackAccuracy(true)
@@ -742,7 +725,7 @@ local function CleanCombatEvents()
     end
 end
 
--- Advanced threat evaluation system - FIXED to prioritize closer targets
+-- Advanced threat evaluation system - FIXED SCORING
 local function EvaluateThreatLevel(player)
     local character = player.Character
     if not character then return 0 end
@@ -753,15 +736,12 @@ local function EvaluateThreatLevel(player)
     
     if not rootPart or not humanoid or humanoid.Health <= 0 then return 0 end
     
-    -- Distance factor (closer = more threat) - FIXED: Prioritize closer targets more
+    -- Distance factor (closer = more threat) - FIXED: Reduced scaling
     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
-    local distanceFactor = math.max(1, 2000 / distance)  -- Stronger distance scaling
-    threatScore = threatScore + distanceFactor * 50  -- Increased weight for distance
+    threatScore = threatScore + (1000 / math.max(1, distance))  -- Reduced from 2000
     
-    -- EXTREME priority for very close targets - FIXED: Increased bonus
+    -- EXTREME priority for very close targets - FIXED: Reduced bonus
     if distance < 25 then
-        threatScore = threatScore + Settings.CloseRangePriority * 2
-    elseif distance < 50 then
         threatScore = threatScore + Settings.CloseRangePriority
     end
     
@@ -792,10 +772,7 @@ local function EvaluateThreatLevel(player)
     local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if localRoot then
         local elevationDifference = rootPart.Position.Y - localRoot.Position.Y
-        -- Penalize targets that are too high up unless they're very close
-        if elevationDifference > 10 and distance > 50 then
-            threatScore = threatScore * 0.7  -- Strong penalty for high distant targets
-        elseif elevationDifference > 5 then
+        if elevationDifference > 5 then
             threatScore = threatScore + Settings.HighGroundBonus
         elseif elevationDifference < -5 then
             threatScore = threatScore - 5  -- Reduced penalty
@@ -840,7 +817,7 @@ local function EvaluateThreatLevel(player)
     return math.clamp(math.max(0, threatScore), 0, 100)
 end
 
--- Enhanced target selection with smart switching - FIXED to prioritize closer targets
+-- Enhanced target selection with smart switching - FIXED TERRAIN ISSUE
 local function FindOptimalTarget()
     UpdatePlayerCache()
     
@@ -916,23 +893,13 @@ local function FindOptimalTarget()
         })
     end
     
-    -- Sort by distance first, then by threat level
     table.sort(potentialTargets, function(a, b)
-        -- Prioritize closer targets more heavily
-        if a.Distance < b.Distance * 0.7 then
+        if a.IsVisible and not b.IsVisible and a.Threat > b.Threat * 0.7 then
             return true
-        elseif b.Distance < a.Distance * 0.7 then
+        elseif b.IsVisible and not a.IsVisible and b.Threat > a.Threat * 0.7 then
             return false
         end
         
-        -- Then consider visibility
-        if a.IsVisible and not b.IsVisible then
-            return true
-        elseif b.IsVisible and not a.IsVisible then
-            return false
-        end
-        
-        -- Finally consider threat level
         return a.Threat > b.Threat
     end)
     
@@ -1361,7 +1328,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v8.3 PREMIUM"
+    title.Text = "🐍 VENOM REPTILE v8.3 STEALTH"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1720,15 +1687,6 @@ RunService.RenderStepped:Connect(function()
         UpdateRadar()
     end
     
-    -- Update thermal highlights visibility
-    if Settings.ThermalVision.Enabled then
-        for player, highlight in pairs(thermalHighlights) do
-            if player and player.Character and highlight then
-                UpdateHighlightVisibility(player, highlight)
-            end
-        end
-    end
-    
     if Holding and Settings.Enabled then
         Target = FindOptimalTarget()
         
@@ -1814,9 +1772,9 @@ Players.PlayerAdded:Connect(function(player)
             local highlight = Instance.new("Highlight")
             highlight.Name = "VenomThermalHighlight"
             highlight.FillColor = Settings.ThermalVision.HotColor
-            highlight.OutlineColor = Settings.Highlight.OutlineColor
-            highlight.FillTransparency = Settings.Highlight.FillTransparency
-            highlight.OutlineTransparency = Settings.Highlight.OutlineTransparency
+            highlight.OutlineColor = Color3.fromRGB(255, 70, 40)
+            highlight.FillTransparency = 0.2
+            highlight.OutlineTransparency = 0
             highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
             highlight.Enabled = Settings.ThermalVision.Enabled
             highlight.Parent = character
@@ -1825,14 +1783,13 @@ Players.PlayerAdded:Connect(function(player)
     end)
 end)
 
-print("🐍 Venom Reptile v8.3 Ultimate Premium Edition Loaded!")
-print("🔥 ENHANCED THERMAL VISION | Bright Orange/Blue Hues | Smart Highlighting")
-print("🌙 BRIGHTER NIGHT VISION | Military Cyan-Green | Fullbright Effect")
-print("🎯 PERFECT Threat System | Prioritizes Closer Targets | Realistic Assessment")
+print("🐍 Venom Reptile v8.3 Ultimate Stealth Edition Loaded!")
+print("🔥 ENHANCED THERMAL VISION | Red-Orange Hues | Player Highlighting | Eye Comfort Mode")
+print("🌙 OPTIMIZED NIGHT VISION | Green Tint | Reduced Strain | Better Performance")
+print("🎯 PERFECT Threat System | 0-100 Scale | Realistic Assessment")
 print("🧠 Advanced Playstyle Adaptation | Movement-Based Detection")
 print("👁️  Intelligent Adaptive FOV | Performance & Engagement Based")
 print("🔧 Press F to toggle | Right-click to aim")
 print("📡 Radar with 300 stud range and proper forward orientation")
-print("🎯 Fixed threat system to prioritize closer enemies over distant ones")
-print("💥 Enhanced combat awareness with realistic detection")
-print("⚡ Optimized performance with efficient highlighting system")
+print("🎯 Enhanced accuracy with reduced humanizer shake")
+print("💥 Improved combat awareness with realistic detection")
