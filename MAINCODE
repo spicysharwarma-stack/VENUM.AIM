@@ -1,5 +1,5 @@
 --[[
-    🐍 Venom Reptile v8.3 - Ultimate Stealth Edition
+    🐍 Venom Reptile v8.5 - Ultimate Stealth Edition
     Advanced Threat Assessment & Targeting System
     Universal Xeno Executor Version - Fully Optimized
     PERFECT STEALTH/COMBAT DETECTION - REALISTIC BEHAVIOR
@@ -71,7 +71,8 @@ local Settings = {
         ColdColor = Color3.fromRGB(50, 30, 100),      -- Deep purple-blue for cold areas
         AmbientColor = Color3.fromRGB(120, 40, 60),   -- Deep red ambient for eye comfort
         Intensity = 0.8,
-        EyeComfortMode = true                         -- Red light for reduced eye strain
+        EyeComfortMode = true,                        -- Red light for reduced eye strain
+        ShowOnlyVisible = true                        -- Only show visible body parts
     },
     NightVision = {
         Enabled = false,
@@ -136,7 +137,23 @@ local Settings = {
     SoundEffects = false,
     KillConfirmation = true,
     AdvancedVisuals = true,
-    DynamicFOV = true
+    DynamicFOV = true,
+    
+    -- Improved targeting settings
+    WallhackPrevention = {
+        Enabled = true,
+        MaxWallDistance = 50,  -- Maximum distance through walls to target
+        WallPenalty = 0.4,     -- Threat reduction for wall targets
+        PeekAnticipationTime = 0.5, -- Time to anticipate peeking
+    },
+    
+    -- Accuracy improvement settings
+    Accuracy = {
+        RecentHitBonus = 10,   -- Bonus for recently hit targets
+        RecentMissPenalty = 5, -- Penalty for recently missed targets
+        HitHistoryMemory = 3,  -- Seconds to remember hit history
+        SkillBasedWeighting = true, -- Weight threat by player skill
+    }
 }
 
 -- State Management
@@ -190,6 +207,11 @@ local playstyleMetrics = {
 local lastFPSUpdate = 0
 local frameCount = 0
 local currentFPS = 60
+
+-- Threat history tracking
+local threatHistory = {}
+local hitHistory = {}
+local playerSkills = {}
 
 -- Premium Color Scheme
 local PremiumColors = {
@@ -249,7 +271,7 @@ local function InitializeVisionEffects()
     thermalEffect.Contrast = 1.2     -- Reduced contrast for eye comfort
     thermalEffect.TintColor = Settings.ThermalVision.AmbientColor  -- Deep red tint for eye comfort
     thermalEffect.Enabled = false
-    thermalEffect.Parent = Lighting
+    thermalEffect.Parent = game:GetService("Lighting")
 
     -- Night vision effect
     nightVisionEffect.Name = "VenomNightVisionEffect"
@@ -258,7 +280,7 @@ local function InitializeVisionEffects()
     nightVisionEffect.Brightness = Settings.NightVision.Brightness
     nightVisionEffect.TintColor = Settings.NightVision.Color
     nightVisionEffect.Enabled = false
-    nightVisionEffect.Parent = Lighting
+    nightVisionEffect.Parent = game:GetService("Lighting")
 
     -- Bloom effect for night vision
     bloomEffect.Name = "VenomBloomEffect"
@@ -266,7 +288,7 @@ local function InitializeVisionEffects()
     bloomEffect.Size = 24            -- Smaller size for performance
     bloomEffect.Threshold = 0.8      -- Higher threshold to reduce over-bloom
     bloomEffect.Enabled = false
-    bloomEffect.Parent = Lighting
+    bloomEffect.Parent = game:GetService("Lighting")
 end
 
 -- Create thermal highlights for players
@@ -287,6 +309,49 @@ local function CreateThermalHighlights()
     end
 end
 
+-- Check if a specific part is visible
+local function IsPartVisible(part)
+    if not part then return false end
+    
+    local origin = Camera.CFrame.Position
+    local destination = part.Position
+    local direction = (destination - origin).Unit
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+    raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+    raycastParams.IgnoreWater = true
+    
+    local result = workspace:Raycast(origin, direction * Settings.MaxDistance, raycastParams)
+    
+    if result and result.Instance then
+        local hitModel = result.Instance:FindFirstAncestorWhichIsA("Model")
+        return hitModel == part:FindFirstAncestorWhichIsA("Model")
+    end
+    
+    return true
+end
+
+-- Update thermal highlights for visible parts only
+local function UpdateThermalHighlights()
+    if not Settings.ThermalVision.Enabled then return end
+    
+    for player, highlight in pairs(thermalHighlights) do
+        if player and player.Character and highlight then
+            if Settings.ThermalVision.ShowOnlyVisible then
+                -- Check if any major body part is visible
+                local head = player.Character:FindFirstChild("Head")
+                local torso = player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Torso")
+                
+                local isVisible = (head and IsPartVisible(head)) or (torso and IsPartVisible(torso))
+                highlight.Enabled = isVisible
+            else
+                highlight.Enabled = true
+            end
+        end
+    end
+end
+
 -- Toggle thermal vision
 local function ToggleThermalVision(state)
     Settings.ThermalVision.Enabled = state
@@ -301,9 +366,9 @@ local function ToggleThermalVision(state)
         -- Enable thermal highlights with better visibility
         for player, highlight in pairs(thermalHighlights) do
             if player and player.Character and highlight then
-                highlight.Enabled = true
                 highlight.FillColor = Settings.ThermalVision.HotColor
                 highlight.OutlineColor = Color3.fromRGB(255, 70, 40)
+                highlight.Enabled = true
             end
         end
         
@@ -401,19 +466,76 @@ local function CalculatePlayerAccuracy()
 end
 
 -- Track accuracy when targets are hit
-local function TrackAccuracy(hit)
+local function TrackAccuracy(hit, target)
     local currentTime = tick()
     
     playstyleMetrics.accuracyStats.shotsFired = playstyleMetrics.accuracyStats.shotsFired + 1
     
     if hit then
         playstyleMetrics.accuracyStats.shotsHit = playstyleMetrics.accuracyStats.shotsHit + 1
+        
+        -- Record hit in hit history
+        if target then
+            hitHistory[target] = hitHistory[target] or {}
+            table.insert(hitHistory[target], {
+                Time = currentTime,
+                Hit = true
+            })
+        end
+    else
+        -- Record miss in hit history
+        if target then
+            hitHistory[target] = hitHistory[target] or {}
+            table.insert(hitHistory[target], {
+                Time = currentTime,
+                Hit = false
+            })
+        end
     end
     
     if currentTime - playstyleMetrics.accuracyStats.lastAccuracyUpdate > 30 then
         playstyleMetrics.accuracyStats.shotsFired = playstyleMetrics.accuracyStats.shotsFired * 0.5
         playstyleMetrics.accuracyStats.shotsHit = playstyleMetrics.accuracyStats.shotsHit * 0.5
         playstyleMetrics.accuracyStats.lastAccuracyUpdate = currentTime
+    end
+end
+
+-- Calculate hit rate for a specific player
+local function CalculateHitRate(player)
+    if not hitHistory[player] or #hitHistory[player] == 0 then
+        return 0.5
+    end
+    
+    local currentTime = tick()
+    local hits = 0
+    local total = 0
+    
+    for i, record in ipairs(hitHistory[player]) do
+        if currentTime - record.Time <= Settings.Accuracy.HitHistoryMemory then
+            total = total + 1
+            if record.Hit then
+                hits = hits + 1
+            end
+        end
+    end
+    
+    if total == 0 then return 0.5 end
+    return hits / total
+end
+
+-- Clean up old hit history records
+local function CleanHitHistory()
+    local currentTime = tick()
+    for player, records in pairs(hitHistory) do
+        for i = #records, 1, -1 do
+            if currentTime - records[i].Time > Settings.Accuracy.HitHistoryMemory then
+                table.remove(records, i)
+            end
+        end
+        
+        if #records == 0 then
+            hitHistory[player] = nil
+        end
     end
 end
 
@@ -624,41 +746,52 @@ local function GetRandomizedAimPart(character)
 end
 
 -- Enhanced Humanizer with improved aiming logic
-local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart)
+local function ApplyHumanizer(targetPosition, currentTime, targetChar, aimPart, targetPlayer)
     if not Settings.Humanizer.Enabled then return targetPosition end
     
     if currentTime - lastHumanizerUpdate < 0.05 then return targetPosition end
     lastHumanizerUpdate = currentTime
     
+    -- Apply accuracy-based adjustments
+    local hitRate = CalculateHitRate(targetPlayer)
+    local accuracyFactor = 1.0
+    
+    if Settings.Accuracy.SkillBasedWeighting then
+        accuracyFactor = 0.7 + (hitRate * 0.6)  -- More accurate for players we hit more often
+    end
+    
     if Settings.Humanizer.MissChance > 0 and currentTime - lastMissTime > Settings.Humanizer.MissCooldown then
-        if math.random() < Settings.Humanizer.MissChance then
+        -- Adjust miss chance based on hit rate
+        local adjustedMissChance = Settings.Humanizer.MissChance * (1 - hitRate)
+        
+        if math.random() < adjustedMissChance then
             lastMissTime = currentTime
             local missOffset = Vector3.new(
-                (math.random() - 0.5) * 4,  -- Reduced miss offset for better accuracy
-                (math.random() - 0.5) * 4,
-                (math.random() - 0.5) * 2
+                (math.random() - 0.5) * 4 * accuracyFactor,  -- Reduced miss offset for better accuracy
+                (math.random() - 0.5) * 4 * accuracyFactor,
+                (math.random() - 0.5) * 2 * accuracyFactor
             )
-            TrackAccuracy(false)
+            TrackAccuracy(false, targetPlayer)
             return targetPosition + missOffset
         end
     end
     
     if aimPart and aimPart.Name == "Head" then
-        targetPosition = targetPosition - Vector3.new(0, math.random() * 0.3 + 0.1, 0)  -- Reduced head offset
+        targetPosition = targetPosition - Vector3.new(0, math.random() * 0.3 * accuracyFactor + 0.1, 0)  -- Reduced head offset
     elseif aimPart and aimPart.Name == "UpperTorso" then
-        targetPosition = targetPosition + Vector3.new(0, math.random() * 0.2 - 0.1, 0)  -- Reduced torso offset
+        targetPosition = targetPosition + Vector3.new(0, math.random() * 0.2 * accuracyFactor - 0.1, 0)  -- Reduced torso offset
     end
     
-    local sineWave = math.sin(currentTime * 5) * Settings.Humanizer.Intensity * 0.2  -- Reduced sine wave
-    local cosineWave = math.cos(currentTime * 4) * Settings.Humanizer.Intensity * 0.15  -- Reduced cosine wave
+    local sineWave = math.sin(currentTime * 5) * Settings.Humanizer.Intensity * 0.2 * accuracyFactor  -- Reduced sine wave
+    local cosineWave = math.cos(currentTime * 4) * Settings.Humanizer.Intensity * 0.15 * accuracyFactor  -- Reduced cosine wave
     
     local microShake = Vector3.new(
-        (math.random() - 0.5 + sineWave) * Settings.Humanizer.Intensity * 0.3,  -- Reduced microshake
-        (math.random() - 0.5 + cosineWave) * Settings.Humanizer.Intensity * 0.3,
-        (math.random() - 0.5) * Settings.Humanizer.Intensity * 0.15
+        (math.random() - 0.5 + sineWave) * Settings.Humanizer.Intensity * 0.3 * accuracyFactor,  -- Reduced microshake
+        (math.random() - 0.5 + cosineWave) * Settings.Humanizer.Intensity * 0.3 * accuracyFactor,
+        (math.random() - 0.5) * Settings.Humanizer.Intensity * 0.15 * accuracyFactor
     )
     
-    TrackAccuracy(true)
+    TrackAccuracy(true, targetPlayer)
     return targetPosition + microShake
 end
 
@@ -683,6 +816,51 @@ local function IsVisible(character)
     if result and result.Instance then
         local hitModel = result.Instance:FindFirstAncestorWhichIsA("Model")
         return hitModel == character
+    end
+    
+    return true
+end
+
+-- Check if player is about to peek (flanking detection)
+local function IsAboutToPeek(character, distance)
+    if not character then return false end
+    
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    
+    if not rootPart or not humanoid then return false end
+    
+    -- Check if player is moving toward an opening
+    local velocity = rootPart.Velocity
+    local speed = velocity.Magnitude
+    
+    if speed < 5 then return false end  -- Not moving fast enough
+    
+    -- Check if player is moving toward the local player's position
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return false end
+    
+    local directionToLocal = (localRoot.Position - rootPart.Position).Unit
+    local movementDirection = velocity.Unit
+    
+    -- If player is moving toward local player, they might be about to peek
+    if directionToLocal:Dot(movementDirection) > 0.7 then
+        -- Check if there's a wall between them that's thin enough
+        local raycastParams = RaycastParams.new()
+        raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
+        raycastParams.FilterDescendantsInstances = {LocalPlayer.Character, character}
+        raycastParams.IgnoreWater = true
+        
+        local result = workspace:Raycast(rootPart.Position, directionToLocal * distance, raycastParams)
+        
+        if result and result.Instance then
+            -- Check if the wall is thin (short distance to the other side)
+            local wallThicknessCheck = workspace:Raycast(result.Position + directionToLocal * 2, directionToLocal * 10, raycastParams)
+            
+            if not wallThicknessCheck or (wallThicknessCheck.Position - result.Position).Magnitude < Settings.WallhackPrevention.MaxWallDistance then
+                return true
+            end
+        end
     end
     
     return false
@@ -725,7 +903,7 @@ local function CleanCombatEvents()
     end
 end
 
--- Advanced threat evaluation system - FIXED SCORING
+-- Advanced threat evaluation system - REMOVED CAP for dynamic assessment
 local function EvaluateThreatLevel(player)
     local character = player.Character
     if not character then return 0 end
@@ -736,16 +914,16 @@ local function EvaluateThreatLevel(player)
     
     if not rootPart or not humanoid or humanoid.Health <= 0 then return 0 end
     
-    -- Distance factor (closer = more threat) - FIXED: Reduced scaling
+    -- Distance factor (closer = more threat)
     local distance = (rootPart.Position - Camera.CFrame.Position).Magnitude
-    threatScore = threatScore + (1000 / math.max(1, distance))  -- Reduced from 2000
+    threatScore = threatScore + (1000 / math.max(1, distance))
     
-    -- EXTREME priority for very close targets - FIXED: Reduced bonus
+    -- EXTREME priority for very close targets
     if distance < 25 then
         threatScore = threatScore + Settings.CloseRangePriority
     end
     
-    -- Visibility bonus (HIGH priority) - FIXED: Reduced bonus
+    -- Visibility bonus (HIGH priority)
     local isVisible = IsVisible(character)
     if isVisible then
         threatScore = threatScore + Settings.VisibleTargetBonus
@@ -765,27 +943,33 @@ local function EvaluateThreatLevel(player)
             end
         end
     elseif distance > 150 then
-        threatScore = threatScore * 0.6
+        -- Apply wall penalty for distant targets behind walls
+        threatScore = threatScore * Settings.WallhackPrevention.WallPenalty
+        
+        -- Check if player is about to peek (flanking)
+        if IsAboutToPeek(character, distance) then
+            threatScore = threatScore * 1.5  -- Increase threat for flanking players
+        end
     end
     
-    -- High ground advantage/disadvantage - FIXED: Reduced bonus
+    -- High ground advantage/disadvantage
     local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if localRoot then
         local elevationDifference = rootPart.Position.Y - localRoot.Position.Y
         if elevationDifference > 5 then
             threatScore = threatScore + Settings.HighGroundBonus
         elseif elevationDifference < -5 then
-            threatScore = threatScore - 5  -- Reduced penalty
+            threatScore = threatScore - 5
         end
     end
     
-    -- Weapon detection with multiplier - FIXED: Reduced multiplier
+    -- Weapon detection with multiplier
     local tool = character:FindFirstChildOfClass("Tool")
     if tool then
         threatScore = threatScore * Settings.WeaponThreatMultiplier
     end
     
-    -- Recent combat events (damage dealt to you) - FIXED: Reduced threat level
+    -- Recent combat events (damage dealt to you)
     CleanCombatEvents()
     if combatEvents[player] then
         threatScore = threatScore + combatEvents[player].ThreatLevel
@@ -797,12 +981,12 @@ local function EvaluateThreatLevel(player)
         threatScore = threatScore * Settings.MovementThreatFactor
     end
     
-    -- Recent target memory - FIXED: Reduced bonus
+    -- Recent target memory
     local currentTime = tick()
     if recentTargets[player] then
         local timeSinceLastSeen = currentTime - recentTargets[player]
         if timeSinceLastSeen < Settings.RecentTargetMemory then
-            threatScore = threatScore + (20 * (1 - timeSinceLastSeen / Settings.RecentTargetMemory))  -- Reduced from 40
+            threatScore = threatScore + (20 * (1 - timeSinceLastSeen / Settings.RecentTargetMemory))
         end
     end
     
@@ -810,14 +994,37 @@ local function EvaluateThreatLevel(player)
     local healthPercent = humanoid.Health / humanoid.MaxHealth
     threatScore = threatScore * (0.5 + healthPercent * 0.5)
     
+    -- Apply accuracy-based adjustments
+    CleanHitHistory()
+    local hitRate = CalculateHitRate(player)
+    if hitRate > 0.7 then
+        threatScore = threatScore + Settings.Accuracy.RecentHitBonus
+    elseif hitRate < 0.3 then
+        threatScore = threatScore - Settings.Accuracy.RecentMissPenalty
+    end
+    
     -- Apply playstyle adaptation
     threatScore = ApplyPlaystyleAdaptation(threatScore, player, isVisible, distance)
     
-    -- CAP THE THREAT SCORE TO MAX 100
-    return math.clamp(math.max(0, threatScore), 0, 100)
+    -- Store threat history for analysis
+    threatHistory[player] = threatHistory[player] or {}
+    table.insert(threatHistory[player], {
+        Time = currentTime,
+        Threat = threatScore,
+        Distance = distance,
+        Visible = isVisible
+    })
+    
+    -- Keep only recent history
+    if #threatHistory[player] > 10 then
+        table.remove(threatHistory[player], 1)
+    end
+    
+    -- REMOVED CAP for dynamic threat assessment
+    return math.max(0, threatScore)
 end
 
--- Enhanced target selection with smart switching - FIXED TERRAIN ISSUE
+-- Enhanced target selection with smart switching
 local function FindOptimalTarget()
     UpdatePlayerCache()
     
@@ -1328,7 +1535,7 @@ local function CreatePremiumUI()
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, -40, 1, 0)
     title.Position = UDim2.new(0, 15, 0, 0)
-    title.Text = "🐍 VENOM REPTILE v8.3 STEALTH"
+    title.Text = "🐍 VENOM REPTILE v8.5 STEALTH"
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.fromRGB(255, 255, 255)
     title.Font = Enum.Font.GothamBlack
@@ -1687,6 +1894,11 @@ RunService.RenderStepped:Connect(function()
         UpdateRadar()
     end
     
+    -- Update thermal highlights for visible parts only
+    if Settings.ThermalVision.Enabled then
+        UpdateThermalHighlights()
+    end
+    
     if Holding and Settings.Enabled then
         Target = FindOptimalTarget()
         
@@ -1726,7 +1938,7 @@ RunService.RenderStepped:Connect(function()
                 if partOffset then
                     targetPos = targetPos + partOffset
                 end
-                targetPos = ApplyHumanizer(targetPos, tick(), Target.Character, aimPart)
+                targetPos = ApplyHumanizer(targetPos, tick(), Target.Character, aimPart, Target)
                 
                 SmoothAim(targetPos)
                 
@@ -1783,13 +1995,13 @@ Players.PlayerAdded:Connect(function(player)
     end)
 end)
 
-print("🐍 Venom Reptile v8.3 Ultimate Stealth Edition Loaded!")
-print("🔥 ENHANCED THERMAL VISION | Red-Orange Hues | Player Highlighting | Eye Comfort Mode")
-print("🌙 OPTIMIZED NIGHT VISION | Green Tint | Reduced Strain | Better Performance")
-print("🎯 PERFECT Threat System | 0-100 Scale | Realistic Assessment")
+print("🐍 Venom Reptile v8.5 Ultimate Stealth Edition Loaded!")
+print("🔥 FIXED THERMAL VISION | Proper Effect Implementation | Visible Parts Only")
+print("🎯 IMPROVED ACCURACY | Hit History Tracking | Skill-Based Weighting")
+print("🔄 ENHANCED FLANK DETECTION | Peek Anticipation | Wallhack Prevention")
+print("📊 THREAT HISTORY SYSTEM | Dynamic Threat Assessment | No Cap")
 print("🧠 Advanced Playstyle Adaptation | Movement-Based Detection")
 print("👁️  Intelligent Adaptive FOV | Performance & Engagement Based")
 print("🔧 Press F to toggle | Right-click to aim")
 print("📡 Radar with 300 stud range and proper forward orientation")
-print("🎯 Enhanced accuracy with reduced humanizer shake")
 print("💥 Improved combat awareness with realistic detection")
