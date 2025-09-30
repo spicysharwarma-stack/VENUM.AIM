@@ -1,5 +1,5 @@
--- Crown Hub 2026 - Optimized & Aggressive
--- Fixed with Advanced Features
+-- Crown Hub 2026 - Enhanced with Advanced Scripts
+-- Added Collision Back, Improved Orbit, More Scripts
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -10,11 +10,12 @@ local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
--- Premium GUI Setup
+-- Premium GUI Setup (No Reset on Death)
 local CrownHub = Instance.new("ScreenGui")
 CrownHub.Name = "CrownHub2026"
 CrownHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 CrownHub.DisplayOrder = 999
+CrownHub.ResetOnSpawn = false
 CrownHub.Parent = player:WaitForChild("PlayerGui")
 
 -- Main Container with Fixed Glass Morphism
@@ -128,7 +129,7 @@ local Subtitle = Instance.new("TextLabel")
 Subtitle.Size = UDim2.new(1, -80, 0, 20)
 Subtitle.Position = UDim2.new(0, 65, 0, 35)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "Aggressive Dominance Suite"
+Subtitle.Text = "Advanced Script Collection"
 Subtitle.TextColor3 = Color3.fromRGB(200, 200, 255)
 Subtitle.TextSize = 12
 Subtitle.Font = Enum.Font.GothamMedium
@@ -136,10 +137,35 @@ Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.ZIndex = 11
 Subtitle.Parent = Header
 
+-- Control Buttons (Close, Minimize)
+local ControlContainer = Instance.new("Frame")
+ControlContainer.Size = UDim2.new(0, 70, 0, 30)
+ControlContainer.Position = UDim2.new(1, -80, 0, 15)
+ControlContainer.BackgroundTransparency = 1
+ControlContainer.ZIndex = 11
+ControlContainer.Parent = Header
+
+-- Minimize Button
+local MinimizeButton = Instance.new("TextButton")
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Position = UDim2.new(0, 0, 0, 0)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+MinimizeButton.BackgroundTransparency = 0.2
+MinimizeButton.Text = "_"
+MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
+MinimizeButton.TextSize = 16
+MinimizeButton.Font = Enum.Font.GothamBlack
+MinimizeButton.ZIndex = 11
+MinimizeButton.Parent = ControlContainer
+
+local MinimizeCorner = Instance.new("UICorner")
+MinimizeCorner.CornerRadius = UDim.new(0, 6)
+MinimizeCorner.Parent = MinimizeButton
+
 -- Close Button
 local CloseButton = Instance.new("TextButton")
 CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(1, -35, 0, 15)
+CloseButton.Position = UDim2.new(0, 35, 0, 0)
 CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 CloseButton.BackgroundTransparency = 0.2
 CloseButton.Text = "×"
@@ -147,7 +173,7 @@ CloseButton.TextColor3 = Color3.new(1, 1, 1)
 CloseButton.TextSize = 18
 CloseButton.Font = Enum.Font.GothamBlack
 CloseButton.ZIndex = 11
-CloseButton.Parent = Header
+CloseButton.Parent = ControlContainer
 
 local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
@@ -178,14 +204,15 @@ ContentLayout.Parent = ContentFrame
 
 -- Optimized Tabs
 local Tabs = {
-    "Fling System",
-    "Movement", 
+    "Fling",
+    "Admin", 
+    "Movement",
     "Visual",
-    "Combat",
-    "Advanced"
+    "Scripts",
+    "Combat"
 }
 
-local CurrentTab = "Fling System"
+local CurrentTab = "Fling"
 
 -- Create Premium Tabs
 for i, tabName in ipairs(Tabs) do
@@ -233,14 +260,74 @@ function UpdateTabAppearance()
     end
 end
 
--- AGGRESSIVE FLING SYSTEM
-local FlingActive = false
-local LoopFlingActive = false
-local SpinActive = false
-local CollisionActive = false
-local AntiFlingActive = false
+-- WORKING FLY SYSTEM
+local FlyEnabled = false
+local BodyGyro, BodyVelocity
+
+local function ToggleFly()
+    FlyEnabled = not FlyEnabled
+    
+    if FlyEnabled then
+        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = player.Character.HumanoidRootPart
+            
+            BodyGyro = Instance.new("BodyGyro")
+            BodyGyro.P = 1000
+            BodyGyro.D = 50
+            BodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+            BodyGyro.CFrame = root.CFrame
+            BodyGyro.Parent = root
+            
+            BodyVelocity = Instance.new("BodyVelocity")
+            BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+            BodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+            BodyVelocity.Parent = root
+            
+            local flyConnection
+            flyConnection = RunService.Heartbeat:Connect(function()
+                if not FlyEnabled or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+                    flyConnection:Disconnect()
+                    return
+                end
+                
+                local root = player.Character.HumanoidRootPart
+                local camera = workspace.CurrentCamera
+                
+                BodyGyro.CFrame = camera.CFrame
+                
+                local velocity = Vector3.new(0, 0, 0)
+                local speed = 50
+                
+                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                    velocity = velocity + camera.CFrame.LookVector * speed
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                    velocity = velocity - camera.CFrame.LookVector * speed
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                    velocity = velocity - camera.CFrame.RightVector * speed
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                    velocity = velocity + camera.CFrame.RightVector * speed
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                    velocity = velocity + Vector3.new(0, speed, 0)
+                end
+                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                    velocity = velocity - Vector3.new(0, speed, 0)
+                end
+                
+                BodyVelocity.Velocity = velocity
+            end)
+        end
+    else
+        if BodyGyro then BodyGyro:Destroy() end
+        if BodyVelocity then BodyVelocity:Destroy() end
+    end
+end
 
 -- Advanced Collision System
+local CollisionActive = false
 local function EnableCollision()
     CollisionActive = true
     for _, target in ipairs(Players:GetPlayers()) do
@@ -255,168 +342,76 @@ local function EnableCollision()
     end
 end
 
--- Anti-Fling Protection
-local function EnableAntiFling()
-    AntiFlingActive = true
+-- Improved Orbit Fling (Nearest Player)
+local OrbitalActive = false
+local function GetNearestPlayer()
+    local nearestPlayer = nil
+    local shortestDistance = math.huge
+    
     if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local root = player.Character.HumanoidRootPart
-        spawn(function()
-            while AntiFlingActive and player.Character do
-                -- Constantly reset velocity to prevent flinging
-                for _, v in pairs(root:GetChildren()) do
-                    if v:IsA("BodyVelocity") then
-                        v:Destroy()
-                    end
-                end
-                RunService.Heartbeat:Wait()
-            end
-        end)
-    end
-end
-
--- Aggressive Spin System
-local function AggressiveSpin()
-    SpinActive = true
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local root = player.Character.HumanoidRootPart
-    local originalPosition = root.Position
-    
-    spawn(function()
-        while SpinActive and player.Character do
-            -- Fast spin without losing position
-            root.CFrame = root.CFrame * CFrame.Angles(0, math.rad(50), 0)
-            
-            -- Maintain position to prevent flying away
-            root.Velocity = Vector3.new(0, 0, 0)
-            root.RotVelocity = Vector3.new(0, 0, 0)
-            
-            RunService.Heartbeat:Wait()
-        end
-    end)
-end
-
--- Aggressive Fling System
-local function AggressiveFling()
-    FlingActive = true
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local root = player.Character.HumanoidRootPart
-    
-    spawn(function()
-        while FlingActive and player.Character do
-            for _, target in ipairs(Players:GetPlayers()) do
-                if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                    local targetRoot = target.Character.HumanoidRootPart
-                    
-                    -- Aggressive teleport fling
-                    local angle = tick() * 20 -- Faster rotation
-                    local radius = 3 -- Closer for more aggressive fling
-                    local offset = Vector3.new(
-                        math.cos(angle) * radius,
-                        2,
-                        math.sin(angle) * radius
-                    )
-                    
-                    -- Teleport to target
-                    root.CFrame = targetRoot.CFrame + offset
-                    
-                    -- Apply aggressive fling force
-                    local bv = Instance.new("BodyVelocity")
-                    bv.Velocity = Vector3.new(
-                        math.random(-200, 200),  -- More horizontal force
-                        math.random(100, 250),   -- More upward force
-                        math.random(-200, 200)
-                    )
-                    bv.MaxForce = Vector3.new(20000, 20000, 20000)
-                    bv.Parent = targetRoot
-                    game.Debris:AddItem(bv, 0.05) -- Shorter duration for more chaos
-                end
-            end
-            RunService.Heartbeat:Wait()
-        end
-    end)
-end
-
--- Loop Fling System
-local function LoopFling()
-    LoopFlingActive = true
-    if not player.Character then return end
-    
-    local root = player.Character.HumanoidRootPart
-    
-    spawn(function()
-        while LoopFlingActive and player.Character do
-            -- Aggressive self-fling motion
-            local bv = Instance.new("BodyVelocity")
-            bv.Velocity = Vector3.new(
-                math.sin(tick() * 15) * 150,  -- Faster, stronger
-                math.cos(tick() * 8) * 80 + 40,
-                math.cos(tick() * 15) * 150
-            )
-            bv.MaxForce = Vector3.new(50000, 50000, 50000)
-            bv.Parent = root
-            game.Debris:AddItem(bv, 0.1)
-            RunService.Heartbeat:Wait()
-        end
-    end)
-end
-
--- Advanced Fly System with Ctrl+F
-local FlyEnabled = false
-local function ToggleFly()
-    FlyEnabled = not FlyEnabled
-    
-    if FlyEnabled then
-        -- Enable fly mode
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.MaxForce = Vector3.new(0, 0, 0)
+        local playerRoot = player.Character.HumanoidRootPart
         
-        local connection
-        connection = RunService.Heartbeat:Connect(function()
-            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then 
-                connection:Disconnect()
-                return 
+        for _, target in ipairs(Players:GetPlayers()) do
+            if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local targetRoot = target.Character.HumanoidRootPart
+                local distance = (playerRoot.Position - targetRoot.Position).Magnitude
+                
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    nearestPlayer = target
+                end
             end
-            
-            local root = player.Character.HumanoidRootPart
-            
-            -- Ctrl+F fly controls
-            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) and UserInputService:IsKeyDown(Enum.KeyCode.F) then
-                bodyVelocity.Velocity = Vector3.new(0, 50, 0) -- Fly up
-                bodyVelocity.MaxForce = Vector3.new(0, 100000, 0)
-            elseif UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and UserInputService:IsKeyDown(Enum.KeyCode.F) then
-                bodyVelocity.Velocity = Vector3.new(0, -50, 0) -- Fly down
-                bodyVelocity.MaxForce = Vector3.new(0, 100000, 0)
-            else
-                bodyVelocity.MaxForce = Vector3.new(0, 0, 0) -- Stop flying
-            end
-        end)
+        end
     end
+    
+    return nearestPlayer
 end
 
--- OPTIMIZED FUNCTIONAL FEATURES
+local function OrbitalFling()
+    OrbitalActive = true
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local root = player.Character.HumanoidRootPart
+    
+    spawn(function()
+        while OrbitalActive and player.Character do
+            local nearestTarget = GetNearestPlayer()
+            
+            if nearestTarget and nearestTarget.Character and nearestTarget.Character:FindFirstChild("HumanoidRootPart") then
+                local targetRoot = nearestTarget.Character.HumanoidRootPart
+                
+                -- Orbit around nearest player
+                local angle = tick() * 10
+                local radius = 8
+                local orbitPosition = targetRoot.Position + Vector3.new(
+                    math.cos(angle) * radius,
+                    3,
+                    math.sin(angle) * radius
+                )
+                
+                root.CFrame = CFrame.new(orbitPosition)
+                
+                -- Apply fling force to the target
+                local flingBV = Instance.new("BodyVelocity")
+                local flingDirection = (targetRoot.Position - root.Position).Unit
+                flingBV.Velocity = flingDirection * 100 + Vector3.new(0, 80, 0)
+                flingBV.MaxForce = Vector3.new(50000, 50000, 50000)
+                flingBV.Parent = targetRoot
+                game.Debris:AddItem(flingBV, 0.2)
+            end
+            
+            RunService.Heartbeat:Wait()
+        end
+    end)
+end
+
+-- OPTIMIZED FUNCTIONAL FEATURES WITH ADVANCED SCRIPTS
 local CrownFunctions = {
-    ["Fling System"] = {
-        {"💀 Aggressive Player Fling", function()
-            FlingActive = not FlingActive
-            if FlingActive then
-                AggressiveFling()
-            end
-        end},
-        
-        {"🌪️ Loop Self Fling", function()
-            LoopFlingActive = not LoopFlingActive
-            if LoopFlingActive then
-                LoopFling()
-            end
-        end},
-        
-        {"🌀 Aggressive Spin", function()
-            SpinActive = not SpinActive
-            if SpinActive then
-                AggressiveSpin()
+    ["Fling"] = {
+        {"🌀 Orbit Nearest Player", function()
+            OrbitalActive = not OrbitalActive
+            if OrbitalActive then
+                OrbitalFling()
             end
         end},
         
@@ -424,37 +419,37 @@ local CrownFunctions = {
             EnableCollision()
         end},
         
-        {"🛡️ Anti-Fling Protection", function()
-            AntiFlingActive = not AntiFlingActive
-            if AntiFlingActive then
-                EnableAntiFling()
-            end
+        {"🛑 Stop All Fling", function()
+            OrbitalActive = false
+        end}
+    },
+    
+    ["Admin"] = {
+        {"🛡️ Nameless Admin", function()
+            loadstring(game:HttpGet('https://raw.githubusercontent.com/FilteringEnabled/NamelessAdmin/main/Source'))()
         end},
         
-        {"🛑 Stop All Fling", function()
-            FlingActive = false
-            LoopFlingActive = false
-            SpinActive = false
-            AntiFlingActive = false
-            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local root = player.Character.HumanoidRootPart
-                for _, v in ipairs(root:GetChildren()) do
-                    if v:IsA("BodyVelocity") then
-                        v:Destroy()
-                    end
-                end
-            end
+        {"⚡ Infinite Yield", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+        end},
+        
+        {"🔧 Dex Explorer", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/infyiff/backup/main/dex.lua"))()
+        end},
+        
+        {"🎮 Cmd X", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/CMD-X/CMD-X/master/Source", true))()
         end}
     },
     
     Movement = {
-        {"🚀 Fly (Ctrl+F/Shift+F)", function()
+        {"🚀 Working Fly (WASD+Space+Ctrl)", function()
             ToggleFly()
         end},
         
-        {"⚡ Speed Boost (150)", function()
+        {"⚡ Speed Boost (120)", function()
             if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.WalkSpeed = 150
+                player.Character.Humanoid.WalkSpeed = 120
             end
         end},
         
@@ -485,6 +480,7 @@ local CrownFunctions = {
             if player.Character and player.Character:FindFirstChild("Humanoid") then
                 player.Character.Humanoid.WalkSpeed = 16
             end
+            ToggleFly()
         end}
     },
     
@@ -533,46 +529,39 @@ local CrownFunctions = {
         end}
     },
     
+    Scripts = {
+        {"🌀 Gravity Trip", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))()
+        end},
+        
+        {"📊 Quiz Bot", function()
+            local CustomCategoryManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))()
+        end},
+        
+        {"🎨 Simple Spy", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/78n/SimpleSpy/main/SimpleSpySource.lua"))()
+        end},
+        
+        {"🔍 Remote Spy", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/exxtremestuffs/SimpleSpySource/master/SimpleSpy.lua"))()
+        end},
+        
+        {"⚡ FPS Booster", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))()
+        end}
+    },
+    
     Combat = {
         {"🎯 Venum Aim", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/MAINCODE"))()
         end},
         
-        {"🔫 Infinite Yield", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        end}
-    },
-    
-    Advanced = {
-        {"🛡️ Anti-AFK", function()
-            local VirtualUser = game:GetService("VirtualUser")
-            player.Idled:Connect(function()
-                VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                wait(1)
-                VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-            end)
+        {"🔫 AimBot V3", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Exunys/Aimbot-V3/main/Aimbot%20V3.lua"))()
         end},
         
-        {"🔧 FPS Unlocker", function()
-            setfpscap(999)
-        end},
-        
-        {"🎮 Ctrl+Click TP", function()
-            local connection
-            connection = UserInputService.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 and 
-                   UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                        player.Character.HumanoidRootPart.CFrame = CFrame.new(mouse.Hit.X, mouse.Hit.Y + 3, mouse.Hit.Z)
-                    end
-                end
-            end)
-        end},
-        
-        {"🔄 Reset Character", function()
-            if player.Character then
-                player.Character:BreakJoints()
-            end
+        {"💥 Silent Aim", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/ionlyusegithubformcmods/1L1L1L1L1L1L/master/Unnamed%20ESP.lua"))()
         end}
     }
 }
@@ -624,7 +613,6 @@ function CreatePremiumButton(text, callback)
     end)
     
     button.MouseButton1Click:Connect(function()
-        -- Click animation
         TweenService:Create(button, TweenInfo.new(0.1), {
             BackgroundColor3 = Color3.fromRGB(255, 215, 0)
         }):Play()
@@ -636,6 +624,23 @@ function CreatePremiumButton(text, callback)
         pcall(callback)
     end)
 end
+
+-- Minimize Functionality
+local Minimized = false
+MinimizeButton.MouseButton1Click:Connect(function()
+    Minimized = not Minimized
+    if Minimized then
+        TweenService:Create(MainContainer, TweenInfo.new(0.3), {
+            Size = UDim2.new(0, 500, 0, 60)
+        }):Play()
+        MinimizeButton.Text = "+"
+    else
+        TweenService:Create(MainContainer, TweenInfo.new(0.3), {
+            Size = UDim2.new(0, 500, 0, 600)
+        }):Play()
+        MinimizeButton.Text = "_"
+    end
+end)
 
 -- Drag System
 local dragging = false
@@ -685,7 +690,8 @@ TweenService:Create(MainContainer, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enu
 UpdateContent()
 UpdateTabAppearance()
 
-print("👑 Crown Hub 2026 - Aggressive & Optimized!")
-print("💀 Aggressive Fling System Ready")
-print("🎯 Venum Aim Loaded")
-print("⚡ 150 Speed & Advanced Features")
+print("👑 Crown Hub 2026 - Enhanced Script Collection!")
+print("🌀 Improved Orbit Fling - Targets Nearest Player")
+print("🔒 Collision System Restored")
+print("🛡️ Advanced Admin & Scripts Added")
+print("🎯 Multiple Combat & Utility Scripts")
