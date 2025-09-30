@@ -1,5 +1,5 @@
--- Crown Hub 2026 - Fixed Gradients & QuizBot Added
--- Enhanced Version
+-- Crown Hub 2026 - Mobile Compatible + New Scripts
+-- Enhanced for PC & Mobile
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -18,15 +18,48 @@ CrownHub.DisplayOrder = 999
 CrownHub.ResetOnSpawn = false
 CrownHub.Parent = player:WaitForChild("PlayerGui")
 
--- Main Container
+-- Mobile detection
+local IS_MOBILE = UserInputService.TouchEnabled
+
+-- Responsive sizing
+local SCREEN_WIDTH = workspace.CurrentCamera.ViewportSize.X
+local UI_SCALE = IS_MOBILE and math.min(SCREEN_WIDTH / 1200, 0.8) or 1
+local UI_WIDTH = IS_MOBILE and 380 or 450
+local UI_HEIGHT = IS_MOBILE and 480 or 520
+
+-- Main Container with responsive positioning
 local MainContainer = Instance.new("Frame")
-MainContainer.Size = UDim2.new(0, 450, 0, 520)
-MainContainer.Position = UDim2.new(0.5, -225, 0.5, -260)
+MainContainer.Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
+MainContainer.Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2)
 MainContainer.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
 MainContainer.BackgroundTransparency = 0.05
 MainContainer.BorderSizePixel = 0
 MainContainer.ClipsDescendants = true
 MainContainer.Parent = CrownHub
+
+-- Make UI draggable on mobile
+if IS_MOBILE then
+    local function onTouch(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            local touchPos = input.Position
+            MainContainer.Position = UDim2.new(0, touchPos.X - (MainContainer.Size.X.Offset / 2), 0, touchPos.Y - (MainContainer.Size.Y.Offset / 2))
+        end
+    end
+    
+    -- Make header draggable
+    MainContainer.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            local dragConnection
+            dragConnection = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragConnection:Disconnect()
+                else
+                    onTouch(input)
+                end
+            end)
+        end
+    end)
+end
 
 -- FIXED: Proper Gradient Background
 local GradientBackground = Instance.new("Frame")
@@ -131,9 +164,9 @@ local BorderCorner = Instance.new("UICorner")
 BorderCorner.CornerRadius = UDim.new(0, 16)
 BorderCorner.Parent = GoldBorder
 
--- Header
+-- Header (responsive height)
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 70)
+Header.Size = UDim2.new(1, 0, 0, IS_MOBILE and 60 or 70)
 Header.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
 Header.BackgroundTransparency = 0.1
 Header.BorderSizePixel = 0
@@ -149,10 +182,10 @@ HeaderGradient.Color = ColorSequence.new({
 HeaderGradient.Rotation = 90
 HeaderGradient.Parent = Header
 
--- Crown Icon
+-- Crown Icon (responsive size)
 local CrownIcon = Instance.new("ImageLabel")
-CrownIcon.Size = UDim2.new(0, 40, 0, 40)
-CrownIcon.Position = UDim2.new(0, 15, 0, 15)
+CrownIcon.Size = UDim2.new(0, IS_MOBILE and 35 or 40, 0, IS_MOBILE and 35 or 40)
+CrownIcon.Position = UDim2.new(0, 10, 0, IS_MOBILE and 12 or 15)
 CrownIcon.BackgroundTransparency = 1
 CrownIcon.Image = "rbxassetid://6031075938"
 CrownIcon.ImageColor3 = Color3.fromRGB(255, 215, 0)
@@ -175,14 +208,14 @@ spawn(function()
     end
 end)
 
--- Title
+-- Title (responsive font sizes)
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -80, 0, 35)
-Title.Position = UDim2.new(0, 65, 0, 8)
+Title.Size = UDim2.new(1, -70, 0, IS_MOBILE and 25 or 35)
+Title.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 5 or 8)
 Title.BackgroundTransparency = 1
 Title.Text = "CROWN HUB"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 24
+Title.TextSize = IS_MOBILE and 18 or 24
 Title.Font = Enum.Font.GothamBlack
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.TextStrokeColor3 = Color3.fromRGB(255, 215, 0)
@@ -191,33 +224,33 @@ Title.ZIndex = 11
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(1, -80, 0, 20)
-Subtitle.Position = UDim2.new(0, 65, 0, 40)
+Subtitle.Size = UDim2.new(1, -70, 0, 18)
+Subtitle.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 30 or 40)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "Enhanced with Aurora"
+Subtitle.Text = IS_MOBILE and "Mobile Edition" or "Enhanced with Aurora"
 Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
-Subtitle.TextSize = 11
+Subtitle.TextSize = IS_MOBILE and 9 or 11
 Subtitle.Font = Enum.Font.GothamMedium
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.ZIndex = 11
 Subtitle.Parent = Header
 
--- Control Buttons
+-- Control Buttons (responsive size)
 local ControlContainer = Instance.new("Frame")
-ControlContainer.Size = UDim2.new(0, 70, 0, 30)
-ControlContainer.Position = UDim2.new(1, -75, 0, 20)
+ControlContainer.Size = UDim2.new(0, IS_MOBILE and 55 or 70, 0, IS_MOBILE and 25 or 30)
+ControlContainer.Position = UDim2.new(1, IS_MOBILE and -60 or -75, 0, IS_MOBILE and 17 or 20)
 ControlContainer.BackgroundTransparency = 1
 ControlContainer.ZIndex = 11
 ControlContainer.Parent = Header
 
 local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
+MinimizeButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
 MinimizeButton.Position = UDim2.new(0, 0, 0, 0)
 MinimizeButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
 MinimizeButton.BackgroundTransparency = 0.2
 MinimizeButton.Text = "_"
 MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
-MinimizeButton.TextSize = 16
+MinimizeButton.TextSize = IS_MOBILE and 14 or 16
 MinimizeButton.Font = Enum.Font.GothamBlack
 MinimizeButton.ZIndex = 11
 MinimizeButton.Parent = ControlContainer
@@ -227,13 +260,13 @@ MinimizeCorner.CornerRadius = UDim.new(0, 6)
 MinimizeCorner.Parent = MinimizeButton
 
 local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 30, 0, 30)
-CloseButton.Position = UDim2.new(0, 35, 0, 0)
+CloseButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
+CloseButton.Position = UDim2.new(0, IS_MOBILE and 28 or 35, 0, 0)
 CloseButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
 CloseButton.BackgroundTransparency = 0.2
 CloseButton.Text = "×"
 CloseButton.TextColor3 = Color3.new(1, 1, 1)
-CloseButton.TextSize = 18
+CloseButton.TextSize = IS_MOBILE and 16 or 18
 CloseButton.Font = Enum.Font.GothamBlack
 CloseButton.ZIndex = 11
 CloseButton.Parent = ControlContainer
@@ -242,27 +275,27 @@ local CloseCorner = Instance.new("UICorner")
 CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseButton
 
--- Navigation Tabs
+-- Navigation Tabs (responsive height)
 local TabContainer = Instance.new("Frame")
-TabContainer.Size = UDim2.new(1, -20, 0, 32)
-TabContainer.Position = UDim2.new(0, 10, 0, 80)
+TabContainer.Size = UDim2.new(1, -20, 0, IS_MOBILE and 28 or 32)
+TabContainer.Position = UDim2.new(0, 10, 0, IS_MOBILE and 70 or 80)
 TabContainer.BackgroundTransparency = 1
 TabContainer.ZIndex = 10
 TabContainer.Parent = MainContainer
 
--- Content Area
+-- Content Area (responsive positioning)
 local ContentFrame = Instance.new("ScrollingFrame")
-ContentFrame.Size = UDim2.new(1, -20, 1, -122)
-ContentFrame.Position = UDim2.new(0, 10, 0, 122)
+ContentFrame.Size = UDim2.new(1, -20, 1, IS_MOBILE and -98 or -122)
+ContentFrame.Position = UDim2.new(0, 10, 0, IS_MOBILE and 108 or 122)
 ContentFrame.BackgroundTransparency = 1
-ContentFrame.ScrollBarThickness = 4
+ContentFrame.ScrollBarThickness = IS_MOBILE and 3 or 4
 ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(212, 175, 55)
 ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 ContentFrame.ZIndex = 10
 ContentFrame.Parent = MainContainer
 
 local ContentLayout = Instance.new("UIListLayout")
-ContentLayout.Padding = UDim.new(0, 10)
+ContentLayout.Padding = UDim.new(0, IS_MOBILE and 8 or 10)
 ContentLayout.Parent = ContentFrame
 
 -- Tabs
@@ -277,7 +310,7 @@ local Tabs = {
 
 local CurrentTab = "Fling"
 
--- Create Tabs
+-- Create Tabs (responsive font size)
 for i, tabName in ipairs(Tabs) do
     local TabButton = Instance.new("TextButton")
     TabButton.Size = UDim2.new(1/#Tabs, -4, 1, 0)
@@ -287,7 +320,7 @@ for i, tabName in ipairs(Tabs) do
     TabButton.Text = tabName
     TabButton.TextColor3 = Color3.fromRGB(200, 190, 220)
     TabButton.Font = Enum.Font.GothamMedium
-    TabButton.TextSize = 11
+    TabButton.TextSize = IS_MOBILE and 10 or 11
     TabButton.AutoButtonColor = false
     TabButton.ZIndex = 11
     TabButton.Parent = TabContainer
@@ -482,7 +515,7 @@ local function OrbitalFling()
     end)
 end
 
--- ORIGINAL FEATURE NAMES + QUIZBOT ADDED
+-- ORIGINAL FEATURE NAMES + NEW SCRIPTS ADDED
 local CrownFunctions = {
     ["Fling"] = {
         {"🌀 Orbit Nearest", function()
@@ -512,6 +545,10 @@ local CrownFunctions = {
         
         {"🤖 QuizBot", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))()
+        end},
+        
+        {"🔤 Chat Bypasser", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/AnnaRoblox/AnnaBypasser/refs/heads/main/AnnaBypasser.lua",true))()
         end}
     },
     
@@ -619,6 +656,10 @@ local CrownFunctions = {
         
         {"🌀 Gravity Trip", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))()
+        end},
+        
+        {"🐹 FE Hamster Ball", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/KaterHub-Inc/scripts/refs/heads/main/unofficial-Projects/FEHamsterBall.lua"))()
         end}
     }
 }
@@ -639,13 +680,13 @@ end
 
 function CreateButton(text, callback)
     local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, 0, 0, 42)
+    button.Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
     button.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
     button.BackgroundTransparency = 0.2
     button.Text = text
     button.TextColor3 = Color3.fromRGB(240, 230, 255)
     button.Font = Enum.Font.GothamMedium
-    button.TextSize = 13
+    button.TextSize = IS_MOBILE and 12 or 13
     button.AutoButtonColor = false
     button.ZIndex = 11
     button.Parent = ContentFrame
@@ -654,34 +695,37 @@ function CreateButton(text, callback)
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = button
     
-    -- Button Hover
-    button.MouseEnter:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.3), {
-            BackgroundTransparency = 0.1,
-            BackgroundColor3 = Color3.fromRGB(45, 40, 55),
-            Size = UDim2.new(1, 5, 0, 45)
-        }):Play()
-    end)
-    
-    button.MouseLeave:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.3), {
-            BackgroundTransparency = 0.2,
-            BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-            Size = UDim2.new(1, 0, 0, 42)
-        }):Play()
-    end)
+    -- Button Hover (only on PC)
+    if not IS_MOBILE then
+        button.MouseEnter:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.3), {
+                BackgroundTransparency = 0.1,
+                BackgroundColor3 = Color3.fromRGB(45, 40, 55),
+                Size = UDim2.new(1, 5, 0, 45)
+            }):Play()
+        end)
+        
+        button.MouseLeave:Connect(function()
+            TweenService:Create(button, TweenInfo.new(0.3), {
+                BackgroundTransparency = 0.2,
+                BackgroundColor3 = Color3.fromRGB(35, 30, 45),
+                Size = UDim2.new(1, 0, 0, 42)
+            }):Play()
+        end)
+    end
     
     button.MouseButton1Click:Connect(function()
+        -- Click animation
         TweenService:Create(button, TweenInfo.new(0.1), {
             BackgroundColor3 = Color3.fromRGB(212, 175, 55),
             TextColor3 = Color3.fromRGB(20, 15, 25),
-            Size = UDim2.new(1, -5, 0, 38)
+            Size = UDim2.new(1, IS_MOBILE and -3 or -5, 0, IS_MOBILE and 35 or 38)
         }):Play()
         wait(0.1)
         TweenService:Create(button, TweenInfo.new(0.3), {
             BackgroundColor3 = Color3.fromRGB(35, 30, 45),
             TextColor3 = Color3.fromRGB(240, 230, 255),
-            Size = UDim2.new(1, 0, 0, 42)
+            Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
         }):Play()
         
         pcall(callback)
@@ -694,70 +738,74 @@ MinimizeButton.MouseButton1Click:Connect(function()
     Minimized = not Minimized
     if Minimized then
         TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-            Size = UDim2.new(0, 450, 0, 70)
+            Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, IS_MOBILE and 60 or 70)
         }):Play()
         MinimizeButton.Text = "+"
     else
         TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-            Size = UDim2.new(0, 450, 0, 520)
+            Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
         }):Play()
         MinimizeButton.Text = "_"
     end
 end)
 
--- Control Button Hover
-MinimizeButton.MouseEnter:Connect(function()
-    TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
-        BackgroundTransparency = 0,
-        Size = UDim2.new(0, 32, 0, 32)
-    }):Play()
-end)
+-- Control Button Hover (only on PC)
+if not IS_MOBILE then
+    MinimizeButton.MouseEnter:Connect(function()
+        TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0,
+            Size = UDim2.new(0, 32, 0, 32)
+        }):Play()
+    end)
+    
+    MinimizeButton.MouseLeave:Connect(function()
+        TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.2,
+            Size = UDim2.new(0, 30, 0, 30)
+        }):Play()
+    end)
+    
+    CloseButton.MouseEnter:Connect(function()
+        TweenService:Create(CloseButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0,
+            Size = UDim2.new(0, 32, 0, 32)
+        }):Play()
+    end)
+    
+    CloseButton.MouseLeave:Connect(function()
+        TweenService:Create(CloseButton, TweenInfo.new(0.2), {
+            BackgroundTransparency = 0.2,
+            Size = UDim2.new(0, 30, 0, 30)
+        }):Play()
+    end)
+end
 
-MinimizeButton.MouseLeave:Connect(function()
-    TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
-        BackgroundTransparency = 0.2,
-        Size = UDim2.new(0, 30, 0, 30)
-    }):Play()
-end)
+-- Drag System (PC only - mobile has touch drag)
+if not IS_MOBILE then
+    local dragging = false
+    local dragStart, startPos
 
-CloseButton.MouseEnter:Connect(function()
-    TweenService:Create(CloseButton, TweenInfo.new(0.2), {
-        BackgroundTransparency = 0,
-        Size = UDim2.new(0, 32, 0, 32)
-    }):Play()
-end)
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainContainer.Position
+        end
+    end)
 
-CloseButton.MouseLeave:Connect(function()
-    TweenService:Create(CloseButton, TweenInfo.new(0.2), {
-        BackgroundTransparency = 0.2,
-        Size = UDim2.new(0, 30, 0, 30)
-    }):Play()
-end)
+    Header.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
 
--- Drag System
-local dragging = false
-local dragStart, startPos
-
-Header.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainContainer.Position
-    end
-end)
-
-Header.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
-end)
-
-Header.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-        local delta = input.Position - dragStart
-        MainContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
+    Header.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+            local delta = input.Position - dragStart
+            MainContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
 
 -- Close
 CloseButton.MouseButton1Click:Connect(function()
@@ -778,8 +826,8 @@ MainContainer.BackgroundTransparency = 1
 wait(0.1)
 
 TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 450, 0, 520),
-    Position = UDim2.new(0.5, -225, 0.5, -260),
+    Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE),
+    Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2),
     BackgroundTransparency = 0.05
 }):Play()
 
@@ -787,7 +835,8 @@ TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enu
 UpdateContent()
 UpdateTabAppearance()
 
-print("👑 Crown Hub - Fixed & QuizBot Added")
-print("🌈 Fixed gradient animations - now smooth and visible")
-print("🤖 QuizBot added to Admin tab")
-print("🎨 Better visual effects throughout")
+print("👑 Crown Hub - Mobile Compatible + New Scripts")
+print("📱 Mobile support added - fully responsive")
+print("🔤 Chat Bypasser added to Admin tab")
+print("🐹 FE Hamster Ball added to Hubs tab")
+print("🎨 Perfect on both PC and Mobile devices")
