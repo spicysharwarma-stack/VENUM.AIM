@@ -1,5 +1,5 @@
--- Crown Hub 2026 - Enhanced with Slicer Hub & Aurora Animations
--- Polished with Beautiful Animations
+-- Crown Hub 2026 - Fixed Gradients & QuizBot Added
+-- Enhanced Version
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -10,52 +10,106 @@ local Lighting = game:GetService("Lighting")
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
--- Enhanced GUI Setup
+-- GUI Setup
 local CrownHub = Instance.new("ScreenGui")
-CrownHub.Name = "CrownHub2026"
+CrownHub.Name = "CrownHubRoyal"
 CrownHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 CrownHub.DisplayOrder = 999
 CrownHub.ResetOnSpawn = false
 CrownHub.Parent = player:WaitForChild("PlayerGui")
 
--- Main Container with Aurora Effects
+-- Main Container
 local MainContainer = Instance.new("Frame")
-MainContainer.Size = UDim2.new(0, 450, 0, 500)
-MainContainer.Position = UDim2.new(0.5, -225, 0.5, -250)
-MainContainer.BackgroundColor3 = Color3.fromRGB(10, 10, 15)
-MainContainer.BackgroundTransparency = 0.1
+MainContainer.Size = UDim2.new(0, 450, 0, 520)
+MainContainer.Position = UDim2.new(0.5, -225, 0.5, -260)
+MainContainer.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
+MainContainer.BackgroundTransparency = 0.05
 MainContainer.BorderSizePixel = 0
 MainContainer.ClipsDescendants = true
 MainContainer.Parent = CrownHub
 
--- Aurora Gradient Background
-local AuroraCanvas = Instance.new("Frame")
-AuroraCanvas.Size = UDim2.new(2, 0, 2, 0)
-AuroraCanvas.Position = UDim2.new(-0.5, 0, -0.5, 0)
-AuroraCanvas.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-AuroraCanvas.BorderSizePixel = 0
-AuroraCanvas.ZIndex = 0
-AuroraCanvas.Parent = MainContainer
+-- FIXED: Proper Gradient Background
+local GradientBackground = Instance.new("Frame")
+GradientBackground.Size = UDim2.new(1, 0, 1, 0)
+GradientBackground.Position = UDim2.new(0, 0, 0, 0)
+GradientBackground.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
+GradientBackground.BorderSizePixel = 0
+GradientBackground.ZIndex = 0
+GradientBackground.Parent = MainContainer
 
-local AuroraGradient = Instance.new("UIGradient")
-AuroraGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 0, 200)),
-    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(200, 50, 0)),
-    ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 100, 200)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 150, 0))
+local MainGradient = Instance.new("UIGradient")
+MainGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 25, 50)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(60, 35, 80)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 20, 40))
 })
-AuroraGradient.Rotation = 0
-AuroraGradient.Parent = AuroraCanvas
+MainGradient.Rotation = 45
+MainGradient.Parent = GradientBackground
 
--- Animated Aurora Flow
+-- FIXED: Better Moving Overlay
+local MovingOverlay = Instance.new("Frame")
+MovingOverlay.Size = UDim2.new(2, 0, 2, 0)
+MovingOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+MovingOverlay.BackgroundTransparency = 0.9
+MovingOverlay.BorderSizePixel = 0
+MovingOverlay.ZIndex = 1
+MovingOverlay.Parent = MainContainer
+
+local OverlayGradient = Instance.new("UIGradient")
+OverlayGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 80, 160)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 120, 200)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 100, 120))
+})
+OverlayGradient.Transparency = NumberSequence.new({
+    NumberSequenceKeypoint.new(0, 0.8),
+    NumberSequenceKeypoint.new(0.5, 0.6),
+    NumberSequenceKeypoint.new(1, 0.8)
+})
+OverlayGradient.Parent = MovingOverlay
+
+-- FIXED: Smooth Gradient Animation
 spawn(function()
-    local x, y = -0.5, -0.5
+    local time = 0
     while CrownHub.Parent do
-        x = (x + 0.001) % 1
-        y = (y + 0.0005) % 1
-        AuroraCanvas.Position = UDim2.new(x, 0, y, 0)
-        AuroraGradient.Rotation = (AuroraGradient.Rotation + 0.1) % 360
+        time = time + 0.02
+        
+        -- Move overlay smoothly across the screen
+        local x = math.sin(time * 0.5) * 0.3
+        local y = math.cos(time * 0.3) * 0.3
+        MovingOverlay.Position = UDim2.new(x, 0, y, 0)
+        
+        -- Rotate gradients for flowing effect
+        MainGradient.Rotation = (MainGradient.Rotation + 0.2) % 360
+        OverlayGradient.Rotation = (OverlayGradient.Rotation - 0.3) % 360
+        
         RunService.Heartbeat:Wait()
+    end
+end)
+
+-- Gold Border
+local GoldBorder = Instance.new("Frame")
+GoldBorder.Size = UDim2.new(1, 6, 1, 6)
+GoldBorder.Position = UDim2.new(0, -3, 0, -3)
+GoldBorder.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+GoldBorder.BackgroundTransparency = 0.3
+GoldBorder.BorderSizePixel = 0
+GoldBorder.ZIndex = -1
+GoldBorder.Parent = MainContainer
+
+-- Border Animation
+spawn(function()
+    while CrownHub.Parent do
+        TweenService:Create(GoldBorder, TweenInfo.new(2), {
+            BackgroundTransparency = 0.1,
+            BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        }):Play()
+        wait(2)
+        TweenService:Create(GoldBorder, TweenInfo.new(2), {
+            BackgroundTransparency = 0.3,
+            BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        }):Play()
+        wait(2)
     end
 end)
 
@@ -63,99 +117,72 @@ end)
 local GlassLayer = Instance.new("Frame")
 GlassLayer.Size = UDim2.new(1, 0, 1, 0)
 GlassLayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-GlassLayer.BackgroundTransparency = 0.96
+GlassLayer.BackgroundTransparency = 0.95
 GlassLayer.BorderSizePixel = 0
 GlassLayer.ZIndex = 2
 GlassLayer.Parent = MainContainer
 
--- Animated Border
-local AnimatedBorder = Instance.new("Frame")
-AnimatedBorder.Size = UDim2.new(1, 6, 1, 6)
-AnimatedBorder.Position = UDim2.new(0, -3, 0, -3)
-AnimatedBorder.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-AnimatedBorder.BackgroundTransparency = 0.7
-AnimatedBorder.BorderSizePixel = 0
-AnimatedBorder.ZIndex = -1
-AnimatedBorder.Parent = MainContainer
-
--- Border Animation
-spawn(function()
-    while CrownHub.Parent do
-        TweenService:Create(AnimatedBorder, TweenInfo.new(1.5), {
-            BackgroundTransparency = 0.5,
-            BackgroundColor3 = Color3.fromRGB(255, 100, 200)
-        }):Play()
-        wait(1.5)
-        TweenService:Create(AnimatedBorder, TweenInfo.new(1.5), {
-            BackgroundTransparency = 0.7,
-            BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-        }):Play()
-        wait(1.5)
-    end
-end)
-
 -- Corner Radius
 local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 14)
+Corner.CornerRadius = UDim.new(0, 12)
 Corner.Parent = MainContainer
 
 local BorderCorner = Instance.new("UICorner")
 BorderCorner.CornerRadius = UDim.new(0, 16)
-BorderCorner.Parent = AnimatedBorder
+BorderCorner.Parent = GoldBorder
 
--- Enhanced Header
+-- Header
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 55)
-Header.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
-Header.BackgroundTransparency = 0.2
+Header.Size = UDim2.new(1, 0, 0, 70)
+Header.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
+Header.BackgroundTransparency = 0.1
 Header.BorderSizePixel = 0
 Header.ZIndex = 10
 Header.Parent = MainContainer
 
+-- FIXED: Better Header Gradient
 local HeaderGradient = Instance.new("UIGradient")
 HeaderGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 20, 60)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 40, 80))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 30, 70)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 20, 50))
 })
 HeaderGradient.Rotation = 90
 HeaderGradient.Parent = Header
 
--- Animated Crown Icon
-local CrownIcon = Instance.new("TextLabel")
+-- Crown Icon
+local CrownIcon = Instance.new("ImageLabel")
 CrownIcon.Size = UDim2.new(0, 40, 0, 40)
-CrownIcon.Position = UDim2.new(0, 10, 0, 7)
+CrownIcon.Position = UDim2.new(0, 15, 0, 15)
 CrownIcon.BackgroundTransparency = 1
-CrownIcon.Text = "👑"
-CrownIcon.TextColor3 = Color3.fromRGB(255, 215, 0)
-CrownIcon.TextSize = 28
-CrownIcon.Font = Enum.Font.GothamBlack
+CrownIcon.Image = "rbxassetid://6031075938"
+CrownIcon.ImageColor3 = Color3.fromRGB(255, 215, 0)
 CrownIcon.ZIndex = 11
 CrownIcon.Parent = Header
 
 -- Crown Animation
 spawn(function()
     while CrownHub.Parent do
-        TweenService:Create(CrownIcon, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+        TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
             Rotation = 5,
-            TextColor3 = Color3.fromRGB(255, 150, 200)
+            ImageColor3 = Color3.fromRGB(255, 230, 100)
         }):Play()
-        wait(1)
-        TweenService:Create(CrownIcon, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+        wait(1.5)
+        TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
             Rotation = -5,
-            TextColor3 = Color3.fromRGB(255, 215, 0)
+            ImageColor3 = Color3.fromRGB(255, 215, 0)
         }):Play()
-        wait(1)
+        wait(1.5)
     end
 end)
 
--- Title with Glow Effect
+-- Title
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -80, 1, 0)
-Title.Position = UDim2.new(0, 60, 0, 0)
+Title.Size = UDim2.new(1, -80, 0, 35)
+Title.Position = UDim2.new(0, 65, 0, 8)
 Title.BackgroundTransparency = 1
 Title.Text = "CROWN HUB"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 20
+Title.TextSize = 24
 Title.Font = Enum.Font.GothamBlack
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.TextStrokeColor3 = Color3.fromRGB(255, 215, 0)
@@ -165,73 +192,71 @@ Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
 Subtitle.Size = UDim2.new(1, -80, 0, 20)
-Subtitle.Position = UDim2.new(0, 60, 0, 30)
+Subtitle.Position = UDim2.new(0, 65, 0, 40)
 Subtitle.BackgroundTransparency = 1
 Subtitle.Text = "Enhanced with Aurora"
-Subtitle.TextColor3 = Color3.fromRGB(200, 200, 255)
-Subtitle.TextSize = 12
+Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
+Subtitle.TextSize = 11
 Subtitle.Font = Enum.Font.GothamMedium
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
 Subtitle.ZIndex = 11
 Subtitle.Parent = Header
 
--- Control Buttons with Hover Effects
+-- Control Buttons
 local ControlContainer = Instance.new("Frame")
-ControlContainer.Size = UDim2.new(0, 65, 0, 25)
-ControlContainer.Position = UDim2.new(1, -70, 0, 15)
+ControlContainer.Size = UDim2.new(0, 70, 0, 30)
+ControlContainer.Position = UDim2.new(1, -75, 0, 20)
 ControlContainer.BackgroundTransparency = 1
 ControlContainer.ZIndex = 11
 ControlContainer.Parent = Header
 
--- Minimize Button
 local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.new(0, 25, 0, 25)
+MinimizeButton.Size = UDim2.new(0, 30, 0, 30)
 MinimizeButton.Position = UDim2.new(0, 0, 0, 0)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+MinimizeButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
 MinimizeButton.BackgroundTransparency = 0.2
 MinimizeButton.Text = "_"
 MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
-MinimizeButton.TextSize = 14
+MinimizeButton.TextSize = 16
 MinimizeButton.Font = Enum.Font.GothamBlack
 MinimizeButton.ZIndex = 11
 MinimizeButton.Parent = ControlContainer
 
 local MinimizeCorner = Instance.new("UICorner")
-MinimizeCorner.CornerRadius = UDim.new(0, 5)
+MinimizeCorner.CornerRadius = UDim.new(0, 6)
 MinimizeCorner.Parent = MinimizeButton
 
--- Close Button
 local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, 25, 0, 25)
-CloseButton.Position = UDim2.new(0, 30, 0, 0)
-CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+CloseButton.Size = UDim2.new(0, 30, 0, 30)
+CloseButton.Position = UDim2.new(0, 35, 0, 0)
+CloseButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
 CloseButton.BackgroundTransparency = 0.2
 CloseButton.Text = "×"
 CloseButton.TextColor3 = Color3.new(1, 1, 1)
-CloseButton.TextSize = 16
+CloseButton.TextSize = 18
 CloseButton.Font = Enum.Font.GothamBlack
 CloseButton.ZIndex = 11
 CloseButton.Parent = ControlContainer
 
 local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 5)
+CloseCorner.CornerRadius = UDim.new(0, 6)
 CloseCorner.Parent = CloseButton
 
--- Navigation Tabs with Hover Animations
+-- Navigation Tabs
 local TabContainer = Instance.new("Frame")
 TabContainer.Size = UDim2.new(1, -20, 0, 32)
-TabContainer.Position = UDim2.new(0, 10, 0, 65)
+TabContainer.Position = UDim2.new(0, 10, 0, 80)
 TabContainer.BackgroundTransparency = 1
 TabContainer.ZIndex = 10
 TabContainer.Parent = MainContainer
 
 -- Content Area
 local ContentFrame = Instance.new("ScrollingFrame")
-ContentFrame.Size = UDim2.new(1, -20, 1, -117)
-ContentFrame.Position = UDim2.new(0, 10, 0, 107)
+ContentFrame.Size = UDim2.new(1, -20, 1, -122)
+ContentFrame.Position = UDim2.new(0, 10, 0, 122)
 ContentFrame.BackgroundTransparency = 1
-ContentFrame.ScrollBarThickness = 3
-ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 215, 0)
+ContentFrame.ScrollBarThickness = 4
+ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(212, 175, 55)
 ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
 ContentFrame.ZIndex = 10
 ContentFrame.Parent = MainContainer
@@ -240,7 +265,7 @@ local ContentLayout = Instance.new("UIListLayout")
 ContentLayout.Padding = UDim.new(0, 10)
 ContentLayout.Parent = ContentFrame
 
--- Enhanced Tabs
+-- Tabs
 local Tabs = {
     "Fling",
     "Admin", 
@@ -252,15 +277,15 @@ local Tabs = {
 
 local CurrentTab = "Fling"
 
--- Create Animated Tabs
+-- Create Tabs
 for i, tabName in ipairs(Tabs) do
     local TabButton = Instance.new("TextButton")
     TabButton.Size = UDim2.new(1/#Tabs, -4, 1, 0)
     TabButton.Position = UDim2.new((i-1)/#Tabs, 0, 0, 0)
-    TabButton.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    TabButton.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
     TabButton.BackgroundTransparency = 0.3
     TabButton.Text = tabName
-    TabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TabButton.TextColor3 = Color3.fromRGB(200, 190, 220)
     TabButton.Font = Enum.Font.GothamMedium
     TabButton.TextSize = 11
     TabButton.AutoButtonColor = false
@@ -271,13 +296,12 @@ for i, tabName in ipairs(Tabs) do
     TabCorner.CornerRadius = UDim.new(0, 6)
     TabCorner.Parent = TabButton
     
-    -- Tab Hover Animation
+    -- Tab Hover
     TabButton.MouseEnter:Connect(function()
         if TabButton.Text ~= CurrentTab then
             TweenService:Create(TabButton, TweenInfo.new(0.3), {
                 BackgroundTransparency = 0.1,
-                TextColor3 = Color3.fromRGB(255, 255, 255),
-                Size = UDim2.new(1/#Tabs, -2, 1, 2)
+                TextColor3 = Color3.fromRGB(255, 255, 255)
             }):Play()
         end
     end)
@@ -286,8 +310,7 @@ for i, tabName in ipairs(Tabs) do
         if TabButton.Text ~= CurrentTab then
             TweenService:Create(TabButton, TweenInfo.new(0.3), {
                 BackgroundTransparency = 0.3,
-                TextColor3 = Color3.fromRGB(200, 200, 200),
-                Size = UDim2.new(1/#Tabs, -4, 1, 0)
+                TextColor3 = Color3.fromRGB(200, 190, 220)
             }):Play()
         end
     end)
@@ -304,17 +327,15 @@ function UpdateTabAppearance()
         if tab:IsA("TextButton") then
             if tab.Text == CurrentTab then
                 TweenService:Create(tab, TweenInfo.new(0.3), {
-                    BackgroundColor3 = Color3.fromRGB(255, 215, 0),
-                    TextColor3 = Color3.fromRGB(20, 20, 20),
-                    BackgroundTransparency = 0.1,
-                    Size = UDim2.new(1/#Tabs, -2, 1, 2)
+                    BackgroundColor3 = Color3.fromRGB(212, 175, 55),
+                    TextColor3 = Color3.fromRGB(20, 15, 25),
+                    BackgroundTransparency = 0.1
                 }):Play()
             else
                 TweenService:Create(tab, TweenInfo.new(0.3), {
-                    BackgroundColor3 = Color3.fromRGB(30, 30, 40),
-                    TextColor3 = Color3.fromRGB(200, 200, 200),
-                    BackgroundTransparency = 0.3,
-                    Size = UDim2.new(1/#Tabs, -4, 1, 0)
+                    BackgroundColor3 = Color3.fromRGB(35, 30, 45),
+                    TextColor3 = Color3.fromRGB(200, 190, 220),
+                    BackgroundTransparency = 0.3
                 }):Play()
             end
         end
@@ -400,7 +421,7 @@ local function EnableCollision()
     end
 end
 
--- Orbit Fling (Nearest Player)
+-- Orbit Fling
 local OrbitalActive = false
 local function GetNearestPlayer()
     local nearestPlayer = nil
@@ -438,7 +459,6 @@ local function OrbitalFling()
             if nearestTarget and nearestTarget.Character and nearestTarget.Character:FindFirstChild("HumanoidRootPart") then
                 local targetRoot = nearestTarget.Character.HumanoidRootPart
                 
-                -- Orbit around nearest player
                 local angle = tick() * 8
                 local radius = 6
                 local orbitPosition = targetRoot.Position + Vector3.new(
@@ -449,7 +469,6 @@ local function OrbitalFling()
                 
                 root.CFrame = CFrame.new(orbitPosition)
                 
-                -- Apply fling force
                 local flingBV = Instance.new("BodyVelocity")
                 local flingDirection = (targetRoot.Position - root.Position).Unit
                 flingBV.Velocity = flingDirection * 80 + Vector3.new(0, 60, 0)
@@ -463,7 +482,7 @@ local function OrbitalFling()
     end)
 end
 
--- ENHANCED FEATURES WITH SLICER HUB
+-- ORIGINAL FEATURE NAMES + QUIZBOT ADDED
 local CrownFunctions = {
     ["Fling"] = {
         {"🌀 Orbit Nearest", function()
@@ -489,6 +508,10 @@ local CrownFunctions = {
         
         {"⚡ Infinite Yield", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+        end},
+        
+        {"🤖 QuizBot", function()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))()
         end}
     },
     
@@ -610,17 +633,17 @@ function UpdateContent()
     local functions = CrownFunctions[CurrentTab] or {}
     
     for _, func in ipairs(functions) do
-        CreateAnimatedButton(func[1], func[2])
+        CreateButton(func[1], func[2])
     end
 end
 
-function CreateAnimatedButton(text, callback)
+function CreateButton(text, callback)
     local button = Instance.new("TextButton")
     button.Size = UDim2.new(1, 0, 0, 42)
-    button.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    button.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
     button.BackgroundTransparency = 0.2
     button.Text = text
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextColor3 = Color3.fromRGB(240, 230, 255)
     button.Font = Enum.Font.GothamMedium
     button.TextSize = 13
     button.AutoButtonColor = false
@@ -631,11 +654,11 @@ function CreateAnimatedButton(text, callback)
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = button
     
-    -- Button Hover Animation
+    -- Button Hover
     button.MouseEnter:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.3), {
             BackgroundTransparency = 0.1,
-            BackgroundColor3 = Color3.fromRGB(40, 40, 50),
+            BackgroundColor3 = Color3.fromRGB(45, 40, 55),
             Size = UDim2.new(1, 5, 0, 45)
         }):Play()
     end)
@@ -643,22 +666,21 @@ function CreateAnimatedButton(text, callback)
     button.MouseLeave:Connect(function()
         TweenService:Create(button, TweenInfo.new(0.3), {
             BackgroundTransparency = 0.2,
-            BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+            BackgroundColor3 = Color3.fromRGB(35, 30, 45),
             Size = UDim2.new(1, 0, 0, 42)
         }):Play()
     end)
     
     button.MouseButton1Click:Connect(function()
-        -- Enhanced Click Animation
         TweenService:Create(button, TweenInfo.new(0.1), {
-            BackgroundColor3 = Color3.fromRGB(255, 215, 0),
-            TextColor3 = Color3.fromRGB(20, 20, 20),
+            BackgroundColor3 = Color3.fromRGB(212, 175, 55),
+            TextColor3 = Color3.fromRGB(20, 15, 25),
             Size = UDim2.new(1, -5, 0, 38)
         }):Play()
         wait(0.1)
         TweenService:Create(button, TweenInfo.new(0.3), {
-            BackgroundColor3 = Color3.fromRGB(30, 30, 40),
-            TextColor3 = Color3.fromRGB(255, 255, 255),
+            BackgroundColor3 = Color3.fromRGB(35, 30, 45),
+            TextColor3 = Color3.fromRGB(240, 230, 255),
             Size = UDim2.new(1, 0, 0, 42)
         }):Play()
         
@@ -666,49 +688,49 @@ function CreateAnimatedButton(text, callback)
     end)
 end
 
--- Enhanced Minimize with Animation
+-- Minimize
 local Minimized = false
 MinimizeButton.MouseButton1Click:Connect(function()
     Minimized = not Minimized
     if Minimized then
         TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-            Size = UDim2.new(0, 450, 0, 55)
+            Size = UDim2.new(0, 450, 0, 70)
         }):Play()
         MinimizeButton.Text = "+"
     else
         TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-            Size = UDim2.new(0, 450, 0, 500)
+            Size = UDim2.new(0, 450, 0, 520)
         }):Play()
         MinimizeButton.Text = "_"
     end
 end)
 
--- Enhanced Control Button Hover Effects
+-- Control Button Hover
 MinimizeButton.MouseEnter:Connect(function()
     TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
         BackgroundTransparency = 0,
-        Size = UDim2.new(0, 28, 0, 28)
+        Size = UDim2.new(0, 32, 0, 32)
     }):Play()
 end)
 
 MinimizeButton.MouseLeave:Connect(function()
     TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
         BackgroundTransparency = 0.2,
-        Size = UDim2.new(0, 25, 0, 25)
+        Size = UDim2.new(0, 30, 0, 30)
     }):Play()
 end)
 
 CloseButton.MouseEnter:Connect(function()
     TweenService:Create(CloseButton, TweenInfo.new(0.2), {
         BackgroundTransparency = 0,
-        Size = UDim2.new(0, 28, 0, 28)
+        Size = UDim2.new(0, 32, 0, 32)
     }):Play()
 end)
 
 CloseButton.MouseLeave:Connect(function()
     TweenService:Create(CloseButton, TweenInfo.new(0.2), {
         BackgroundTransparency = 0.2,
-        Size = UDim2.new(0, 25, 0, 25)
+        Size = UDim2.new(0, 30, 0, 30)
     }):Play()
 end)
 
@@ -737,7 +759,7 @@ Header.InputChanged:Connect(function(input)
     end
 end)
 
--- Enhanced Close Animation
+-- Close
 CloseButton.MouseButton1Click:Connect(function()
     TweenService:Create(MainContainer, TweenInfo.new(0.4), {
         Size = UDim2.new(0, 0, 0, 0),
@@ -748,24 +770,24 @@ CloseButton.MouseButton1Click:Connect(function()
     CrownHub:Destroy()
 end)
 
--- Enhanced Entrance Animation
+-- Entrance Animation
 MainContainer.Size = UDim2.new(0, 0, 0, 0)
 MainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
 MainContainer.BackgroundTransparency = 1
 
 wait(0.1)
 
-TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, 450, 0, 500),
-    Position = UDim2.new(0.5, -225, 0.5, -250),
-    BackgroundTransparency = 0.1
+TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 450, 0, 520),
+    Position = UDim2.new(0.5, -225, 0.5, -260),
+    BackgroundTransparency = 0.05
 }):Play()
 
 -- Initialize
 UpdateContent()
 UpdateTabAppearance()
 
-print("👑 Crown Hub - Enhanced with Aurora Animations!")
-print("🌈 Beautiful Gradient Effects & Animations")
-print("🔪 Slicer FE V8 Hub Added")
-print("🎯 Enhanced UI with Smooth Animations")
+print("👑 Crown Hub - Fixed & QuizBot Added")
+print("🌈 Fixed gradient animations - now smooth and visible")
+print("🤖 QuizBot added to Admin tab")
+print("🎨 Better visual effects throughout")
