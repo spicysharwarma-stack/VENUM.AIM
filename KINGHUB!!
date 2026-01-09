@@ -1,22 +1,23 @@
--- Crown Hub 2026 - Mobile Compatible + New Scripts
--- Enhanced for PC & Mobile
+-- Crown Hub 2026 - Universal Edition
+-- Enhanced for PC & Mobile with Universal Scripts
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
+local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
--- GUI Setup
+-- GUI Setup (Load into CoreGui for always on top)
 local CrownHub = Instance.new("ScreenGui")
-CrownHub.Name = "CrownHubRoyal"
+CrownHub.Name = "CrownHubUniversal"
 CrownHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-CrownHub.DisplayOrder = 999
+CrownHub.DisplayOrder = 1000  -- Highest priority
 CrownHub.ResetOnSpawn = false
-CrownHub.Parent = player:WaitForChild("PlayerGui")
+CrownHub.Parent = CoreGui  -- Changed to CoreGui for universal access
 
 -- Mobile detection
 local IS_MOBILE = UserInputService.TouchEnabled
@@ -36,6 +37,71 @@ MainContainer.BackgroundTransparency = 0.05
 MainContainer.BorderSizePixel = 0
 MainContainer.ClipsDescendants = true
 MainContainer.Parent = CrownHub
+
+-- FIXED: IMPROVED GLOWING EDGE EFFECT
+local EdgeGlow = Instance.new("Frame")
+EdgeGlow.Size = UDim2.new(1, 12, 1, 12)
+EdgeGlow.Position = UDim2.new(0, -6, 0, -6)
+EdgeGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+EdgeGlow.BackgroundTransparency = 0.7
+EdgeGlow.BorderSizePixel = 0
+EdgeGlow.ZIndex = -2
+EdgeGlow.Parent = MainContainer
+
+-- Add UIStroke for proper glow effect
+local EdgeStroke = Instance.new("UIStroke")
+EdgeStroke.Color = Color3.fromRGB(255, 215, 0)
+EdgeStroke.Thickness = 6
+EdgeStroke.Transparency = 0.5
+EdgeStroke.Parent = MainContainer
+
+-- Add inner glow
+local InnerGlow = Instance.new("Frame")
+InnerGlow.Size = UDim2.new(1, 0, 1, 0)
+InnerGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+InnerGlow.BackgroundTransparency = 0.95
+InnerGlow.BorderSizePixel = 0
+InnerGlow.ZIndex = 3
+InnerGlow.Parent = MainContainer
+
+local EdgeGlowCorner = Instance.new("UICorner")
+EdgeGlowCorner.CornerRadius = UDim.new(0, 20)
+EdgeGlowCorner.Parent = EdgeGlow
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 12)
+MainCorner.Parent = MainContainer
+
+-- Glow animation
+spawn(function()
+    while CrownHub.Parent do
+        TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            BackgroundTransparency = 0.4,
+            BackgroundColor3 = Color3.fromRGB(255, 255, 150)
+        }):Play()
+        TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Transparency = 0.2,
+            Color = Color3.fromRGB(255, 255, 200)
+        }):Play()
+        TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            BackgroundTransparency = 0.9
+        }):Play()
+        wait(1.5)
+        
+        TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            BackgroundTransparency = 0.7,
+            BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        }):Play()
+        TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            Transparency = 0.5,
+            Color = Color3.fromRGB(255, 215, 0)
+        }):Play()
+        TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+            BackgroundTransparency = 0.95
+        }):Play()
+        wait(1.5)
+    end
+end)
 
 -- Make UI draggable on mobile
 if IS_MOBILE then
@@ -130,21 +196,9 @@ GoldBorder.BorderSizePixel = 0
 GoldBorder.ZIndex = -1
 GoldBorder.Parent = MainContainer
 
--- Border Animation
-spawn(function()
-    while CrownHub.Parent do
-        TweenService:Create(GoldBorder, TweenInfo.new(2), {
-            BackgroundTransparency = 0.1,
-            BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-        }):Play()
-        wait(2)
-        TweenService:Create(GoldBorder, TweenInfo.new(2), {
-            BackgroundTransparency = 0.3,
-            BackgroundColor3 = Color3.fromRGB(212, 175, 55)
-        }):Play()
-        wait(2)
-    end
-end)
+local BorderCorner = Instance.new("UICorner")
+BorderCorner.CornerRadius = UDim.new(0, 16)
+BorderCorner.Parent = GoldBorder
 
 -- Glass Overlay
 local GlassLayer = Instance.new("Frame")
@@ -154,15 +208,6 @@ GlassLayer.BackgroundTransparency = 0.95
 GlassLayer.BorderSizePixel = 0
 GlassLayer.ZIndex = 2
 GlassLayer.Parent = MainContainer
-
--- Corner Radius
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 12)
-Corner.Parent = MainContainer
-
-local BorderCorner = Instance.new("UICorner")
-BorderCorner.CornerRadius = UDim.new(0, 16)
-BorderCorner.Parent = GoldBorder
 
 -- Header (responsive height)
 local Header = Instance.new("Frame")
@@ -227,7 +272,7 @@ local Subtitle = Instance.new("TextLabel")
 Subtitle.Size = UDim2.new(1, -70, 0, 18)
 Subtitle.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 30 or 40)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = IS_MOBILE and "Mobile Edition" or "Enhanced with Aurora"
+Subtitle.Text = IS_MOBILE and "Universal Edition" or "Universal Edition"
 Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
 Subtitle.TextSize = IS_MOBILE and 9 or 11
 Subtitle.Font = Enum.Font.GothamMedium
@@ -298,14 +343,15 @@ local ContentLayout = Instance.new("UIListLayout")
 ContentLayout.Padding = UDim.new(0, IS_MOBILE and 8 or 10)
 ContentLayout.Parent = ContentFrame
 
--- Tabs
+-- Tabs (Updated)
 local Tabs = {
     "Fling",
     "Admin", 
     "Movement",
     "Visual",
     "Combat",
-    "Hubs"
+    "Hubs",
+    "Fun"
 }
 
 local CurrentTab = "Fling"
@@ -373,6 +419,771 @@ function UpdateTabAppearance()
             end
         end
     end
+end
+
+-- UNIVERSAL VEHICLE SCRIPT (To Open And Close Gui)
+local VehicleScriptLoaded = false
+local function LoadUniversalVehicle()
+    if not VehicleScriptLoaded then
+        VehicleScriptLoaded = true
+        loadstring(game:HttpGet('https://raw.githubusercontent.com/Documantation12/Universal-Vehicle-Script/main/Main.lua'))()
+    end
+end
+
+-- TENNA DANCE SCRIPT
+local function TennaDance()
+    local plr = game.Players.LocalPlayer
+    if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+        local hum = plr.Character.Humanoid
+        local Anim = Instance.new("Animation")
+        Anim.AnimationId = "rbxassetid://75202452138001"
+        local track = hum:LoadAnimation(Anim)
+        track:Play()
+        track:AdjustSpeed(1.524)
+    end
+end
+
+-- INFLUENCE V1 ESP + Hitbox
+local function LoadInfluenceESP()
+    loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
+end
+
+-- ULTRA SIGMA HAX V2 (Prison Life Aimbot)
+local PrisonAimbotLoaded = false
+local function LoadUltraSigmaHax()
+    if getgenv().haxloaded then
+        return
+    end
+
+    if getcustomasset or getgenv().getcustomasset then
+        local getasset = getcustomasset or getgenv().getcustomasset
+        
+        spawn(function()
+            local encoded = game:HttpGet("https://raw.githubusercontent.com/UltraFEmotes/test/refs/heads/main/welcome.txt")
+            if not encoded or encoded == "" then return end
+            
+            writefile("Welcome.mp3", base64decode(encoded))
+           task.wait(0.5)
+            
+            local asset_id = getasset("Welcome.mp3")
+            local sound = Instance.new("Sound")
+            sound.SoundId = asset_id
+            sound.Volume = 1
+            sound.Looped = false
+            sound.Parent = workspace
+            sound:Play()
+            
+            sound.Ended:Connect(function()
+                sound:Destroy()
+            end)
+        end)
+    end
+    getgenv().haxloaded = true
+    local sextoy = Instance.new("Message")
+    sextoy.Parent = workspace
+    sextoy.Text = "ULTRA SIGMA HAX V2 >:3c"
+    task.wait(2)
+    sextoy.Text = "Made by White Cat :3c"
+    task.wait(1.6)
+    sextoy:Destroy()
+    local function processPart(obj)
+        if obj:IsA("BasePart") then
+            task.spawn(function()
+                while true do
+                    for i = 0, 1, 0.01 do
+                        obj.Color = Color3.fromHSV(i, 1, 1)
+                        task.wait(0.02)
+                    end
+                end
+            end)
+            obj.Transparency = 0.5
+            obj.CanCollide = false
+        end
+    end
+    local function recursiveProcess(obj)
+        processPart(obj)
+        for _, child in ipairs(obj:GetChildren()) do
+            recursiveProcess(child)
+        end
+    end
+    for _, v in pairs(workspace.Prison_OuterWall.prison_wall:GetChildren()) do
+        recursiveProcess(v)
+    end
+    for _, v in pairs(workspace.Prison_guardtower:GetChildren()) do
+        recursiveProcess(v)
+    end
+    for _, v in pairs(workspace.Prison_Fences:GetChildren()) do
+        if v.Name == "fence" then
+            recursiveProcess(v)
+            local dmg = v:FindFirstChild("damagePart")
+            if dmg then
+                local ti = dmg:FindFirstChild("TouchInterest")
+                if ti then
+                    ti:Destroy()
+                end
+            end
+        end
+    end
+    local doors = workspace:FindFirstChild("Doors")
+    if doors then
+        doors:Destroy()
+    end
+    task.spawn(function()
+        while task.wait() do
+            if game.Players.LocalPlayer and game.Players.LocalPlayer.Character then
+                local hum = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.WalkSpeed = 25
+                    game.Players.LocalPlayer:SetAttribute("BackpackEnabled", true)
+                    hum.JumpHeight = 5.5
+                end
+                if game.Players.LocalPlayer.Character:FindFirstChild("AntiJump") then
+                    game.Players.LocalPlayer.Character.AntiJump:Destroy()
+                end
+            end
+        end
+    end)
+    local Players = game:GetService("Players")
+    local RunService = game:GetService("RunService")
+    local LocalPlayer = Players.LocalPlayer
+    local ESP_ENABLED = false
+    local TELEPORT_COOLDOWN = 1.6
+    local lastTeleport = 0
+    local function GetBillboard(targetCharacter)
+        local head = targetCharacter:FindFirstChild("Head")
+        if not head then
+            return nil
+        end
+        local billboard = head:FindFirstChild("AntigravityESP_Billboard")
+        if not billboard then
+            billboard = Instance.new("BillboardGui")
+            billboard.Name = "AntigravityESP_Billboard"
+            billboard.Adornee = head
+            billboard.Size = UDim2.new(0, 200, 0, 120)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = head
+            local emojiLabel = Instance.new("TextLabel")
+            emojiLabel.Name = "EmojiLabel"
+            emojiLabel.Size = UDim2.new(1, 0, 0.35, 0)
+            emojiLabel.Position = UDim2.new(0, 0, 0, 0)
+            emojiLabel.BackgroundTransparency = 1
+            emojiLabel.TextColor3 = Color3.new(1, 1, 1)
+            emojiLabel.TextStrokeTransparency = 0
+            emojiLabel.Font = Enum.Font.GothamBold
+            emojiLabel.TextSize = 24
+            emojiLabel.Parent = billboard
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Name = "NameLabel"
+            nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
+            nameLabel.Position = UDim2.new(0, 0, 0.35, 0)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = Color3.new(1, 1, 1)
+            nameLabel.TextStrokeTransparency = 0
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextSize = 14
+            nameLabel.Parent = billboard
+            local healthBarBG = Instance.new("Frame")
+            healthBarBG.Name = "HealthBarBG"
+            healthBarBG.Size = UDim2.new(0.8, 0, 0.12, 0)
+            healthBarBG.Position = UDim2.new(0.1, 0, 0.75, 0)
+            healthBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+            healthBarBG.BorderSizePixel = 0
+            healthBarBG.Parent = billboard
+            local healthBarFill = Instance.new("Frame")
+            healthBarFill.Name = "HealthBarFill"
+            healthBarFill.Size = UDim2.new(1, 0, 1, 0)
+            healthBarFill.Position = UDim2.new(0, 0, 0, 0)
+            healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            healthBarFill.BorderSizePixel = 0
+            healthBarFill.Parent = healthBarBG
+            local healthBarCorner = Instance.new("UICorner")
+            healthBarCorner.CornerRadius = UDim.new(0, 3)
+            healthBarCorner.Parent = healthBarBG
+            local healthBarFillCorner = Instance.new("UICorner")
+            healthBarFillCorner.CornerRadius = UDim.new(0, 3)
+            healthBarFillCorner.Parent = healthBarFill
+        end
+        return billboard
+    end
+    local function GetCham(targetCharacter)
+        local cham = targetCharacter:FindFirstChild("AntigravityESP_Cham")
+        if not cham then
+            cham = Instance.new("Highlight")
+            cham.Name = "AntigravityESP_Cham"
+            cham.Adornee = targetCharacter
+            cham.Parent = targetCharacter
+            cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        end
+        return cham
+    end
+    local function UpdateESP()
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local billboard = GetBillboard(player.Character)
+                local cham = GetCham(player.Character)
+                if billboard and cham then
+                    if ESP_ENABLED then
+                        billboard.Enabled = true
+                        cham.Enabled = true
+                        local nameLabel = billboard:FindFirstChild("NameLabel")
+                        local emojiLabel = billboard:FindFirstChild("EmojiLabel")
+                        local healthBarFill = billboard:FindFirstChild("HealthBarBG") and billboard.HealthBarBG:FindFirstChild("HealthBarFill")
+                        local teamName = player.Team and player.Team.Name or "Neutral"
+                        local displayText = player.Name
+                        local emojiText = ""
+                        local color = Color3.new(1, 1, 1)
+                        if teamName == "Inmates" then
+                            color = Color3.fromRGB(255, 170, 0)
+                            displayText = displayText .. " [Inmate]"
+                            local isHostile = player.Character:GetAttribute("Hostile")
+                            local isTrespassing = player.Character:GetAttribute("Trespassing")
+                            if isHostile then
+                                emojiText = emojiText .. "💢"
+                            end
+                            if isTrespassing then
+                                emojiText = emojiText .. "🔗"
+                            end
+                        elseif teamName == "Guards" then
+                            color = Color3.fromRGB(0, 100, 255)
+                            displayText = displayText .. " [Guards]"
+                        elseif teamName == "Criminals" then
+                            color = Color3.fromRGB(255, 50, 50)
+                            displayText = displayText .. " [Criminals]"
+                        else
+                            displayText = displayText .. " [" .. teamName .. "]"
+                        end
+                        nameLabel.Text = displayText
+                        nameLabel.TextColor3 = color
+                        emojiLabel.Text = emojiText
+                        cham.FillColor = color
+                        cham.OutlineColor = color
+                        cham.FillTransparency = 0.5
+                        cham.OutlineTransparency = 0
+                        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                        if humanoid and healthBarFill then
+                            local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                            healthBarFill.Size = UDim2.new(healthPercent, 0, 1, 0)
+                            if healthPercent > 0.5 then
+                                healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                            elseif healthPercent > 0.25 then
+                                healthBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+                            else
+                                healthBarFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                            end
+                        end
+                    else
+                        billboard.Enabled = false
+                        cham.Enabled = false
+                    end
+                end
+            end
+        end
+    end
+    local function CanTeleport()
+        local now = tick()
+        local delta = now - lastTeleport
+        if delta < TELEPORT_COOLDOWN then
+            local remaining = TELEPORT_COOLDOWN - delta
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "TP Cooldown",
+                Text = "Wait " .. string.format("%.1f", remaining) .. "s before teleporting again"
+            })
+            return false
+        end
+        lastTeleport = now
+        return true
+    end
+    local ScreenGui = Instance.new("ScreenGui")
+    local Frame = Instance.new("Frame")
+    local Scrolling = Instance.new("ScrollingFrame")
+    local UIStroke = Instance.new("UIStroke")
+    local UICorner = Instance.new("UICorner")
+    local UIListLayout = Instance.new("UIListLayout")
+    local Title = Instance.new("TextLabel")
+    local Buttons = {
+        { name="CrimBaseTP", text="TP to Crim Base" },
+        { name="PrisonTP", text="TP to Prison" },
+        { name ="GuardRoomTP", text="TP in Guard Room"},
+        { name="ModGguns", text="Mod All Guns" },
+        { name = "GetRem", text="Get Rem (shotgun)"},
+        { name = "GetM9", text="Get MP5 (ar)"},
+        { name = "GetFAL", text = "Get FAL (paid/ar)"},
+        { name = "GetAK", text = "Get AK47 (ar)"},
+        { name = "GetM4", text = "Get M4A1 (paid/ar)"},
+        { name = "ToggleESP", text = "Toggle ESP (OFF)"},
+        { name = "ArrestPlayer", text = "Arrest Player"},
+        { name = "CancelArrest", text = "Cancel Arrest"}
+    }
+
+    local arrestGui = nil
+    local arrestConnection = nil
+
+    local function CloseArrestGui()
+        if arrestGui then
+            arrestGui:Destroy()
+            arrestGui = nil
+        end
+        if arrestConnection then
+            pcall(function()
+                task.cancel(arrestConnection)
+            end)
+            arrestConnection = nil
+        end
+    end
+
+    local function GetArrestableTargets()
+        local targets = {}
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                local isTrespassing = player.Character:GetAttribute("Trespassing")
+                local teamName = player.Team and player.Team.Name or ""
+                if isTrespassing or teamName == "Criminals" then
+                    table.insert(targets, player)
+                end
+            end
+        end
+        return targets
+    end
+
+    local activeArrestConnection = nil
+    local originalArrestPosition = nil
+    local antiSitConnection = nil
+    local arrestHighlight = nil
+    local currentArrestTarget = nil
+    local deathConnection = nil
+    local arrestFloor = nil
+
+    local function StopArresting()
+        if activeArrestConnection then
+            activeArrestConnection:Disconnect()
+            activeArrestConnection = nil
+        end
+        if antiSitConnection then
+            antiSitConnection:Disconnect()
+            antiSitConnection = nil
+        end
+        if deathConnection then
+            deathConnection:Disconnect()
+            deathConnection = nil
+        end
+        if arrestHighlight then
+            arrestHighlight:Destroy()
+            arrestHighlight = nil
+        end
+        if arrestFloor then
+            arrestFloor:Destroy()
+            arrestFloor = nil
+        end
+        currentArrestTarget = nil
+        if originalArrestPosition then
+            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if myHRP then
+                myHRP.CFrame = originalArrestPosition
+            end
+            originalArrestPosition = nil
+        end
+    end
+
+    local function StartArresting(targetPlayer)
+        CloseArrestGui()
+        StopArresting()
+        
+        currentArrestTarget = targetPlayer
+        
+        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if myHRP then
+            originalArrestPosition = myHRP.CFrame
+        end
+        
+        if not ESP_ENABLED and targetPlayer.Character then
+            arrestHighlight = Instance.new("Highlight")
+            arrestHighlight.Name = "ArrestTargetHighlight"
+            arrestHighlight.Adornee = targetPlayer.Character
+            arrestHighlight.Parent = targetPlayer.Character
+            arrestHighlight.FillColor = Color3.fromRGB(255, 0, 0)
+            arrestHighlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+            arrestHighlight.FillTransparency = 0.5
+            arrestHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        end
+        
+        local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if myHum then
+            deathConnection = myHum.Died:Connect(function()
+                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "You died, arrest cancelled"})
+                StopArresting()
+            end)
+        end
+        
+        arrestFloor = Instance.new("Part")
+        arrestFloor.Name = "ArrestFloor"
+        arrestFloor.Size = Vector3.new(6, 1, 6)
+        arrestFloor.Anchored = true
+        arrestFloor.CanCollide = true
+        arrestFloor.Transparency = 1
+        arrestFloor.Parent = workspace
+        
+        local TIMEOUT = 30
+        local startTime = tick()
+        local lastArrestCall = 0
+        local arrested = false
+        
+        antiSitConnection = RunService.RenderStepped:Connect(function()
+            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Sit then
+                hum.Sit = false
+                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+            end
+        end)
+        
+        activeArrestConnection = RunService.RenderStepped:Connect(function()
+            if arrested then return end
+            
+            if not targetPlayer or not targetPlayer.Character then
+                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Target left or died"})
+                StopArresting()
+                return
+            end
+            
+            local isTrespassing = targetPlayer.Character:GetAttribute("Trespassing")
+            local teamName = targetPlayer.Team and targetPlayer.Team.Name or ""
+            if not isTrespassing and teamName ~= "Criminals" then
+                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Target is no longer arrestable"})
+                StopArresting()
+                return
+            end
+            
+            if tick() - startTime > TIMEOUT then
+                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arrest timed out after " .. TIMEOUT .. " seconds"})
+                StopArresting()
+                return
+            end
+            
+            local head = targetPlayer.Character:FindFirstChild("Head")
+            if head and head:FindFirstChild("handcuffedGui") then
+                arrested = true
+                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = targetPlayer.Name .. " has been arrested!"})
+                StopArresting()
+                return
+            end
+            
+            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+            local myCharHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+            if targetHRP and myCharHRP then
+                local targetPos = targetHRP.Position
+                local undergroundY = targetPos.Y - 6
+                myCharHRP.CFrame = CFrame.new(targetPos.X, undergroundY, targetPos.Z) * CFrame.Angles(targetHRP.CFrame:ToEulerAnglesYXZ())
+                if arrestFloor then
+                    arrestFloor.CFrame = CFrame.new(targetPos.X, undergroundY - 3.5, targetPos.Z)
+                end
+            end
+            
+            if tick() - lastArrestCall >= 3 then
+                lastArrestCall = tick()
+                pcall(function()
+                    local handcuffs = LocalPlayer.Backpack:FindFirstChild("Handcuffs") or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Handcuffs"))
+                    if handcuffs and handcuffs.Parent == LocalPlayer.Backpack then
+                        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            hum:EquipTool(handcuffs)
+                        end
+                    end
+                end)
+                pcall(function()
+                    local args = {
+                        game:GetService("Players"):WaitForChild(targetPlayer.Name)
+                    }
+                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer"):InvokeServer(unpack(args))
+                end)
+            end
+        end)
+    end
+
+    local function ShowArrestGui()
+        CloseArrestGui()
+        
+        local targets = GetArrestableTargets()
+        if #targets == 0 then
+            game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "No arrestable players found"})
+            return
+        end
+        
+        arrestGui = Instance.new("Frame")
+        arrestGui.Name = "ArrestSelectGui"
+        arrestGui.Parent = Frame
+        arrestGui.BackgroundTransparency = 0.7
+        arrestGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        arrestGui.Position = UDim2.new(1.05, 0, 0, 0)
+        arrestGui.Size = UDim2.new(0, 250, 0, 260)
+        
+        local arrestStroke = Instance.new("UIStroke")
+        arrestStroke.Parent = arrestGui
+        arrestStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        arrestStroke.Thickness = 2
+        arrestStroke.Color = Color3.fromRGB(255, 80, 80)
+        
+        local arrestCorner = Instance.new("UICorner")
+        arrestCorner.Parent = arrestGui
+        
+        local arrestTitle = Instance.new("TextLabel")
+        arrestTitle.Parent = arrestGui
+        arrestTitle.Size = UDim2.new(1, 0, 0, 40)
+        arrestTitle.BackgroundTransparency = 1
+        arrestTitle.Text = "Select Target"
+        arrestTitle.Font = Enum.Font.GothamBlack
+        arrestTitle.TextSize = 18
+        arrestTitle.TextColor3 = Color3.fromRGB(255, 50, 50)
+        
+        local closeBtn = Instance.new("TextButton")
+        closeBtn.Parent = arrestGui
+        closeBtn.Size = UDim2.new(0, 30, 0, 30)
+        closeBtn.Position = UDim2.new(1, -35, 0, 5)
+        closeBtn.BackgroundTransparency = 0.6
+        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        closeBtn.Text = "X"
+        closeBtn.Font = Enum.Font.GothamBold
+        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        closeBtn.TextSize = 14
+        Instance.new("UICorner", closeBtn)
+        closeBtn.MouseButton1Click:Connect(CloseArrestGui)
+        
+        local arrestScroll = Instance.new("ScrollingFrame")
+        arrestScroll.Parent = arrestGui
+        arrestScroll.Position = UDim2.new(0, 0, 0, 40)
+        arrestScroll.Size = UDim2.new(1, 0, 1, -40)
+        arrestScroll.BackgroundTransparency = 1
+        arrestScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+        arrestScroll.ScrollBarThickness = 4
+        arrestScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        arrestScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+        
+        local arrestLayout = Instance.new("UIListLayout")
+        arrestLayout.Parent = arrestScroll
+        arrestLayout.Padding = UDim.new(0, 8)
+        arrestLayout.FillDirection = Enum.FillDirection.Vertical
+        arrestLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        arrestLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        
+        for _, targetPlayer in ipairs(targets) do
+            local isTrespassing = targetPlayer.Character and targetPlayer.Character:GetAttribute("Trespassing")
+            local teamName = targetPlayer.Team and targetPlayer.Team.Name or ""
+            
+            local statusText = ""
+            if isTrespassing then
+                statusText = " [Trespassing]"
+            end
+            if teamName == "Criminals" then
+                statusText = statusText .. " [Criminal]"
+            end
+            
+            local targetBtn = Instance.new("TextButton")
+            targetBtn.Parent = arrestScroll
+            targetBtn.Size = UDim2.new(0.9, 0, 0, 35)
+            targetBtn.BackgroundTransparency = 0.6
+            targetBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            targetBtn.Text = targetPlayer.Name .. statusText
+            targetBtn.Font = Enum.Font.GothamBold
+            targetBtn.TextColor3 = teamName == "Criminals" and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 170, 0)
+            targetBtn.TextScaled = true
+            Instance.new("UICorner", targetBtn)
+            
+            targetBtn.MouseEnter:Connect(function()
+                targetBtn.BackgroundTransparency = 0.3
+            end)
+            targetBtn.MouseLeave:Connect(function()
+                targetBtn.BackgroundTransparency = 0.6
+            end)
+            
+            targetBtn.MouseButton1Click:Connect(function()
+                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arresting " .. targetPlayer.Name .. "..."})
+                StartArresting(targetPlayer)
+            end)
+        end
+        
+        arrestConnection = task.spawn(function()
+            while true do
+                for i = 0, 1, 0.01 do
+                    if not arrestGui then break end
+                    arrestStroke.Color = Color3.fromHSV(i, 1, 1)
+                    arrestTitle.TextColor3 = Color3.fromHSV(i, 1, 1)
+                    task.wait(0.02)
+                end
+                if not arrestGui then break end
+            end
+        end)
+    end
+    ScreenGui.Parent = game:WaitForChild("CoreGui")
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    Frame.Parent = ScreenGui
+    Frame.BackgroundTransparency = 0.7
+    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Frame.Position = UDim2.new(0.35, 0, 0.25, 0)
+    Frame.Size = UDim2.new(0, 300, 0, 260)
+    UIStroke.Parent = Frame
+    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    UIStroke.Thickness = 2
+    UIStroke.Color = Color3.fromRGB(255, 80, 80)
+    UICorner.Parent = Frame
+    Title.Parent = Frame
+    Title.Size = UDim2.new(1, 0, 0, 50)
+    Title.BackgroundTransparency = 1
+    Title.Text = "ULTRA SIGMA HAX V2"
+    Title.Font = Enum.Font.GothamBlack
+    Title.TextSize = 24
+    Title.TextColor3 = Color3.fromRGB(255, 50, 50)
+    Scrolling.Parent = Frame
+    Scrolling.Position = UDim2.new(0, 0, 0, 50)
+    Scrolling.Size = UDim2.new(1, 0, 1, -50)
+    Scrolling.BackgroundTransparency = 1
+    Scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Scrolling.ScrollBarThickness = 4
+    Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
+    UIListLayout.Parent = Scrolling
+    UIListLayout.Padding = UDim.new(0, 10)
+    UIListLayout.FillDirection = Enum.FillDirection.Vertical
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    for _, info in ipairs(Buttons) do
+        local btn = Instance.new("TextButton")
+        btn.Name = info.name
+        btn.Parent = Scrolling
+        btn.Size = UDim2.new(0.85, 0, 0, 40)
+        btn.BackgroundTransparency = 0.6
+        btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        btn.Text = info.text
+        btn.Font = Enum.Font.GothamBold
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextScaled = true
+        Instance.new("UICorner", btn)
+        btn.MouseEnter:Connect(function()
+            btn.BackgroundTransparency = 0.3
+        end)
+        btn.MouseLeave:Connect(function()
+            btn.BackgroundTransparency = 0.6
+        end)
+        btn.MouseButton1Click:Connect(function()
+            if info.name == "ModGguns" then
+                game.StarterGui:SetCore("SendNotification", {Text="Make sure you aren't holding any guns rn", Title="Modded shit idfk"})
+                for i, v in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    if v:GetAttribute("FireRate") ~= nil then
+                        v:SetAttribute("FireRate", 0.02)
+                        v:SetAttribute("AutoFire", true)
+                        v:SetAttribute("SpreadRadius", 0)
+                        game.StarterGui:SetCore("SendNotification", {Text="Modded " .. v.Name .. " successfully!", Title="Modded shit idfk"})
+                    end
+                end
+            elseif info.name == "CrimBaseTP" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = workspace["Criminals Spawn"].SpawnLocation.CFrame
+                end
+            elseif info.name == "PrisonTP" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(916, 100, 2369)
+                end
+            elseif info.name == "GuardRoomTP" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(828, 100, 2303)
+                end
+            elseif info.name == "GetRem" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(820, 101, 2229)
+                end
+            elseif info.name == "GetM9" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(814, 101, 2229)
+                end
+            elseif info.name == "GetFAL" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-916, 94, 2048)
+                end
+            elseif info.name == "GetM4" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(848, 101, 2229)
+                end
+            elseif info.name == "GetAK" then
+                if CanTeleport() then
+                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-931, 94, 2039)
+                end
+            elseif info.name == "ToggleESP" then
+                ESP_ENABLED = not ESP_ENABLED
+                btn.Text = "Toggle ESP (" .. (ESP_ENABLED and "ON" or "OFF") .. ")"
+                UpdateESP()
+            elseif info.name == "ArrestPlayer" then
+                ShowArrestGui()
+            elseif info.name == "CancelArrest" then
+                if currentArrestTarget then
+                    game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arrest cancelled"})
+                    StopArresting()
+                else
+                    game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "No active arrest to cancel"})
+                end
+            end
+        end)
+    end
+
+    local arrestButton = Scrolling:FindFirstChild("ArrestPlayer")
+    local cancelArrestButton = Scrolling:FindFirstChild("CancelArrest")
+
+    task.spawn(function()
+        while true do
+            local isGuard = LocalPlayer.Team and LocalPlayer.Team.Name == "Guards"
+            if arrestButton then
+                arrestButton.Visible = isGuard
+                if not isGuard then
+                    CloseArrestGui()
+                end
+            end
+            if cancelArrestButton then
+                cancelArrestButton.Visible = isGuard and currentArrestTarget ~= nil
+            end
+            task.wait(0.5)
+        end
+    end)
+
+    local UIS = game:GetService("UserInputService")
+    local dragging = false
+    local dragStart, startPos
+
+    Frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Frame.Position
+        end
+    end)
+
+    Frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    task.spawn(function()
+        while true do
+            for i = 0, 1, 0.01 do
+                UIStroke.Color = Color3.fromHSV(i, 1, 1)
+                task.wait(0.02)
+            end
+        end
+    end)
+    task.spawn(function()
+        while true do
+            for i = 0, 1, 0.01 do
+                Title.TextColor3 = Color3.fromHSV(i, 1, 1)
+                task.wait(0.02)
+            end
+        end
+    end)
+    game.StarterGui:SetCore("SendNotification", {Text = "Loaded Successfully", Title = "ULTRA SIGMA HAX V2 >:3c"})
+    RunService.RenderStepped:Connect(UpdateESP)
 end
 
 -- WORKING FLY SYSTEM
@@ -646,6 +1457,14 @@ local CrownFunctions = {
         
         {"⚡ Aim Assist", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))()
+        end},
+        
+        {"🔫 Prison Life Kill", function()
+            LoadUltraSigmaHax()
+        end},
+        
+        {"📡 Influence ESP", function()
+            LoadInfluenceESP()
         end}
     },
     
@@ -660,6 +1479,16 @@ local CrownFunctions = {
         
         {"🐹 FE Hamster Ball", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/KaterHub-Inc/scripts/refs/heads/main/unofficial-Projects/FEHamsterBall.lua"))()
+        end}
+    },
+    
+    ["Fun"] = {
+        {"🚗 Universal Vehicle", function()
+            LoadUniversalVehicle()
+        end},
+        
+        {"💃 Tenna Dance", function()
+            TennaDance()
         end}
     }
 }
@@ -835,8 +1664,11 @@ TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enu
 UpdateContent()
 UpdateTabAppearance()
 
-print("👑 Crown Hub - Mobile Compatible + New Scripts")
-print("📱 Mobile support added - fully responsive")
-print("🔤 Chat Bypasser added to Admin tab")
-print("🐹 FE Hamster Ball added to Hubs tab")
-print("🎨 Perfect on both PC and Mobile devices")
+print("👑 Crown Hub - Universal Edition")
+print("🌟 Now in CoreGui - Always on top!")
+print("✨ IMPROVED glowing edge effect with UIStroke")
+print("🚗 Universal Vehicle Script added to Fun tab")
+print("💃 Tenna Dance added to Fun tab (only one)")
+print("🔫 Prison Life Kill added to Combat tab")
+print("📡 Influence ESP added to Combat tab")
+print("📱 Mobile support - Universal Edition")
