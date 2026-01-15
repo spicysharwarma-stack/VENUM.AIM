@@ -15,6 +15,21 @@ CrownHub.DisplayOrder = 1000
 CrownHub.ResetOnSpawn = false
 CrownHub.Parent = CoreGui
 
+-- Wall modification variables
+local wallsModified = false
+local originalWallProperties = {}
+local rainbowLoops = {}
+
+-- Fire rate improvement
+local IMPROVED_FIRE_RATE = 0.0001 -- Extremely fast fire rate
+local INSTANT_RELOAD_ENABLED = false
+local BURST_FIRE_ENABLED = false
+local BURST_COUNT = 10 -- 10 bullets per burst
+
+-- Arrest cooldown
+local arrestCooldown = false
+local lastArrestTime = 0
+
 local IS_MOBILE = UserInputService.TouchEnabled
 local SCREEN_WIDTH = workspace.CurrentCamera.ViewportSize.X
 local UI_SCALE = IS_MOBILE and math.min(SCREEN_WIDTH / 1200, 0.8) or 1
@@ -246,7 +261,7 @@ local Subtitle = Instance.new("TextLabel")
 Subtitle.Size = UDim2.new(1, -70, 0, 18)
 Subtitle.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 30 or 40)
 Subtitle.BackgroundTransparency = 1
-Subtitle.Text = IS_MOBILE and "Universal Edition" or "Universal Edition"
+Subtitle.Text = IS_MOBILE and "Prison Edition" or "Prison Edition"
 Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
 Subtitle.TextSize = IS_MOBILE and 9 or 11
 Subtitle.Font = Enum.Font.GothamMedium
@@ -389,6 +404,105 @@ function UpdateTabAppearance()
     end
 end
 
+-- Wall Modification Functions
+local function processPart(obj)
+    if obj:IsA("BasePart") then
+        -- Store original properties
+        originalWallProperties[obj] = {
+            Color = obj.Color,
+            Transparency = obj.Transparency,
+            CanCollide = obj.CanCollide
+        }
+        
+        -- Start rainbow effect
+        local rainbowLoop = task.spawn(function()
+            while wallsModified and obj and obj.Parent do
+                for i = 0, 1, 0.01 do
+                    if not wallsModified then break end
+                    obj.Color = Color3.fromHSV(i, 1, 1)
+                    task.wait(0.02)
+                end
+            end
+        end)
+        
+        rainbowLoops[obj] = rainbowLoop
+        obj.Transparency = 0.5
+        obj.CanCollide = false
+    end
+end
+
+local function recursiveProcess(obj)
+    processPart(obj)
+    for _, child in ipairs(obj:GetChildren()) do
+        recursiveProcess(child)
+    end
+end
+
+local function restoreWalls()
+    for obj, properties in pairs(originalWallProperties) do
+        if obj and obj.Parent then
+            -- Restore original properties
+            obj.Color = properties.Color
+            obj.Transparency = properties.Transparency
+            obj.CanCollide = properties.CanCollide
+            
+            -- Stop rainbow loop
+            if rainbowLoops[obj] then
+                task.cancel(rainbowLoops[obj])
+                rainbowLoops[obj] = nil
+            end
+        end
+    end
+    
+    -- Clear tables
+    originalWallProperties = {}
+    rainbowLoops = {}
+    wallsModified = false
+end
+
+local function modifyWalls()
+    if wallsModified then
+        restoreWalls()
+        return "OFF"
+    end
+    
+    wallsModified = true
+    
+    -- Process prison walls
+    for _, v in pairs(workspace:FindFirstChild("Prison_OuterWall") and workspace.Prison_OuterWall:FindFirstChild("prison_wall") and workspace.Prison_OuterWall.prison_wall:GetChildren() or {}) do
+        recursiveProcess(v)
+    end
+    
+    -- Process guard towers
+    for _, v in pairs(workspace:FindFirstChild("Prison_guardtower") and workspace.Prison_guardtower:GetChildren() or {}) do
+        recursiveProcess(v)
+    end
+    
+    -- Process fences
+    for _, v in pairs(workspace:FindFirstChild("Prison_Fences") and workspace.Prison_Fences:GetChildren() or {}) do
+        if v.Name == "fence" then
+            recursiveProcess(v)
+            local dmg = v:FindFirstChild("damagePart")
+            if dmg then
+                local ti = dmg:FindFirstChild("TouchInterest")
+                if ti then
+                    ti:Destroy()
+                end
+            end
+        end
+    end
+    
+    -- Process doors
+    local doors = workspace:FindFirstChild("Doors")
+    if doors then
+        for _, door in pairs(doors:GetChildren()) do
+            recursiveProcess(door)
+        end
+    end
+    
+    return "ON"
+end
+
 local VehicleScriptLoaded = false
 local function LoadUniversalVehicle()
     if not VehicleScriptLoaded then
@@ -413,85 +527,30 @@ local function LoadInfluenceESP()
     loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
 end
 
-local PrisonAimbotLoaded = false
-local function LoadUltraSigmaHax()
-    if getgenv().haxloaded then
-        return
+local CrownPrisonHacksLoaded = false
+local CrownPrisonHacksFrame = nil
+
+local function LoadCrownPrisonHacks()
+    if getgenv().crownloaded then
+        -- Show existing window
+        if CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent then
+            CrownPrisonHacksFrame.Visible = not CrownPrisonHacksFrame.Visible
+            return
+        end
     end
 
-    if getcustomasset or getgenv().getcustomasset then
-        local getasset = getcustomasset or getgenv().getcustomasset
-        
-        spawn(function()
-            local encoded = game:HttpGet("https://raw.githubusercontent.com/UltraFEmotes/test/refs/heads/main/welcome.txt")
-            if not encoded or encoded == "" then return end
-            
-            writefile("Welcome.mp3", base64decode(encoded))
-           task.wait(0.5)
-            
-            local asset_id = getasset("Welcome.mp3")
-            local sound = Instance.new("Sound")
-            sound.SoundId = asset_id
-            sound.Volume = 1
-            sound.Looped = false
-            sound.Parent = workspace
-            sound:Play()
-            
-            sound.Ended:Connect(function()
-                sound:Destroy()
-            end)
-        end)
-    end
-    getgenv().haxloaded = true
-    local sextoy = Instance.new("Message")
-    sextoy.Parent = workspace
-    sextoy.Text = "ULTRA SIGMA HAX V2 >:3c"
+    getgenv().crownloaded = true
+    
+    -- Crown Hub welcome message
+    local welcomeMsg = Instance.new("Message")
+    welcomeMsg.Parent = workspace
+    welcomeMsg.Text = "CROWN HUB PRISON HACKS"
     task.wait(2)
-    sextoy.Text = "Made by White Cat :3c"
+    welcomeMsg.Text = "Premium Edition"
     task.wait(1.6)
-    sextoy:Destroy()
-    local function processPart(obj)
-        if obj:IsA("BasePart") then
-            task.spawn(function()
-                while true do
-                    for i = 0, 1, 0.01 do
-                        obj.Color = Color3.fromHSV(i, 1, 1)
-                        task.wait(0.02)
-                    end
-                end
-            end)
-            obj.Transparency = 0.5
-            obj.CanCollide = false
-        end
-    end
-    local function recursiveProcess(obj)
-        processPart(obj)
-        for _, child in ipairs(obj:GetChildren()) do
-            recursiveProcess(child)
-        end
-    end
-    for _, v in pairs(workspace.Prison_OuterWall.prison_wall:GetChildren()) do
-        recursiveProcess(v)
-    end
-    for _, v in pairs(workspace.Prison_guardtower:GetChildren()) do
-        recursiveProcess(v)
-    end
-    for _, v in pairs(workspace.Prison_Fences:GetChildren()) do
-        if v.Name == "fence" then
-            recursiveProcess(v)
-            local dmg = v:FindFirstChild("damagePart")
-            if dmg then
-                local ti = dmg:FindFirstChild("TouchInterest")
-                if ti then
-                    ti:Destroy()
-                end
-            end
-        end
-    end
-    local doors = workspace:FindFirstChild("Doors")
-    if doors then
-        doors:Destroy()
-    end
+    welcomeMsg:Destroy()
+    
+    -- Apply speed and jump improvements
     task.spawn(function()
         while task.wait() do
             if game.Players.LocalPlayer and game.Players.LocalPlayer.Character then
@@ -507,26 +566,31 @@ local function LoadUltraSigmaHax()
             end
         end
     end)
+    
     local Players = game:GetService("Players")
     local RunService = game:GetService("RunService")
     local LocalPlayer = Players.LocalPlayer
     local ESP_ENABLED = false
     local TELEPORT_COOLDOWN = 1.6
     local lastTeleport = 0
+    local lastArrestStart = 0
+    local ARREST_COOLDOWN = 3
+    
     local function GetBillboard(targetCharacter)
         local head = targetCharacter:FindFirstChild("Head")
         if not head then
             return nil
         end
-        local billboard = head:FindFirstChild("AntigravityESP_Billboard")
+        local billboard = head:FindFirstChild("CrownESP_Billboard")
         if not billboard then
             billboard = Instance.new("BillboardGui")
-            billboard.Name = "AntigravityESP_Billboard"
+            billboard.Name = "CrownESP_Billboard"
             billboard.Adornee = head
             billboard.Size = UDim2.new(0, 200, 0, 120)
             billboard.StudsOffset = Vector3.new(0, 3, 0)
             billboard.AlwaysOnTop = true
             billboard.Parent = head
+            
             local emojiLabel = Instance.new("TextLabel")
             emojiLabel.Name = "EmojiLabel"
             emojiLabel.Size = UDim2.new(1, 0, 0.35, 0)
@@ -537,6 +601,7 @@ local function LoadUltraSigmaHax()
             emojiLabel.Font = Enum.Font.GothamBold
             emojiLabel.TextSize = 24
             emojiLabel.Parent = billboard
+            
             local nameLabel = Instance.new("TextLabel")
             nameLabel.Name = "NameLabel"
             nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
@@ -547,6 +612,7 @@ local function LoadUltraSigmaHax()
             nameLabel.Font = Enum.Font.GothamBold
             nameLabel.TextSize = 14
             nameLabel.Parent = billboard
+            
             local healthBarBG = Instance.new("Frame")
             healthBarBG.Name = "HealthBarBG"
             healthBarBG.Size = UDim2.new(0.8, 0, 0.12, 0)
@@ -554,6 +620,7 @@ local function LoadUltraSigmaHax()
             healthBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
             healthBarBG.BorderSizePixel = 0
             healthBarBG.Parent = billboard
+            
             local healthBarFill = Instance.new("Frame")
             healthBarFill.Name = "HealthBarFill"
             healthBarFill.Size = UDim2.new(1, 0, 1, 0)
@@ -561,26 +628,30 @@ local function LoadUltraSigmaHax()
             healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
             healthBarFill.BorderSizePixel = 0
             healthBarFill.Parent = healthBarBG
+            
             local healthBarCorner = Instance.new("UICorner")
             healthBarCorner.CornerRadius = UDim.new(0, 3)
             healthBarCorner.Parent = healthBarBG
+            
             local healthBarFillCorner = Instance.new("UICorner")
             healthBarFillCorner.CornerRadius = UDim.new(0, 3)
             healthBarFillCorner.Parent = healthBarFill
         end
         return billboard
     end
+    
     local function GetCham(targetCharacter)
-        local cham = targetCharacter:FindFirstChild("AntigravityESP_Cham")
+        local cham = targetCharacter:FindFirstChild("CrownESP_Cham")
         if not cham then
             cham = Instance.new("Highlight")
-            cham.Name = "AntigravityESP_Cham"
+            cham.Name = "CrownESP_Cham"
             cham.Adornee = targetCharacter
             cham.Parent = targetCharacter
             cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
         end
         return cham
     end
+    
     local function UpdateESP()
         for _, player in ipairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
@@ -597,6 +668,7 @@ local function LoadUltraSigmaHax()
                         local displayText = player.Name
                         local emojiText = ""
                         local color = Color3.new(1, 1, 1)
+                        
                         if teamName == "Inmates" then
                             color = Color3.fromRGB(255, 170, 0)
                             displayText = displayText .. " [Inmate]"
@@ -617,6 +689,7 @@ local function LoadUltraSigmaHax()
                         else
                             displayText = displayText .. " [" .. teamName .. "]"
                         end
+                        
                         nameLabel.Text = displayText
                         nameLabel.TextColor3 = color
                         emojiLabel.Text = emojiText
@@ -624,6 +697,7 @@ local function LoadUltraSigmaHax()
                         cham.OutlineColor = color
                         cham.FillTransparency = 0.5
                         cham.OutlineTransparency = 0
+                        
                         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
                         if humanoid and healthBarFill then
                             local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
@@ -644,6 +718,7 @@ local function LoadUltraSigmaHax()
             end
         end
     end
+    
     local function CanTeleport()
         local now = tick()
         local delta = now - lastTeleport
@@ -658,26 +733,71 @@ local function LoadUltraSigmaHax()
         lastTeleport = now
         return true
     end
+    
     local ScreenGui = Instance.new("ScreenGui")
-    local Frame = Instance.new("Frame")
-    local Scrolling = Instance.new("ScrollingFrame")
+    ScreenGui.Name = "CrownPrisonHacksGUI"
+    ScreenGui.Parent = game:WaitForChild("CoreGui")
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    CrownPrisonHacksFrame = Instance.new("Frame")
+    CrownPrisonHacksFrame.Name = "MainFrame"
+    CrownPrisonHacksFrame.Parent = ScreenGui
+    CrownPrisonHacksFrame.BackgroundTransparency = 0.7
+    CrownPrisonHacksFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    CrownPrisonHacksFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
+    CrownPrisonHacksFrame.Size = UDim2.new(0, 300, 0, 300)
+    
     local UIStroke = Instance.new("UIStroke")
+    UIStroke.Parent = CrownPrisonHacksFrame
+    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    UIStroke.Thickness = 2
+    UIStroke.Color = Color3.fromRGB(255, 215, 0)
+    
     local UICorner = Instance.new("UICorner")
-    local UIListLayout = Instance.new("UIListLayout")
+    UICorner.Parent = CrownPrisonHacksFrame
+    
     local Title = Instance.new("TextLabel")
+    Title.Parent = CrownPrisonHacksFrame
+    Title.Size = UDim2.new(1, 0, 0, 50)
+    Title.BackgroundTransparency = 1
+    Title.Text = "CROWN HUB PRISON"
+    Title.Font = Enum.Font.GothamBlack
+    Title.TextSize = 24
+    Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+    
+    local Scrolling = Instance.new("ScrollingFrame")
+    Scrolling.Parent = CrownPrisonHacksFrame
+    Scrolling.Position = UDim2.new(0, 0, 0, 50)
+    Scrolling.Size = UDim2.new(1, 0, 1, -50)
+    Scrolling.BackgroundTransparency = 1
+    Scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
+    Scrolling.ScrollBarThickness = 4
+    Scrolling.ScrollBarImageColor3 = Color3.fromRGB(255, 215, 0)
+    Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
+    
+    local UIListLayout = Instance.new("UIListLayout")
+    UIListLayout.Parent = Scrolling
+    UIListLayout.Padding = UDim.new(0, 10)
+    UIListLayout.FillDirection = Enum.FillDirection.Vertical
+    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    
     local Buttons = {
         { name="CrimBaseTP", text="TP to Crim Base" },
         { name="PrisonTP", text="TP to Prison" },
-        { name ="GuardRoomTP", text="TP in Guard Room"},
-        { name="ModGguns", text="Mod All Guns" },
-        { name = "GetRem", text="Get Rem (shotgun)"},
-        { name = "GetM9", text="Get MP5 (ar)"},
-        { name = "GetFAL", text = "Get FAL (paid/ar)"},
-        { name = "GetAK", text = "Get AK47 (ar)"},
-        { name = "GetM4", text = "Get M4A1 (paid/ar)"},
-        { name = "ToggleESP", text = "Toggle ESP (OFF)"},
-        { name = "ArrestPlayer", text = "Arrest Player"},
-        { name = "CancelArrest", text = "Cancel Arrest"}
+        { name="GuardRoomTP", text="TP in Guard Room"},
+        { name="ModGguns", text="Burst Fire: OFF" },
+        { name="InstantReload", text="Instant Reload: OFF" },
+        { name="GetRem", text="Get Rem (shotgun)"},
+        { name="GetM9", text="Get MP5 (ar)"},
+        { name="GetFAL", text="Get FAL (paid/ar)"},
+        { name="GetAK", text="Get AK47 (ar)"},
+        { name="GetM4", text="Get M4A1 (paid/ar)"},
+        { name="ToggleESP", text="Toggle ESP (OFF)"},
+        { name="RainbowWalls", text="Rainbow Walls: OFF" },
+        { name="ArrestPlayer", text="Arrest Player"},
+        { name="CancelArrest", text="Cancel Arrest"}
     }
 
     local arrestGui = nil
@@ -753,6 +873,18 @@ local function LoadUltraSigmaHax()
         CloseArrestGui()
         StopArresting()
         
+        -- Check arrest cooldown
+        local now = tick()
+        if now - lastArrestStart < ARREST_COOLDOWN then
+            local remaining = ARREST_COOLDOWN - (now - lastArrestStart)
+            game.StarterGui:SetCore("SendNotification", {
+                Title = "Arrest Cooldown",
+                Text = "Wait " .. string.format("%.1f", remaining) .. "s before arresting again"
+            })
+            return
+        end
+        
+        lastArrestStart = now
         currentArrestTarget = targetPlayer
         
         local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
@@ -842,7 +974,8 @@ local function LoadUltraSigmaHax()
                 end
             end
             
-            if tick() - lastArrestCall >= 3 then
+            -- Arrest cooldown for each attempt
+            if tick() - lastArrestCall >= ARREST_COOLDOWN then
                 lastArrestCall = tick()
                 pcall(function()
                     local handcuffs = LocalPlayer.Backpack:FindFirstChild("Handcuffs") or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Handcuffs"))
@@ -874,7 +1007,7 @@ local function LoadUltraSigmaHax()
         
         arrestGui = Instance.new("Frame")
         arrestGui.Name = "ArrestSelectGui"
-        arrestGui.Parent = Frame
+        arrestGui.Parent = CrownPrisonHacksFrame
         arrestGui.BackgroundTransparency = 0.7
         arrestGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
         arrestGui.Position = UDim2.new(1.05, 0, 0, 0)
@@ -976,67 +1109,73 @@ local function LoadUltraSigmaHax()
             end
         end)
     end
-    ScreenGui.Parent = game:WaitForChild("CoreGui")
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    Frame.Parent = ScreenGui
-    Frame.BackgroundTransparency = 0.7
-    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    Frame.Position = UDim2.new(0.35, 0, 0.25, 0)
-    Frame.Size = UDim2.new(0, 300, 0, 260)
-    UIStroke.Parent = Frame
-    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    UIStroke.Thickness = 2
-    UIStroke.Color = Color3.fromRGB(255, 80, 80)
-    UICorner.Parent = Frame
-    Title.Parent = Frame
-    Title.Size = UDim2.new(1, 0, 0, 50)
-    Title.BackgroundTransparency = 1
-    Title.Text = "ULTRA SIGMA HAX V2"
-    Title.Font = Enum.Font.GothamBlack
-    Title.TextSize = 24
-    Title.TextColor3 = Color3.fromRGB(255, 50, 50)
-    Scrolling.Parent = Frame
-    Scrolling.Position = UDim2.new(0, 0, 0, 50)
-    Scrolling.Size = UDim2.new(1, 0, 1, -50)
-    Scrolling.BackgroundTransparency = 1
-    Scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Scrolling.ScrollBarThickness = 4
-    Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
-    UIListLayout.Parent = Scrolling
-    UIListLayout.Padding = UDim.new(0, 10)
-    UIListLayout.FillDirection = Enum.FillDirection.Vertical
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    
+    -- Function to modify guns with burst fire
+    local function ModifyGunsWithBurst()
+        game.StarterGui:SetCore("SendNotification", {Text="Make sure you aren't holding any guns rn", Title="Crown Hub Gun Mod"})
+        for i, v in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if v:GetAttribute("FireRate") ~= nil then
+                if BURST_FIRE_ENABLED then
+                    -- Enable burst fire
+                    v:SetAttribute("FireRate", 0.0001)  -- Extremely fast
+                    v:SetAttribute("AutoFire", true)
+                    v:SetAttribute("SpreadRadius", 0)
+                    
+                    -- Try to set burst count if attribute exists
+                    if v:GetAttribute("BurstCount") then
+                        v:SetAttribute("BurstCount", BURST_COUNT)
+                    end
+                else
+                    -- Regular fast fire rate
+                    v:SetAttribute("FireRate", IMPROVED_FIRE_RATE)
+                    v:SetAttribute("AutoFire", true)
+                    v:SetAttribute("SpreadRadius", 0)
+                end
+                
+                -- Instant reload if enabled
+                if INSTANT_RELOAD_ENABLED then
+                    if v:GetAttribute("ReloadTime") then
+                        v:SetAttribute("ReloadTime", 0.001)
+                    end
+                    if v:GetAttribute("ReloadSpeed") then
+                        v:SetAttribute("ReloadSpeed", 100)
+                    end
+                end
+                
+                game.StarterGui:SetCore("SendNotification", {Text="Modded " .. v.Name .. " successfully!", Title="Crown Hub Gun Mod"})
+            end
+        end
+    end
+    
     for _, info in ipairs(Buttons) do
         local btn = Instance.new("TextButton")
         btn.Name = info.name
         btn.Parent = Scrolling
         btn.Size = UDim2.new(0.85, 0, 0, 40)
         btn.BackgroundTransparency = 0.6
-        btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+        btn.BackgroundColor3 = Color3.fromRGB(20, 15, 25)
         btn.Text = info.text
         btn.Font = Enum.Font.GothamBold
-        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.TextColor3 = Color3.fromRGB(255, 215, 0)
         btn.TextScaled = true
         Instance.new("UICorner", btn)
         btn.MouseEnter:Connect(function()
             btn.BackgroundTransparency = 0.3
+            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
         end)
         btn.MouseLeave:Connect(function()
             btn.BackgroundTransparency = 0.6
+            btn.TextColor3 = Color3.fromRGB(255, 215, 0)
         end)
         btn.MouseButton1Click:Connect(function()
             if info.name == "ModGguns" then
-                game.StarterGui:SetCore("SendNotification", {Text="Make sure you aren't holding any guns rn", Title="Modded shit idfk"})
-                for i, v in pairs(LocalPlayer.Backpack:GetChildren()) do
-                    if v:GetAttribute("FireRate") ~= nil then
-                        v:SetAttribute("FireRate", 0.02)
-                        v:SetAttribute("AutoFire", true)
-                        v:SetAttribute("SpreadRadius", 0)
-                        game.StarterGui:SetCore("SendNotification", {Text="Modded " .. v.Name .. " successfully!", Title="Modded shit idfk"})
-                    end
-                end
+                BURST_FIRE_ENABLED = not BURST_FIRE_ENABLED
+                btn.Text = "Burst Fire: " .. (BURST_FIRE_ENABLED and "ON" or "OFF")
+                ModifyGunsWithBurst()
+            elseif info.name == "InstantReload" then
+                INSTANT_RELOAD_ENABLED = not INSTANT_RELOAD_ENABLED
+                btn.Text = "Instant Reload: " .. (INSTANT_RELOAD_ENABLED and "ON" or "OFF")
+                ModifyGunsWithBurst()
             elseif info.name == "CrimBaseTP" then
                 if CanTeleport() then
                     LocalPlayer.Character.HumanoidRootPart.CFrame = workspace["Criminals Spawn"].SpawnLocation.CFrame
@@ -1073,6 +1212,13 @@ local function LoadUltraSigmaHax()
                 ESP_ENABLED = not ESP_ENABLED
                 btn.Text = "Toggle ESP (" .. (ESP_ENABLED and "ON" or "OFF") .. ")"
                 UpdateESP()
+            elseif info.name == "RainbowWalls" then
+                local result = modifyWalls()
+                btn.Text = "Rainbow Walls: " .. result
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Crown Hub",
+                    Text = "Rainbow Walls: " .. result
+                })
             elseif info.name == "ArrestPlayer" then
                 ShowArrestGui()
             elseif info.name == "CancelArrest" then
@@ -1109,15 +1255,15 @@ local function LoadUltraSigmaHax()
     local dragging = false
     local dragStart, startPos
 
-    Frame.InputBegan:Connect(function(input)
+    CrownPrisonHacksFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
-            startPos = Frame.Position
+            startPos = CrownPrisonHacksFrame.Position
         end
     end)
 
-    Frame.InputEnded:Connect(function(input)
+    CrownPrisonHacksFrame.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
         end
@@ -1126,28 +1272,41 @@ local function LoadUltraSigmaHax()
     UIS.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            CrownPrisonHacksFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
 
+    -- Animate title color
     task.spawn(function()
-        while true do
+        while CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent do
             for i = 0, 1, 0.01 do
+                if not CrownPrisonHacksFrame then break end
                 UIStroke.Color = Color3.fromHSV(i, 1, 1)
-                task.wait(0.02)
-            end
-        end
-    end)
-    task.spawn(function()
-        while true do
-            for i = 0, 1, 0.01 do
                 Title.TextColor3 = Color3.fromHSV(i, 1, 1)
                 task.wait(0.02)
             end
+            if not CrownPrisonHacksFrame then break end
         end
     end)
-    game.StarterGui:SetCore("SendNotification", {Text = "Loaded Successfully", Title = "ULTRA SIGMA HAX V2 >:3c"})
+    
+    game.StarterGui:SetCore("SendNotification", {Text = "Loaded Successfully", Title = "CROWN HUB PRISON HACKS"})
     RunService.RenderStepped:Connect(UpdateESP)
+    
+    -- Close button for the frame
+    local closeFrameBtn = Instance.new("TextButton")
+    closeFrameBtn.Parent = CrownPrisonHacksFrame
+    closeFrameBtn.Size = UDim2.new(0, 30, 0, 30)
+    closeFrameBtn.Position = UDim2.new(1, -35, 0, 5)
+    closeFrameBtn.BackgroundTransparency = 0.6
+    closeFrameBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    closeFrameBtn.Text = "X"
+    closeFrameBtn.Font = Enum.Font.GothamBold
+    closeFrameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeFrameBtn.TextSize = 14
+    Instance.new("UICorner", closeFrameBtn)
+    closeFrameBtn.MouseButton1Click:Connect(function()
+        CrownPrisonHacksFrame.Visible = false
+    end)
 end
 
 local FlyEnabled = false
@@ -1323,7 +1482,7 @@ local CrownFunctions = {
         end}
     },
     
-    Movement = {
+    ["Movement"] = {
         {"🚀 Fly (WASD+Space+Ctrl)", function()
             ToggleFly()
         end},
@@ -1365,7 +1524,7 @@ local CrownFunctions = {
         end}
     },
     
-    Visual = {
+    ["Visual"] = {
         {"🎯 ESP", function()
             for _, target in ipairs(Players:GetPlayers()) do
                 if target ~= player and target.Character then
@@ -1410,7 +1569,7 @@ local CrownFunctions = {
         end}
     },
     
-    Combat = {
+    ["Combat"] = {
         {"🎯 Venum Aim", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/MAINCODE"))()
         end},
@@ -1419,8 +1578,8 @@ local CrownFunctions = {
             loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))()
         end},
         
-        {"🔫 Prison Life Kill", function()
-            LoadUltraSigmaHax()
+        {"👑 Crown Prison Hacks", function()
+            LoadCrownPrisonHacks()
         end},
         
         {"📡 Influence ESP", function()
@@ -1428,7 +1587,7 @@ local CrownFunctions = {
         end}
     },
     
-    Hubs = {
+    ["Hubs"] = {
         {"🔪 Slicer FE V8", function()
             loadstring(game:HttpGet("https://raw.githubusercontent.com/Ahma174/Slicer/refs/heads/main/Slicer%20Fe%20V8.0.0%20%5BBETA%5D.txt"))()
         end},
