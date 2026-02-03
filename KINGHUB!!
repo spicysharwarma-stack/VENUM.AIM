@@ -1466,7 +1466,7 @@ local CrownFunctions = {
     
     ["Admin"] = {
         {"🛡️ Nameless Admin", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source"))()
+          loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))()
         end},
         
         {"⚡ Infinite Yield", function()
