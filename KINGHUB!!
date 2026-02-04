@@ -252,9 +252,14 @@ Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = IS_MOBILE and 18 or 24
 Title.Font = Enum.Font.GothamBlack
 Title.TextXAlignment = Enum.TextXAlignment.Left
-Title.TextStrokeColor3 = Color3.fromRGB(255, 215, 0)
-Title.TextStrokeTransparency = 0.7
-Title.ZIndex = 11
+
+-- Add rich gold text outline
+local TitleStroke = Instance.new("UIStroke")
+TitleStroke.Color = Color3.fromRGB(180, 150, 50) -- Dark gold color
+TitleStroke.Thickness = 1.5 -- Thin outline
+TitleStroke.Transparency = 0.3
+TitleStroke.Parent = Title
+
 Title.Parent = Header
 
 local Subtitle = Instance.new("TextLabel")
@@ -266,6 +271,14 @@ Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
 Subtitle.TextSize = IS_MOBILE and 9 or 11
 Subtitle.Font = Enum.Font.GothamMedium
 Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Add rich gold text outline to subtitle
+local SubtitleStroke = Instance.new("UIStroke")
+SubtitleStroke.Color = Color3.fromRGB(180, 150, 50)
+SubtitleStroke.Thickness = 1
+SubtitleStroke.Transparency = 0.4
+SubtitleStroke.Parent = Subtitle
+
 Subtitle.ZIndex = 11
 Subtitle.Parent = Header
 
@@ -285,6 +298,14 @@ MinimizeButton.Text = "_"
 MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
 MinimizeButton.TextSize = IS_MOBILE and 14 or 16
 MinimizeButton.Font = Enum.Font.GothamBlack
+
+-- Add gold outline to minimize button text
+local MinimizeButtonStroke = Instance.new("UIStroke")
+MinimizeButtonStroke.Color = Color3.fromRGB(180, 150, 50)
+MinimizeButtonStroke.Thickness = 1.2
+MinimizeButtonStroke.Transparency = 0.3
+MinimizeButtonStroke.Parent = MinimizeButton
+
 MinimizeButton.ZIndex = 11
 MinimizeButton.Parent = ControlContainer
 
@@ -301,6 +322,14 @@ CloseButton.Text = "×"
 CloseButton.TextColor3 = Color3.new(1, 1, 1)
 CloseButton.TextSize = IS_MOBILE and 16 or 18
 CloseButton.Font = Enum.Font.GothamBlack
+
+-- Add gold outline to close button text
+local CloseButtonStroke = Instance.new("UIStroke")
+CloseButtonStroke.Color = Color3.fromRGB(180, 150, 50)
+CloseButtonStroke.Thickness = 1.2
+CloseButtonStroke.Transparency = 0.3
+CloseButtonStroke.Parent = CloseButton
+
 CloseButton.ZIndex = 11
 CloseButton.Parent = ControlContainer
 
@@ -355,6 +384,13 @@ for i, tabName in ipairs(Tabs) do
     TabButton.ZIndex = 11
     TabButton.Parent = TabContainer
     
+    -- Add gold outline to tab text
+    local TabButtonStroke = Instance.new("UIStroke")
+    TabButtonStroke.Color = Color3.fromRGB(180, 150, 50)
+    TabButtonStroke.Thickness = 1
+    TabButtonStroke.Transparency = 0.5
+    TabButtonStroke.Parent = TabButton
+    
     local TabCorner = Instance.new("UICorner")
     TabCorner.CornerRadius = UDim.new(0, 6)
     TabCorner.Parent = TabButton
@@ -365,6 +401,10 @@ for i, tabName in ipairs(Tabs) do
                 BackgroundTransparency = 0.1,
                 TextColor3 = Color3.fromRGB(255, 255, 255)
             }):Play()
+            TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
+                Transparency = 0.3,
+                Color = Color3.fromRGB(200, 170, 60)
+            }):Play()
         end
     end)
     
@@ -373,6 +413,10 @@ for i, tabName in ipairs(Tabs) do
             TweenService:Create(TabButton, TweenInfo.new(0.3), {
                 BackgroundTransparency = 0.3,
                 TextColor3 = Color3.fromRGB(200, 190, 220)
+            }):Play()
+            TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
+                Transparency = 0.5,
+                Color = Color3.fromRGB(180, 150, 50)
             }):Play()
         end
     end)
@@ -393,11 +437,19 @@ function UpdateTabAppearance()
                     TextColor3 = Color3.fromRGB(20, 15, 25),
                     BackgroundTransparency = 0.1
                 }):Play()
+                TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
+                    Transparency = 0.2,
+                    Color = Color3.fromRGB(100, 80, 30)
+                }):Play()
             else
                 TweenService:Create(tab, TweenInfo.new(0.3), {
                     BackgroundColor3 = Color3.fromRGB(35, 30, 45),
                     TextColor3 = Color3.fromRGB(200, 190, 220),
                     BackgroundTransparency = 0.3
+                }):Play()
+                TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
+                    Transparency = 0.5,
+                    Color = Color3.fromRGB(180, 150, 50)
                 }):Play()
             end
         end
@@ -504,10 +556,10 @@ local function modifyWalls()
 end
 
 local VehicleScriptLoaded = false
-local function LoadUniversalVehicle()
+local function LoadFormula1Car()
     if not VehicleScriptLoaded then
         VehicleScriptLoaded = true
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/Documantation12/Universal-Vehicle-Script/main/Main.lua'))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/FORMULA1%20CAR!!!!"))()
     end
 end
 
@@ -600,6 +652,14 @@ local function LoadCrownPrisonHacks()
             emojiLabel.TextStrokeTransparency = 0
             emojiLabel.Font = Enum.Font.GothamBold
             emojiLabel.TextSize = 24
+            
+            -- Add gold outline to ESP text
+            local emojiStroke = Instance.new("UIStroke")
+            emojiStroke.Color = Color3.fromRGB(180, 150, 50)
+            emojiStroke.Thickness = 1.2
+            emojiStroke.Transparency = 0.3
+            emojiStroke.Parent = emojiLabel
+            
             emojiLabel.Parent = billboard
             
             local nameLabel = Instance.new("TextLabel")
@@ -611,6 +671,14 @@ local function LoadCrownPrisonHacks()
             nameLabel.TextStrokeTransparency = 0
             nameLabel.Font = Enum.Font.GothamBold
             nameLabel.TextSize = 14
+            
+            -- Add gold outline to ESP name text
+            local nameStroke = Instance.new("UIStroke")
+            nameStroke.Color = Color3.fromRGB(180, 150, 50)
+            nameStroke.Thickness = 1
+            nameStroke.Transparency = 0.4
+            nameStroke.Parent = nameLabel
+            
             nameLabel.Parent = billboard
             
             local healthBarBG = Instance.new("Frame")
@@ -764,6 +832,13 @@ local function LoadCrownPrisonHacks()
     Title.Font = Enum.Font.GothamBlack
     Title.TextSize = 24
     Title.TextColor3 = Color3.fromRGB(255, 215, 0)
+    
+    -- Add gold outline to prison hacks title
+    local TitleStroke = Instance.new("UIStroke")
+    TitleStroke.Color = Color3.fromRGB(180, 150, 50)
+    TitleStroke.Thickness = 1.5
+    TitleStroke.Transparency = 0.3
+    TitleStroke.Parent = Title
     
     local Scrolling = Instance.new("ScrollingFrame")
     Scrolling.Parent = CrownPrisonHacksFrame
@@ -1031,6 +1106,13 @@ local function LoadCrownPrisonHacks()
         arrestTitle.TextSize = 18
         arrestTitle.TextColor3 = Color3.fromRGB(255, 50, 50)
         
+        -- Add gold outline to arrest title
+        local arrestTitleStroke = Instance.new("UIStroke")
+        arrestTitleStroke.Color = Color3.fromRGB(180, 150, 50)
+        arrestTitleStroke.Thickness = 1.2
+        arrestTitleStroke.Transparency = 0.3
+        arrestTitleStroke.Parent = arrestTitle
+        
         local closeBtn = Instance.new("TextButton")
         closeBtn.Parent = arrestGui
         closeBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -1041,6 +1123,14 @@ local function LoadCrownPrisonHacks()
         closeBtn.Font = Enum.Font.GothamBold
         closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
         closeBtn.TextSize = 14
+        
+        -- Add gold outline to close button text
+        local closeBtnStroke = Instance.new("UIStroke")
+        closeBtnStroke.Color = Color3.fromRGB(180, 150, 50)
+        closeBtnStroke.Thickness = 1
+        closeBtnStroke.Transparency = 0.4
+        closeBtnStroke.Parent = closeBtn
+        
         Instance.new("UICorner", closeBtn)
         closeBtn.MouseButton1Click:Connect(CloseArrestGui)
         
@@ -1082,13 +1172,23 @@ local function LoadCrownPrisonHacks()
             targetBtn.Font = Enum.Font.GothamBold
             targetBtn.TextColor3 = teamName == "Criminals" and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 170, 0)
             targetBtn.TextScaled = true
+            
+            -- Add gold outline to target button text
+            local targetBtnStroke = Instance.new("UIStroke")
+            targetBtnStroke.Color = Color3.fromRGB(180, 150, 50)
+            targetBtnStroke.Thickness = 1
+            targetBtnStroke.Transparency = 0.4
+            targetBtnStroke.Parent = targetBtn
+            
             Instance.new("UICorner", targetBtn)
             
             targetBtn.MouseEnter:Connect(function()
                 targetBtn.BackgroundTransparency = 0.3
+                targetBtnStroke.Transparency = 0.2
             end)
             targetBtn.MouseLeave:Connect(function()
                 targetBtn.BackgroundTransparency = 0.6
+                targetBtnStroke.Transparency = 0.4
             end)
             
             targetBtn.MouseButton1Click:Connect(function()
@@ -1158,14 +1258,26 @@ local function LoadCrownPrisonHacks()
         btn.Font = Enum.Font.GothamBold
         btn.TextColor3 = Color3.fromRGB(255, 215, 0)
         btn.TextScaled = true
+        
+        -- Add gold outline to prison hacks buttons
+        local btnStroke = Instance.new("UIStroke")
+        btnStroke.Color = Color3.fromRGB(180, 150, 50)
+        btnStroke.Thickness = 1.2
+        btnStroke.Transparency = 0.3
+        btnStroke.Parent = btn
+        
         Instance.new("UICorner", btn)
         btn.MouseEnter:Connect(function()
             btn.BackgroundTransparency = 0.3
             btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            btnStroke.Transparency = 0.1
+            btnStroke.Color = Color3.fromRGB(200, 170, 60)
         end)
         btn.MouseLeave:Connect(function()
             btn.BackgroundTransparency = 0.6
             btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+            btnStroke.Transparency = 0.3
+            btnStroke.Color = Color3.fromRGB(180, 150, 50)
         end)
         btn.MouseButton1Click:Connect(function()
             if info.name == "ModGguns" then
@@ -1303,6 +1415,14 @@ local function LoadCrownPrisonHacks()
     closeFrameBtn.Font = Enum.Font.GothamBold
     closeFrameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
     closeFrameBtn.TextSize = 14
+    
+    -- Add gold outline to close button text
+    local closeFrameBtnStroke = Instance.new("UIStroke")
+    closeFrameBtnStroke.Color = Color3.fromRGB(180, 150, 50)
+    closeFrameBtnStroke.Thickness = 1
+    closeFrameBtnStroke.Transparency = 0.4
+    closeFrameBtnStroke.Parent = closeFrameBtn
+    
     Instance.new("UICorner", closeFrameBtn)
     closeFrameBtn.MouseButton1Click:Connect(function()
         CrownPrisonHacksFrame.Visible = false
@@ -1602,8 +1722,8 @@ local CrownFunctions = {
     },
     
     ["Fun"] = {
-        {"🚗 Universal Vehicle", function()
-            LoadUniversalVehicle()
+        {"🏎️ Formula 1 Car", function()  -- Changed text from "Universal Vehicle"
+            LoadFormula1Car()  -- Changed function call
         end},
         
         {"💃 Tenna Dance", function()
@@ -1639,6 +1759,13 @@ function CreateButton(text, callback)
     button.ZIndex = 11
     button.Parent = ContentFrame
     
+    -- Add rich gold outline to all button text
+    local buttonStroke = Instance.new("UIStroke")
+    buttonStroke.Color = Color3.fromRGB(180, 150, 50) -- Dark gold color
+    buttonStroke.Thickness = 1.2 -- Thin outline
+    buttonStroke.Transparency = 0.3
+    buttonStroke.Parent = button
+    
     local buttonCorner = Instance.new("UICorner")
     buttonCorner.CornerRadius = UDim.new(0, 8)
     buttonCorner.Parent = button
@@ -1650,6 +1777,10 @@ function CreateButton(text, callback)
                 BackgroundColor3 = Color3.fromRGB(45, 40, 55),
                 Size = UDim2.new(1, 5, 0, 45)
             }):Play()
+            TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
+                Transparency = 0.1,
+                Color = Color3.fromRGB(200, 170, 60)
+            }):Play()
         end)
         
         button.MouseLeave:Connect(function()
@@ -1657,6 +1788,10 @@ function CreateButton(text, callback)
                 BackgroundTransparency = 0.2,
                 BackgroundColor3 = Color3.fromRGB(35, 30, 45),
                 Size = UDim2.new(1, 0, 0, 42)
+            }):Play()
+            TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
+                Transparency = 0.3,
+                Color = Color3.fromRGB(180, 150, 50)
             }):Play()
         end)
     end
@@ -1667,11 +1802,19 @@ function CreateButton(text, callback)
             TextColor3 = Color3.fromRGB(20, 15, 25),
             Size = UDim2.new(1, IS_MOBILE and -3 or -5, 0, IS_MOBILE and 35 or 38)
         }):Play()
+        TweenService:Create(buttonStroke, TweenInfo.new(0.1), {
+            Transparency = 0.2,
+            Color = Color3.fromRGB(100, 80, 30)
+        }):Play()
         wait(0.1)
         TweenService:Create(button, TweenInfo.new(0.3), {
             BackgroundColor3 = Color3.fromRGB(35, 30, 45),
             TextColor3 = Color3.fromRGB(240, 230, 255),
             Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
+        }):Play()
+        TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
+            Transparency = 0.3,
+            Color = Color3.fromRGB(180, 150, 50)
         }):Play()
         
         pcall(callback)
@@ -1700,12 +1843,18 @@ if not IS_MOBILE then
             BackgroundTransparency = 0,
             Size = UDim2.new(0, 32, 0, 32)
         }):Play()
+        TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
+            Transparency = 0.1
+        }):Play()
     end)
     
     MinimizeButton.MouseLeave:Connect(function()
         TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
             BackgroundTransparency = 0.2,
             Size = UDim2.new(0, 30, 0, 30)
+        }):Play()
+        TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
+            Transparency = 0.3
         }):Play()
     end)
     
@@ -1714,12 +1863,18 @@ if not IS_MOBILE then
             BackgroundTransparency = 0,
             Size = UDim2.new(0, 32, 0, 32)
         }):Play()
+        TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
+            Transparency = 0.1
+        }):Play()
     end)
     
     CloseButton.MouseLeave:Connect(function()
         TweenService:Create(CloseButton, TweenInfo.new(0.2), {
             BackgroundTransparency = 0.2,
             Size = UDim2.new(0, 30, 0, 30)
+        }):Play()
+        TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
+            Transparency = 0.3
         }):Play()
     end)
 end
