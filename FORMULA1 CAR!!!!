@@ -1,7 +1,6 @@
 --[[
     Crown Hub Vehicle Script - Premium Edition
-    Fixed with proper collision disabling (Body only, not wheels)
-    UPDATED: Fixed flight system to work properly
+    FIXED: Front wheel detection now handles Prison Life style cars
 ]]
 
 local Players = game:GetService("Players")
@@ -31,15 +30,15 @@ local flightSpeed = 1
 local defaultCharacterParent
 local wheelIncrement = 0.1
 local rearWheelModified = false
-local originalFrictions = {} -- Store original properties for each wheel
+local originalFrictions = {}
 local collisionDisabled = false
-local originalCollisionStates = {} -- Store original collision states
-local selectedcar = nil -- Track selected car like first script
-local cars = workspace:FindFirstChild("CarContainer") or workspace -- Find car container
+local originalCollisionStates = {}
+local selectedcar = nil
+local cars = workspace:FindFirstChild("CarContainer") or workspace
 
 local IS_MOBILE = UserInputService.TouchEnabled
-local UI_WIDTH = 320  -- Compact size
-local UI_HEIGHT = 480 -- Increased height for refresh button
+local UI_WIDTH = 320
+local UI_HEIGHT = 480
 
 local MainContainer = Instance.new("Frame")
 MainContainer.Size = UDim2.new(0, UI_WIDTH, 0, UI_HEIGHT)
@@ -225,7 +224,7 @@ local function RefreshSelectedCar()
     return selectedcar
 end
 
--- Collision Disable Function (EXACTLY like first script - Body only)
+-- Collision Disable Function (Body only)
 local function ToggleCollision()
     if not selectedcar then
         print("[Crown Hub] No car selected for collision toggle")
@@ -233,7 +232,6 @@ local function ToggleCollision()
     end
     
     if not collisionDisabled then
-        -- Disable collision for ALL parts in Body folder (exactly like first script)
         local BodyFolder = selectedcar:FindFirstChild("Body")
         if BodyFolder then
             for _, v in pairs(BodyFolder:GetDescendants()) do
@@ -251,7 +249,6 @@ local function ToggleCollision()
             return false
         end
     else
-        -- Restore original collision states
         for part, canCollide in pairs(originalCollisionStates) do
             if part and part.Parent then
                 part.CanCollide = canCollide
@@ -264,7 +261,7 @@ local function ToggleCollision()
     end
 end
 
--- UPDATED: Better Flight System from Venyx Script
+-- Flight System
 RunService.Stepped:Connect(function()
     local Character = player.Character
     if flightEnabled == true then
@@ -371,7 +368,7 @@ UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
     end
 end)
 
--- Wheel Modification Functions (FIXED: 0.2 friction, 54 weight)
+-- Wheel Modification Functions
 local function ModifyRearWheels()
     if not selectedcar then
         print("[Crown Hub] No car selected for rear wheel mod")
@@ -381,18 +378,14 @@ local function ModifyRearWheels()
     if not rearWheelModified then
         print("[Crown Hub] Applying rear wheel friction: 0.2 friction, 54 weight")
         
-        -- Find and modify rear wheels
         for _, part in pairs(selectedcar:GetDescendants()) do
             if part:IsA("BasePart") then
                 local partName = part.Name:lower()
                 if partName:find("rear") or partName:find("back") or partName:find("rwd") then
-                    -- Store original properties
                     originalFrictions[part] = {
                         Friction = part.Friction,
                         FrictionWeight = part.FrictionWeight
                     }
-                    
-                    -- Apply FIXED values
                     part.Friction = 0.2
                     part.FrictionWeight = 54
                     print("[Crown Hub] Modified: "..part.Name.." to Friction=0.2, Weight=54")
@@ -402,8 +395,6 @@ local function ModifyRearWheels()
         rearWheelModified = true
     else
         print("[Crown Hub] Restoring original rear wheel friction")
-        
-        -- Restore original properties
         for part, props in pairs(originalFrictions) do
             if part and part.Parent then
                 part.Friction = props.Friction
@@ -418,12 +409,22 @@ local function ModifyRearWheels()
     return rearWheelModified
 end
 
+-- FIXED: Enhanced front wheel detection (includes Prison Life structure)
 local function ModifyWheelHeight(wheelType, direction)
     if not selectedcar then return end
     
+    -- Name-based patterns (already present)
     local wheelNames = {
-        ["Front"] = {"front", "fw", "frontwheel", "lw", "rw", "vs", "ss"},
-        ["Rear"] = {"rear", "back", "rw", "rearwheel", "rwd"}
+        ["Front"] = {
+            "front", "fw", "lf", "rf", "fl", "fr", 
+            "frontwheel", "front wheel", "front tire",
+            "frontaxle", "front axle", "lfront", "rfront"
+        },
+        ["Rear"] = {
+            "rear", "back", "rw", "lrear", "rrear", 
+            "rearwheel", "rear wheel", "rear tire",
+            "rearaxle", "rear axle", "rwd"
+        }
     }
     
     local names = wheelNames[wheelType]
@@ -432,11 +433,39 @@ local function ModifyWheelHeight(wheelType, direction)
     for _, part in pairs(selectedcar:GetDescendants()) do
         if part:IsA("BasePart") then
             local partName = part.Name:lower()
+            local parentName = part.Parent and part.Parent.Name:lower() or ""
+            
+            -- Check if part matches the wheel type
+            local isMatch = false
+            
+            -- First check by part name
             for _, name in ipairs(names) do
                 if partName:find(name) then
-                    part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
+                    isMatch = true
                     break
                 end
+            end
+            
+            -- If not matched by name, try parent folder specific to Prison Life
+            if not isMatch then
+                if wheelType == "Front" then
+                    -- Prison Life front wheels are under folders named "LW" or "RW"
+                    if parentName == "lw" or parentName == "rw" then
+                        isMatch = true
+                    end
+                elseif wheelType == "Rear" then
+                    -- Prison Life rear wheels are under "RWD" or specific parts under "Body"
+                    if parentName == "rwd" then
+                        isMatch = true
+                    elseif parentName == "body" and (partName == "ml" or partName == "mr") then
+                        isMatch = true
+                    end
+                end
+            end
+            
+            if isMatch then
+                part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
+                print("[Crown Hub] Moved "..wheelType.." wheel: "..part.Name.." (Parent: "..parentName..")")
             end
         end
     end
@@ -448,6 +477,7 @@ local function ModifyAllWheels(direction)
     for _, part in pairs(selectedcar:GetDescendants()) do
         if part:IsA("BasePart") and (part.Name:lower():find("wheel") or part.Name:lower():find("tire") or part.Name:lower():find("wd") or part.Name:lower():find("vs") or part.Name:lower():find("ss")) then
             part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
+            print("[Crown Hub] Moved all wheel: "..part.Name)
         end
     end
 end
@@ -778,7 +808,6 @@ function UpdateContent()
     controls = {}
     
     if CurrentTab == "Main" then
-        -- Refresh Selected Car Button (like first script)
         CreateTextButton("Refresh Selected Car", function()
             RefreshSelectedCar()
             if refreshButton then
@@ -789,7 +818,6 @@ function UpdateContent()
             end
         end)
         
-        -- Selected Car Label
         selectedCarLabel = Instance.new("TextLabel")
         selectedCarLabel.Size = UDim2.new(1, 0, 0, 20)
         selectedCarLabel.BackgroundTransparency = 1
@@ -801,25 +829,20 @@ function UpdateContent()
         selectedCarLabel.ZIndex = 11
         selectedCarLabel.Parent = ContentFrame
         
-        -- Keybinds Active Toggle
         controls.keybindsToggle = CreateToggleButton("Keybinds Active", velocityEnabled, function(state)
             velocityEnabled = state
         end)
         
-        -- Acceleration Multiplier Dragger
         controls.accelMult = CreateDraggerSlider("Accel Multiplier", 0, 0.05, velocityMult, function(value)
             velocityMult = value
         end)
         
-        -- Brake Force Dragger (Q Keybind)
         controls.brakeForce = CreateDraggerSlider("Brake Force (Q)", 0, 3.0, velocityMult2, function(value)
             velocityMult2 = value
         end)
         
-        -- Disable Body Collision Button (EXACTLY like first script)
         CreateTextButton("Disable Body Collision: " .. (collisionDisabled and "ON" or "OFF"), function()
             local result = ToggleCollision()
-            -- Update all buttons to show correct state
             for _, child in ipairs(ContentFrame:GetChildren()) do
                 if child:IsA("TextButton") and child.Text:find("Disable Body Collision") then
                     child.Text = "Disable Body Collision: " .. (result and "ON" or "OFF")
@@ -828,7 +851,6 @@ function UpdateContent()
             end
         end)
         
-        -- Stop Vehicle Button
         CreateTextButton("Stop Vehicle (P)", function()
             local Character = player.Character
             if Character and typeof(Character) == "Instance" then
@@ -843,10 +865,8 @@ function UpdateContent()
             end
         end)
         
-        -- Rear Wheel Friction (FIXED: 0.2 friction, 54 weight)
         CreateTextButton("Rear Wheel Friction: " .. (rearWheelModified and "ON" or "OFF"), function()
             local result = ModifyRearWheels()
-            -- Update all buttons to show correct state
             for _, child in ipairs(ContentFrame:GetChildren()) do
                 if child:IsA("TextButton") and child.Text:find("Rear Wheel Friction") then
                     child.Text = "Rear Wheel Friction: " .. (result and "ON" or "OFF")
@@ -855,10 +875,8 @@ function UpdateContent()
             end
         end)
         
-        -- Springs Visibility
         CreateTextButton("Springs Visibility", function()
             local visible = ToggleSpringsVisibility()
-            -- Update all buttons to show correct state
             for _, child in ipairs(ContentFrame:GetChildren()) do
                 if child:IsA("TextButton") and child.Text:find("Springs") then
                     child.Text = "Springs: " .. (visible and "VISIBLE" or "HIDDEN")
@@ -868,23 +886,19 @@ function UpdateContent()
         end)
         
     elseif CurrentTab == "Flight" then
-        -- Flight Toggle
         controls.flightToggle = CreateToggleButton("Flight Mode", flightEnabled, function(state)
             flightEnabled = state
         end)
         
-        -- Flight Speed Dragger (UPDATED: from 0-8 to 0-800 divided by 100, like Venyx script)
         controls.flightSpeed = CreateDraggerSlider("Flight Speed", 0, 800, flightSpeed * 100, function(value)
             flightSpeed = value / 100
         end)
         
     elseif CurrentTab == "Wheels" then
-        -- Wheel Increment Dragger (Max 5)
         controls.wheelInc = CreateDraggerSlider("Wheel Increment", 0.1, 5.0, wheelIncrement, function(value)
             wheelIncrement = value
         end)
         
-        -- Wheel Controls
         CreateTextButton("Lower All Wheels", function()
             ModifyAllWheels(1)
         end)
@@ -916,27 +930,21 @@ spawn(function()
     while CrownHub.Parent do
         task.wait(1)
         
-        -- Update button states
         if controls.keybindsToggle then
             controls.keybindsToggle.update(velocityEnabled)
         end
-        
         if controls.flightToggle then
             controls.flightToggle.update(flightEnabled)
         end
-        
         if controls.accelMult then
             controls.accelMult.update(velocityMult)
         end
-        
         if controls.brakeForce then
             controls.brakeForce.update(velocityMult2)
         end
-        
         if controls.flightSpeed then
             controls.flightSpeed.update(flightSpeed * 100)
         end
-        
         if controls.wheelInc then
             controls.wheelInc.update(wheelIncrement)
         end
@@ -1016,4 +1024,5 @@ spawn(function()
     print("Disable Collision only affects Body parts (wheels keep collision)")
     print("Flight Controls: W/S - Forward/Backward, A/D - Left/Right, E/Q - Up/Down")
     print("Flight follows camera direction")
+    print("[FIXED] Front wheels now raise separately – added Prison Life detection (LW/RW folders)")
 end)
