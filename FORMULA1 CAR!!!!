@@ -1,5 +1,5 @@
 --[[
-    Crown Hub Vehicle Script - Premium Edition
+    Crown Hub Vehicle Script
     FIXED: Front wheel detection now handles Prison Life style cars
 ]]
 
@@ -24,7 +24,7 @@ local velocityEnabled = true
 local velocityMult = 0.025
 local velocityEnabledKeyCode = Enum.KeyCode.W
 local velocityMult2 = 0.15
-local qbEnabledKeyCode = Enum.KeyCode.Q  -- Q for brake
+local qbEnabledKeyCode = Enum.KeyCode.Q
 local flightEnabled = false
 local flightSpeed = 1
 local defaultCharacterParent
@@ -214,23 +214,12 @@ local function RefreshSelectedCar()
             break
         end
     end
-    
-    if selectedcar ~= nil then
-        print("[Crown Hub] Selected Car: "..selectedcar.Name)
-    else
-        print("[Crown Hub] No car selected")
-    end
-    
     return selectedcar
 end
 
 -- Collision Disable Function (Body only)
 local function ToggleCollision()
-    if not selectedcar then
-        print("[Crown Hub] No car selected for collision toggle")
-        return false
-    end
-    
+    if not selectedcar then return false end
     if not collisionDisabled then
         local BodyFolder = selectedcar:FindFirstChild("Body")
         if BodyFolder then
@@ -238,14 +227,11 @@ local function ToggleCollision()
                 if v:IsA("BasePart") then
                     originalCollisionStates[v] = v.CanCollide
                     v.CanCollide = false
-                    print("[Crown Hub] Disabled collision for: "..v.Name)
                 end
             end
             collisionDisabled = true
-            print("[Crown Hub] Collision DISABLED for Body parts")
             return true
         else
-            print("[Crown Hub] No Body folder found in selected car")
             return false
         end
     else
@@ -256,7 +242,6 @@ local function ToggleCollision()
         end
         originalCollisionStates = {}
         collisionDisabled = false
-        print("[Crown Hub] Collision RESTORED for Body parts")
         return false
     end
 end
@@ -370,14 +355,8 @@ end)
 
 -- Wheel Modification Functions
 local function ModifyRearWheels()
-    if not selectedcar then
-        print("[Crown Hub] No car selected for rear wheel mod")
-        return false
-    end
-    
+    if not selectedcar then return false end
     if not rearWheelModified then
-        print("[Crown Hub] Applying rear wheel friction: 0.2 friction, 54 weight")
-        
         for _, part in pairs(selectedcar:GetDescendants()) do
             if part:IsA("BasePart") then
                 local partName = part.Name:lower()
@@ -388,24 +367,20 @@ local function ModifyRearWheels()
                     }
                     part.Friction = 0.2
                     part.FrictionWeight = 54
-                    print("[Crown Hub] Modified: "..part.Name.." to Friction=0.2, Weight=54")
                 end
             end
         end
         rearWheelModified = true
     else
-        print("[Crown Hub] Restoring original rear wheel friction")
         for part, props in pairs(originalFrictions) do
             if part and part.Parent then
                 part.Friction = props.Friction
                 part.FrictionWeight = props.FrictionWeight
-                print("[Crown Hub] Restored: "..part.Name)
             end
         end
         originalFrictions = {}
         rearWheelModified = false
     end
-    
     return rearWheelModified
 end
 
@@ -413,7 +388,6 @@ end
 local function ModifyWheelHeight(wheelType, direction)
     if not selectedcar then return end
     
-    -- Name-based patterns (already present)
     local wheelNames = {
         ["Front"] = {
             "front", "fw", "lf", "rf", "fl", "fr", 
@@ -435,10 +409,8 @@ local function ModifyWheelHeight(wheelType, direction)
             local partName = part.Name:lower()
             local parentName = part.Parent and part.Parent.Name:lower() or ""
             
-            -- Check if part matches the wheel type
             local isMatch = false
             
-            -- First check by part name
             for _, name in ipairs(names) do
                 if partName:find(name) then
                     isMatch = true
@@ -446,15 +418,12 @@ local function ModifyWheelHeight(wheelType, direction)
                 end
             end
             
-            -- If not matched by name, try parent folder specific to Prison Life
             if not isMatch then
                 if wheelType == "Front" then
-                    -- Prison Life front wheels are under folders named "LW" or "RW"
                     if parentName == "lw" or parentName == "rw" then
                         isMatch = true
                     end
                 elseif wheelType == "Rear" then
-                    -- Prison Life rear wheels are under "RWD" or specific parts under "Body"
                     if parentName == "rwd" then
                         isMatch = true
                     elseif parentName == "body" and (partName == "ml" or partName == "mr") then
@@ -465,7 +434,6 @@ local function ModifyWheelHeight(wheelType, direction)
             
             if isMatch then
                 part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
-                print("[Crown Hub] Moved "..wheelType.." wheel: "..part.Name.." (Parent: "..parentName..")")
             end
         end
     end
@@ -477,7 +445,6 @@ local function ModifyAllWheels(direction)
     for _, part in pairs(selectedcar:GetDescendants()) do
         if part:IsA("BasePart") and (part.Name:lower():find("wheel") or part.Name:lower():find("tire") or part.Name:lower():find("wd") or part.Name:lower():find("vs") or part.Name:lower():find("ss")) then
             part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
-            print("[Crown Hub] Moved all wheel: "..part.Name)
         end
     end
 end
@@ -502,17 +469,11 @@ local function ToggleSpringsVisibility()
         end
         return newVisibility
     end
-    
     return false
 end
 
 -- Tabs
-local Tabs = {
-    "Main",
-    "Flight", 
-    "Wheels"
-}
-
+local Tabs = { "Main", "Flight", "Wheels" }
 local CurrentTab = "Main"
 local TabButtons = {}
 
@@ -1011,18 +972,3 @@ TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enu
 
 UpdateContent()
 UpdateTabAppearance()
-
--- Initial notification
-spawn(function()
-    wait(1)
-    print("Crown Hub Vehicle Script loaded!")
-    print("Press ] to toggle GUI")
-    print("Features: Acceleration, Brake (Q key), Flight, Wheel Controls, and more!")
-    print("Controls: W for acceleration, Q for brake, P to stop vehicle")
-    print("Wheel increment max is now 5")
-    print("Rear Wheel Friction sets: 0.2 friction, 54 friction weight")
-    print("Disable Collision only affects Body parts (wheels keep collision)")
-    print("Flight Controls: W/S - Forward/Backward, A/D - Left/Right, E/Q - Up/Down")
-    print("Flight follows camera direction")
-    print("[FIXED] Front wheels now raise separately – added Prison Life detection (LW/RW folders)")
-end)
