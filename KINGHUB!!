@@ -1,1931 +1,2126 @@
+--[[
+    ╔══════════════════════════════════════════════════════════╗
+    ║            CROWN HUB — Visual Loading Screen             ║
+    ║         Pure UI Build · No Image Assets Needed           ║
+    ╚══════════════════════════════════════════════════════════╝
+--]]
+
+-- SERVICES
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local CoreGui = game:GetService("CoreGui")
+local SoundService = game:GetService("SoundService")
+local Debris = game:GetService("Debris")
+local LP = Players.LocalPlayer
+local PGui = LP:WaitForChild("PlayerGui")
 
-local player = Players.LocalPlayer
-local mouse = player:GetMouse()
+-- HELPERS
+local function Tween(obj, goal, t, style, dir, delay)
+    local ti = TweenInfo.new(t, style or Enum.EasingStyle.Quad, dir or Enum.EasingDirection.Out, 0, false, delay or 0)
+    local tw = TweenService:Create(obj, ti, goal)
+    tw:Play()
+    return tw
+end
+local function Rand(a, b) return a + math.random() * (b - a) end
+local function PlaySound(id, vol, pitch)
+    local s = Instance.new("Sound")
+    s.SoundId = id
+    s.Volume = vol or 0.7
+    s.PlaybackSpeed = pitch or 1.0
+    s.Parent = SoundService
+    s:Play()
+    Debris:AddItem(s, 8)
+end
 
-local CrownHub = Instance.new("ScreenGui")
-CrownHub.Name = "CrownHubUniversal"
-CrownHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-CrownHub.DisplayOrder = 1000
-CrownHub.ResetOnSpawn = false
-CrownHub.Parent = CoreGui
+-- PALETTE
+local COL = {
+    bg = Color3.fromRGB(3,3,3),
+    goldBright = Color3.fromRGB(255,220,105),
+    goldMid = Color3.fromRGB(205,160,52),
+    goldDark = Color3.fromRGB(138,100,20),
+    goldDeep = Color3.fromRGB(72,50,6),
+    spotLight = Color3.fromRGB(255,235,170),
+    textGold = Color3.fromRGB(220,175,60),
+    circuitCol = Color3.fromRGB(180,140,40),
+}
 
--- Wall modification variables
-local wallsModified = false
-local originalWallProperties = {}
-local rainbowLoops = {}
+-- ROOT GUI
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "CrownHub_Loader"
+Gui.IgnoreGuiInset = true
+Gui.ResetOnSpawn = false
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.DisplayOrder = 999
+Gui.Parent = PGui
 
--- Fire rate improvement
-local IMPROVED_FIRE_RATE = 0.0001 -- Extremely fast fire rate
-local INSTANT_RELOAD_ENABLED = false
-local BURST_FIRE_ENABLED = false
-local BURST_COUNT = 10 -- 10 bullets per burst
+-- BLACK BACKGROUND
+local BG = Instance.new("Frame")
+BG.Size = UDim2.fromScale(1,1)
+BG.BackgroundColor3 = COL.bg
+BG.BackgroundTransparency = 0
+BG.BorderSizePixel = 0
+BG.ZIndex = 1
+BG.Parent = Gui
 
--- Arrest cooldown
-local arrestCooldown = false
-local lastArrestTime = 0
+-- SPOTLIGHT LAYER
+local shaftFrames = {}
+local shaftDefs = {
+    {0.37, 0.055, -11, 0.91}, {0.42, 0.045, -5, 0.88}, {0.465, 0.060, 0, 0.84},
+    {0.515, 0.045, 5, 0.88}, {0.555, 0.055, 11, 0.91}
+}
+for _, d in ipairs(shaftDefs) do
+    local shaft = Instance.new("Frame")
+    shaft.Size = UDim2.new(d[2], 0, 0.82, 0)
+    shaft.Position = UDim2.new(d[1], 0, -0.02, 0)
+    shaft.BackgroundColor3 = COL.spotLight
+    shaft.BackgroundTransparency = 1
+    shaft.BorderSizePixel = 0
+    shaft.Rotation = d[3]
+    shaft.ZIndex = 2
+    shaft.Parent = Gui
+    local g = Instance.new("UIGradient")
+    g.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, d[4]),
+        NumberSequenceKeypoint.new(0.6, math.min(d[4]+0.05,0.98)),
+        NumberSequenceKeypoint.new(1,1)
+    })
+    g.Rotation = 90
+    g.Parent = shaft
+    table.insert(shaftFrames, shaft)
+end
 
-local IS_MOBILE = UserInputService.TouchEnabled
-local SCREEN_WIDTH = workspace.CurrentCamera.ViewportSize.X
-local UI_SCALE = IS_MOBILE and math.min(SCREEN_WIDTH / 1200, 0.8) or 1
-local UI_WIDTH = IS_MOBILE and 380 or 450
-local UI_HEIGHT = IS_MOBILE and 480 or 520
+local ambientGlow = Instance.new("Frame")
+ambientGlow.Size = UDim2.new(0.5,0,0.65,0)
+ambientGlow.Position = UDim2.new(0.25,0,-0.02,0)
+ambientGlow.BackgroundColor3 = COL.spotLight
+ambientGlow.BackgroundTransparency = 1
+ambientGlow.BorderSizePixel = 0
+ambientGlow.ZIndex = 1
+ambientGlow.Parent = Gui
+do
+    local g2 = Instance.new("UIGradient")
+    g2.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0,0.78), NumberSequenceKeypoint.new(0.5,0.88), NumberSequenceKeypoint.new(1,1)
+    })
+    g2.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,COL.spotLight), ColorSequenceKeypoint.new(1,COL.bg)})
+    g2.Rotation = 90
+    g2.Parent = ambientGlow
+end
 
-local MainContainer = Instance.new("Frame")
-MainContainer.Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
-MainContainer.Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2)
-MainContainer.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
-MainContainer.BackgroundTransparency = 0.05
-MainContainer.BorderSizePixel = 0
-MainContainer.ClipsDescendants = true
-MainContainer.Parent = CrownHub
+-- CROWN BUILDER
+local allLogoFrames = {}
+local function tag(f) table.insert(allLogoFrames, f) return f end
+local function NewFrame(parent, zIdx)
+    local f = Instance.new("Frame")
+    f.BackgroundTransparency = 1
+    f.BorderSizePixel = 0
+    f.ZIndex = zIdx or 5
+    f.Parent = parent
+    return f
+end
 
-local EdgeGlow = Instance.new("Frame")
-EdgeGlow.Size = UDim2.new(1, 12, 1, 12)
-EdgeGlow.Position = UDim2.new(0, -6, 0, -6)
-EdgeGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-EdgeGlow.BackgroundTransparency = 0.7
-EdgeGlow.BorderSizePixel = 0
-EdgeGlow.ZIndex = -2
-EdgeGlow.Parent = MainContainer
+local BASE_Y = 55
+local SPIKE_Y = BASE_Y - 2
 
-local EdgeStroke = Instance.new("UIStroke")
-EdgeStroke.Color = Color3.fromRGB(255, 215, 0)
-EdgeStroke.Thickness = 6
-EdgeStroke.Transparency = 0.5
-EdgeStroke.Parent = MainContainer
+local function MakeSpike(cx_off, cy_off, sw, sh, lean, zIdx)
+    local holder = NewFrame(Gui, zIdx)
+    local holderW, holderH = sw*3.2, sh*1.25
+    holder.Size = UDim2.new(0, holderW, 0, holderH)
+    holder.Position = UDim2.new(0.5, cx_off - holderW/2, 0.5, cy_off - holderH + 8)
 
-local InnerGlow = Instance.new("Frame")
-InnerGlow.Size = UDim2.new(1, 0, 1, 0)
-InnerGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-InnerGlow.BackgroundTransparency = 0.95
-InnerGlow.BorderSizePixel = 0
-InnerGlow.ZIndex = 3
-InnerGlow.Parent = MainContainer
+    local lf = tag(NewFrame(holder, zIdx))
+    lf.BackgroundColor3 = COL.goldDark
+    lf.Size = UDim2.new(0, sw*0.68, 0, sh*1.08)
+    lf.AnchorPoint = Vector2.new(1,1)
+    lf.Position = UDim2.new(0.5, sw*0.10, 1, 0)
+    lf.Rotation = lean - 11
 
-local EdgeGlowCorner = Instance.new("UICorner")
-EdgeGlowCorner.CornerRadius = UDim.new(0, 20)
-EdgeGlowCorner.Parent = EdgeGlow
+    local cf = tag(NewFrame(holder, zIdx+1))
+    cf.BackgroundColor3 = COL.goldMid
+    cf.Size = UDim2.new(0, sw*0.28, 0, sh*1.02)
+    cf.AnchorPoint = Vector2.new(0.5,1)
+    cf.Position = UDim2.new(0.5,0,1,0)
+    cf.Rotation = lean
 
-local MainCorner = Instance.new("UICorner")
-MainCorner.CornerRadius = UDim.new(0, 12)
-MainCorner.Parent = MainContainer
+    local rf = tag(NewFrame(holder, zIdx))
+    rf.BackgroundColor3 = COL.goldBright
+    rf.Size = UDim2.new(0, sw*0.68, 0, sh*1.08)
+    rf.AnchorPoint = Vector2.new(0,1)
+    rf.Position = UDim2.new(0.5, -sw*0.10, 1, 0)
+    rf.Rotation = lean + 11
 
-spawn(function()
-    while CrownHub.Parent do
-        TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            BackgroundTransparency = 0.4,
-            BackgroundColor3 = Color3.fromRGB(255, 255, 150)
-        }):Play()
-        TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Transparency = 0.2,
-            Color = Color3.fromRGB(255, 255, 200)
-        }):Play()
-        TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            BackgroundTransparency = 0.9
-        }):Play()
-        wait(1.5)
-        
-        TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            BackgroundTransparency = 0.7,
-            BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-        }):Play()
-        TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            Transparency = 0.5,
-            Color = Color3.fromRGB(255, 215, 0)
-        }):Play()
-        TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-            BackgroundTransparency = 0.95
-        }):Play()
-        wait(1.5)
+    local apex = tag(NewFrame(holder, zIdx+2))
+    apex.BackgroundColor3 = COL.goldBright
+    apex.Size = UDim2.new(0,3,0,3)
+    apex.AnchorPoint = Vector2.new(0.5,0.5)
+    local tipX = 0.5 + (math.sin(math.rad(lean))*sh*0.5)/holderW
+    local tipY = 1 - (sh*0.98)/holderH
+    apex.Position = UDim2.new(tipX,0, tipY,0)
+    local uc = Instance.new("UICorner")
+    uc.CornerRadius = UDim.new(1,0)
+    uc.Parent = apex
+    return holder
+end
+
+local spikeData = {{-172,22,92,-20}, {-92,28,142,-7}, {0,38,208,0}, {92,28,142,7}, {172,22,92,20}}
+local spikeHolders = {}
+for _, d in ipairs(spikeData) do
+    table.insert(spikeHolders, MakeSpike(d[1], SPIKE_Y, d[2], d[3], d[4], 5))
+end
+
+local crownBase = tag(Instance.new("Frame"))
+crownBase.Name = "CrownBase"
+crownBase.Size = UDim2.new(0,308,0,46)
+crownBase.Position = UDim2.new(0.5,-154,0.5,BASE_Y)
+crownBase.BackgroundColor3 = COL.goldMid
+crownBase.BackgroundTransparency = 1
+crownBase.BorderSizePixel = 0
+crownBase.ZIndex = 6
+crownBase.Parent = Gui
+do
+    local g = Instance.new("UIGradient")
+    g.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, COL.goldDeep), ColorSequenceKeypoint.new(0.25, COL.goldDark),
+        ColorSequenceKeypoint.new(0.5, COL.goldMid), ColorSequenceKeypoint.new(0.75, COL.goldDark),
+        ColorSequenceKeypoint.new(1, COL.goldDeep)
+    })
+    g.Parent = crownBase
+end
+local baseTopEdge = tag(NewFrame(crownBase,7))
+baseTopEdge.BackgroundColor3 = COL.goldBright
+baseTopEdge.Size = UDim2.new(1,0,0,3)
+baseTopEdge.Position = UDim2.fromOffset(0,0)
+local shimmer = NewFrame(crownBase,8)
+shimmer.BackgroundColor3 = Color3.fromRGB(255,248,215)
+shimmer.Size = UDim2.new(0,48,1,0)
+shimmer.Position = UDim2.new(-0.25,0,0,0)
+do
+    local sg = Instance.new("UIGradient")
+    sg.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(0.5,0.25), NumberSequenceKeypoint.new(1,1)})
+    sg.Parent = shimmer
+end
+
+local function MakeCircuit(parentX, parentY, side, zIdx)
+    local lineLen, lineH = 38, 1
+    local line1 = tag(NewFrame(Gui, zIdx))
+    line1.BackgroundColor3 = COL.circuitCol
+    line1.Size = UDim2.new(0, lineLen, 0, lineH)
+    line1.Position = UDim2.new(0.5, parentX + side*18, 0.5, parentY-58)
+    local dot1 = tag(NewFrame(Gui, zIdx+1))
+    dot1.BackgroundColor3 = COL.goldBright
+    dot1.Size = UDim2.new(0,5,0,5)
+    dot1.AnchorPoint = Vector2.new(0.5,0.5)
+    dot1.Position = UDim2.new(0.5, parentX + side*(18 + lineLen*(side==1 and 1 or 0)), 0.5, parentY-58-1)
+    local uc1 = Instance.new("UICorner")
+    uc1.CornerRadius = UDim.new(1,0)
+    uc1.Parent = dot1
+    local line2 = tag(NewFrame(Gui, zIdx))
+    line2.BackgroundColor3 = COL.circuitCol
+    line2.Size = UDim2.new(0, lineH, 0, 22)
+    line2.Position = UDim2.new(0.5, parentX + side*(18 + lineLen*(side==1 and 1 or 0)) - (side==1 and 0 or 0), 0.5, parentY-58-22)
+    local dot2 = tag(NewFrame(Gui, zIdx+1))
+    dot2.BackgroundColor3 = COL.goldMid
+    dot2.Size = UDim2.new(0,4,0,4)
+    dot2.AnchorPoint = Vector2.new(0.5,0.5)
+    dot2.Position = UDim2.new(0.5, parentX + side*(18 + lineLen*(side==1 and 1 or 0)), 0.5, parentY-80-1)
+    local uc2 = Instance.new("UICorner")
+    uc2.CornerRadius = UDim.new(1,0)
+    uc2.Parent = dot2
+end
+MakeCircuit(-175, SPIKE_Y-30, -1, 8)
+MakeCircuit(175, SPIKE_Y-30, 1, 8)
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Name = "TitleLabel"
+titleLabel.Size = UDim2.new(0,360,0,56)
+titleLabel.Position = UDim2.new(0.5,-180,0.5,BASE_Y+52)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "CROWN HUB"
+titleLabel.Font = Enum.Font.GothamBold
+titleLabel.TextSize = 40
+titleLabel.TextColor3 = COL.textGold
+titleLabel.TextTransparency = 1
+titleLabel.ZIndex = 9
+titleLabel.Parent = Gui
+local titleStroke = Instance.new("UIStroke")
+titleStroke.Color = COL.goldBright
+titleStroke.Thickness = 0.5
+titleStroke.Transparency = 1
+titleStroke.Parent = titleLabel
+
+local subLabel = Instance.new("TextLabel")
+subLabel.Size = UDim2.new(0,360,0,20)
+subLabel.Position = UDim2.new(0.5,-180,0.5,BASE_Y+108)
+subLabel.BackgroundTransparency = 1
+subLabel.Text = "· · ·  L O A D I N G  · · ·"
+subLabel.Font = Enum.Font.Gotham
+subLabel.TextSize = 12
+subLabel.TextColor3 = COL.goldDark
+subLabel.TextTransparency = 1
+subLabel.ZIndex = 9
+subLabel.Parent = Gui
+
+-- FLOATING GOLD SPECKS
+local specks = {}
+for i=1,60 do
+    local sz = math.random(1, math.random()>0.8 and 5 or 3)
+    local speck = Instance.new("Frame")
+    speck.Size = UDim2.new(0,sz,0,sz)
+    speck.Position = UDim2.new(Rand(0.1,0.9),0, Rand(0.15,0.88),0)
+    speck.BackgroundColor3 = (math.random()>0.4) and COL.goldBright or COL.goldMid
+    speck.BackgroundTransparency = 1
+    speck.BorderSizePixel = 0
+    speck.ZIndex = 4
+    speck.Parent = Gui
+    local uc = Instance.new("UICorner")
+    uc.CornerRadius = UDim.new(1,0)
+    uc.Parent = speck
+    table.insert(specks, speck)
+end
+
+-- ANIMATION HELPERS
+local function SetLogoAlpha(a)
+    for _, f in ipairs(allLogoFrames) do
+        if f:IsA("TextLabel") then f.TextTransparency = a else f.BackgroundTransparency = a end
     end
+    titleLabel.TextTransparency = a
+    titleStroke.Transparency = a
+    subLabel.TextTransparency = math.min(a+0.1,1)
+end
+local function TweenLogoAlpha(targetA, dur, delay_, sty)
+    sty = sty or Enum.EasingStyle.Quad
+    for _, f in ipairs(allLogoFrames) do
+        if f:IsA("TextLabel") then Tween(f, {TextTransparency = targetA}, dur, sty, nil, delay_)
+        else Tween(f, {BackgroundTransparency = targetA}, dur, sty, nil, delay_) end
+    end
+    Tween(titleLabel, {TextTransparency = targetA}, dur, sty, nil, delay_)
+    Tween(titleStroke, {Transparency = targetA}, dur, sty, nil, delay_)
+    Tween(subLabel, {TextTransparency = math.min(targetA+0.1,1)}, dur, sty, nil, delay_)
+end
+local function TweenShafts(targetA, dur, delay_)
+    for i,s in ipairs(shaftFrames) do
+        if shaftDefs[i] then Tween(s, {BackgroundTransparency = targetA}, dur, Enum.EasingStyle.Sine, nil, delay_) end
+    end
+    Tween(ambientGlow, {BackgroundTransparency = targetA+0.05}, dur, nil, nil, delay_)
+end
+
+-- SPECK ANIMATION
+local specksActive = true
+local function AnimateSpeck(speck)
+    if not speck or not speck.Parent then return end
+    speck.Position = UDim2.new(Rand(0.08,0.92),0, Rand(0.3,0.9),0)
+    speck.BackgroundTransparency = 1
+    task.delay(Rand(0,0.5), function()
+        if not speck.Parent or not specksActive then return end
+        local startX, startY = speck.Position.X.Scale, speck.Position.Y.Scale
+        local driftX, driftY = (math.random()-0.5)*0.08, -Rand(0.05,0.14)
+        local life = Rand(1.4,3.2)
+        Tween(speck, {BackgroundTransparency = Rand(0.15,0.55)}, life*0.3, Enum.EasingStyle.Sine)
+        Tween(speck, {Position = UDim2.new(startX+driftX,0, startY+driftY,0), BackgroundTransparency = 1}, life, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+        task.delay(life+0.1, function() if specksActive then AnimateSpeck(speck) end end)
+    end)
+end
+
+-- MAIN ANIMATION SEQUENCE
+SetLogoAlpha(1)
+for _, h in ipairs(spikeHolders) do
+    h.Position = UDim2.new(h.Position.X.Scale, h.Position.X.Offset, h.Position.Y.Scale, h.Position.Y.Offset+28)
+end
+crownBase.Position = UDim2.new(0.5,-154,0.5,BASE_Y+28)
+titleLabel.Position = UDim2.new(0.5,-180,0.5,BASE_Y+80)
+subLabel.Position = UDim2.new(0.5,-180,0.5,BASE_Y+136)
+
+task.delay(0.05, function()
+    PlaySound("rbxassetid://4612359460", 0.65, 0.95)
+    local flyDur = 0.88
+    TweenLogoAlpha(0, flyDur, 0, Enum.EasingStyle.Back)
+    for _, h in ipairs(spikeHolders) do
+        Tween(h, {Position = UDim2.new(h.Position.X.Scale, h.Position.X.Offset, h.Position.Y.Scale, h.Position.Y.Offset-28)}, flyDur, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end
+    Tween(crownBase, {Position = UDim2.new(0.5,-154,0.5,BASE_Y)}, flyDur, Enum.EasingStyle.Back)
+    Tween(titleLabel, {Position = UDim2.new(0.5,-180,0.5,BASE_Y+52)}, flyDur, Enum.EasingStyle.Back)
+    Tween(subLabel, {Position = UDim2.new(0.5,-180,0.5,BASE_Y+108)}, flyDur, Enum.EasingStyle.Back)
 end)
 
-if IS_MOBILE then
-    local function onTouch(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local touchPos = input.Position
-            MainContainer.Position = UDim2.new(0, touchPos.X - (MainContainer.Size.X.Offset / 2), 0, touchPos.Y - (MainContainer.Size.Y.Offset / 2))
-        end
+task.delay(0.35, function()
+    for i,s in ipairs(shaftFrames) do
+        Tween(s, {BackgroundTransparency = shaftDefs[i][4]}, 1.5, Enum.EasingStyle.Sine, nil, (i-1)*0.06)
     end
-    
-    MainContainer.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local dragConnection
-            dragConnection = input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragConnection:Disconnect()
+    Tween(ambientGlow, {BackgroundTransparency = 0.78}, 1.8, Enum.EasingStyle.Sine)
+end)
+
+task.delay(0.75, function() PlaySound("rbxassetid://3271017369", 0.55, 1.05) end)
+task.delay(0.5, function() for i,sp in ipairs(specks) do task.delay(Rand(0,1.2), function() AnimateSpeck(sp) end) end end)
+task.delay(1.1, function() if crownBase and crownBase.Parent then Tween(shimmer, {Position = UDim2.new(1.15,0,0,0)}, 0.55, Enum.EasingStyle.Sine) end end)
+task.delay(2.0, function()
+    if not titleLabel.Parent then return end
+    Tween(titleStroke, {Thickness = 1.2}, 0.5, Enum.EasingStyle.Sine)
+    task.delay(0.5, function() Tween(titleStroke, {Thickness = 0.5}, 0.5, Enum.EasingStyle.Sine) end)
+end)
+
+-- After intro, destroy loader and create main Crown Hub
+task.delay(3.6, function()
+    specksActive = false
+    for _, sp in ipairs(specks) do Tween(sp, {BackgroundTransparency = 1}, 0.6, Enum.EasingStyle.Sine) end
+    TweenShafts(1, 0.7, 0)
+    TweenLogoAlpha(1, 0.85, 0.1, Enum.EasingStyle.Quad)
+    for _, h in ipairs(spikeHolders) do
+        Tween(h, {Position = UDim2.new(h.Position.X.Scale, h.Position.X.Offset, h.Position.Y.Scale, h.Position.Y.Offset-18)}, 0.85, Enum.EasingStyle.Quad, Enum.EasingDirection.In, 0.1)
+    end
+    Tween(BG, {BackgroundTransparency = 1}, 0.9, Enum.EasingStyle.Sine, nil, 0.3)
+    task.delay(1.5, function()
+        if Gui and Gui.Parent then Gui:Destroy() end
+        -- ========== MAIN CROWN HUB CODE (your original script) ==========
+        --[[
+            Crown Hub Universal - Prison Edition
+            Fully integrated with all requested features
+        ]]
+
+        local Players = game:GetService("Players")
+        local TweenService = game:GetService("TweenService")
+        local RunService = game:GetService("RunService")
+        local UserInputService = game:GetService("UserInputService")
+        local Lighting = game:GetService("Lighting")
+        local CoreGui = game:GetService("CoreGui")
+
+        local player = Players.LocalPlayer
+        local mouse = player:GetMouse()
+
+        local CrownHub = Instance.new("ScreenGui")
+        CrownHub.Name = "CrownHubUniversal"
+        CrownHub.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        CrownHub.DisplayOrder = 1000
+        CrownHub.ResetOnSpawn = false
+        CrownHub.Parent = CoreGui
+
+        -- Wall modification variables
+        local wallsModified = false
+        local originalWallProperties = {}
+        local rainbowLoops = {}
+
+        -- Fire rate improvement (burst/fast fire)
+        local IMPROVED_FIRE_RATE = 0.0001
+        local BURST_FIRE_ENABLED = false
+        local BURST_COUNT = 10
+
+        -- Arrest cooldown
+        local arrestCooldown = false
+        local lastArrestTime = 0
+
+        local IS_MOBILE = UserInputService.TouchEnabled
+        local SCREEN_WIDTH = workspace.CurrentCamera.ViewportSize.X
+        local UI_SCALE = IS_MOBILE and math.min(SCREEN_WIDTH / 1200, 0.8) or 1
+        local UI_WIDTH = IS_MOBILE and 380 or 450
+        local UI_HEIGHT = IS_MOBILE and 480 or 520
+
+        local MainContainer = Instance.new("Frame")
+        MainContainer.Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
+        MainContainer.Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2)
+        MainContainer.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
+        MainContainer.BackgroundTransparency = 0.05
+        MainContainer.BorderSizePixel = 0
+        MainContainer.ClipsDescendants = true
+        MainContainer.Parent = CrownHub
+
+        -- Edge glow and styling
+        local EdgeGlow = Instance.new("Frame")
+        EdgeGlow.Size = UDim2.new(1, 12, 1, 12)
+        EdgeGlow.Position = UDim2.new(0, -6, 0, -6)
+        EdgeGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        EdgeGlow.BackgroundTransparency = 0.7
+        EdgeGlow.BorderSizePixel = 0
+        EdgeGlow.ZIndex = -2
+        EdgeGlow.Parent = MainContainer
+
+        local EdgeStroke = Instance.new("UIStroke")
+        EdgeStroke.Color = Color3.fromRGB(255, 215, 0)
+        EdgeStroke.Thickness = 6
+        EdgeStroke.Transparency = 0.5
+        EdgeStroke.Parent = MainContainer
+
+        local InnerGlow = Instance.new("Frame")
+        InnerGlow.Size = UDim2.new(1, 0, 1, 0)
+        InnerGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        InnerGlow.BackgroundTransparency = 0.95
+        InnerGlow.BorderSizePixel = 0
+        InnerGlow.ZIndex = 3
+        InnerGlow.Parent = MainContainer
+
+        local EdgeGlowCorner = Instance.new("UICorner")
+        EdgeGlowCorner.CornerRadius = UDim.new(0, 20)
+        EdgeGlowCorner.Parent = EdgeGlow
+
+        local MainCorner = Instance.new("UICorner")
+        MainCorner.CornerRadius = UDim.new(0, 12)
+        MainCorner.Parent = MainContainer
+
+        spawn(function()
+            while CrownHub.Parent do
+                TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    BackgroundTransparency = 0.4,
+                    BackgroundColor3 = Color3.fromRGB(255, 255, 150)
+                }):Play()
+                TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Transparency = 0.2,
+                    Color = Color3.fromRGB(255, 255, 200)
+                }):Play()
+                TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    BackgroundTransparency = 0.9
+                }):Play()
+                wait(1.5)
+                
+                TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    BackgroundTransparency = 0.7,
+                    BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+                }):Play()
+                TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    Transparency = 0.5,
+                    Color = Color3.fromRGB(255, 215, 0)
+                }):Play()
+                TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                    BackgroundTransparency = 0.95
+                }):Play()
+                wait(1.5)
+            end
+        end)
+
+        -- Rest of UI setup (gradients, header, etc.)
+        local GradientBackground = Instance.new("Frame")
+        GradientBackground.Size = UDim2.new(1, 0, 1, 0)
+        GradientBackground.Position = UDim2.new(0, 0, 0, 0)
+        GradientBackground.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
+        GradientBackground.BorderSizePixel = 0
+        GradientBackground.ZIndex = 0
+        GradientBackground.Parent = MainContainer
+
+        local MainGradient = Instance.new("UIGradient")
+        MainGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 25, 50)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(60, 35, 80)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 20, 40))
+        })
+        MainGradient.Rotation = 45
+        MainGradient.Parent = GradientBackground
+
+        local MovingOverlay = Instance.new("Frame")
+        MovingOverlay.Size = UDim2.new(2, 0, 2, 0)
+        MovingOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        MovingOverlay.BackgroundTransparency = 0.9
+        MovingOverlay.BorderSizePixel = 0
+        MovingOverlay.ZIndex = 1
+        MovingOverlay.Parent = MainContainer
+
+        local OverlayGradient = Instance.new("UIGradient")
+        OverlayGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 80, 160)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 120, 200)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 100, 120))
+        })
+        OverlayGradient.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.8),
+            NumberSequenceKeypoint.new(0.5, 0.6),
+            NumberSequenceKeypoint.new(1, 0.8)
+        })
+        OverlayGradient.Parent = MovingOverlay
+
+        spawn(function()
+            local time = 0
+            while CrownHub.Parent do
+                time = time + 0.02
+                
+                local x = math.sin(time * 0.5) * 0.3
+                local y = math.cos(time * 0.3) * 0.3
+                MovingOverlay.Position = UDim2.new(x, 0, y, 0)
+                
+                MainGradient.Rotation = (MainGradient.Rotation + 0.2) % 360
+                OverlayGradient.Rotation = (OverlayGradient.Rotation - 0.3) % 360
+                
+                RunService.Heartbeat:Wait()
+            end
+        end)
+
+        local GoldBorder = Instance.new("Frame")
+        GoldBorder.Size = UDim2.new(1, 6, 1, 6)
+        GoldBorder.Position = UDim2.new(0, -3, 0, -3)
+        GoldBorder.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        GoldBorder.BackgroundTransparency = 0.3
+        GoldBorder.BorderSizePixel = 0
+        GoldBorder.ZIndex = -1
+        GoldBorder.Parent = MainContainer
+
+        local BorderCorner = Instance.new("UICorner")
+        BorderCorner.CornerRadius = UDim.new(0, 16)
+        BorderCorner.Parent = GoldBorder
+
+        local GlassLayer = Instance.new("Frame")
+        GlassLayer.Size = UDim2.new(1, 0, 1, 0)
+        GlassLayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        GlassLayer.BackgroundTransparency = 0.95
+        GlassLayer.BorderSizePixel = 0
+        GlassLayer.ZIndex = 2
+        GlassLayer.Parent = MainContainer
+
+        local Header = Instance.new("Frame")
+        Header.Size = UDim2.new(1, 0, 0, IS_MOBILE and 60 or 70)
+        Header.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
+        Header.BackgroundTransparency = 0.1
+        Header.BorderSizePixel = 0
+        Header.ZIndex = 10
+        Header.Parent = MainContainer
+
+        local HeaderGradient = Instance.new("UIGradient")
+        HeaderGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 30, 70)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 20, 50))
+        })
+        HeaderGradient.Rotation = 90
+        HeaderGradient.Parent = Header
+
+        local CrownIcon = Instance.new("ImageLabel")
+        CrownIcon.Size = UDim2.new(0, IS_MOBILE and 35 or 40, 0, IS_MOBILE and 35 or 40)
+        CrownIcon.Position = UDim2.new(0, 10, 0, IS_MOBILE and 12 or 15)
+        CrownIcon.BackgroundTransparency = 1
+        CrownIcon.Image = "rbxassetid://6031075938"
+        CrownIcon.ImageColor3 = Color3.fromRGB(255, 215, 0)
+        CrownIcon.ZIndex = 11
+        CrownIcon.Parent = Header
+
+        spawn(function()
+            while CrownHub.Parent do
+                TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                    Rotation = 5,
+                    ImageColor3 = Color3.fromRGB(255, 230, 100)
+                }):Play()
+                wait(1.5)
+                TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                    Rotation = -5,
+                    ImageColor3 = Color3.fromRGB(255, 215, 0)
+                }):Play()
+                wait(1.5)
+            end
+        end)
+
+        local Title = Instance.new("TextLabel")
+        Title.Size = UDim2.new(1, -70, 0, IS_MOBILE and 25 or 35)
+        Title.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 5 or 8)
+        Title.BackgroundTransparency = 1
+        Title.Text = "CROWN HUB"
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Title.TextSize = IS_MOBILE and 18 or 24
+        Title.Font = Enum.Font.GothamBlack
+        Title.TextXAlignment = Enum.TextXAlignment.Left
+
+        local TitleStroke = Instance.new("UIStroke")
+        TitleStroke.Color = Color3.fromRGB(180, 150, 50)
+        TitleStroke.Thickness = 1.5
+        TitleStroke.Transparency = 0.3
+        TitleStroke.Parent = Title
+
+        Title.Parent = Header
+
+        local Subtitle = Instance.new("TextLabel")
+        Subtitle.Size = UDim2.new(1, -70, 0, 18)
+        Subtitle.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 30 or 40)
+        Subtitle.BackgroundTransparency = 1
+        Subtitle.Text = IS_MOBILE and "Prison Edition" or "Prison Edition"
+        Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
+        Subtitle.TextSize = IS_MOBILE and 9 or 11
+        Subtitle.Font = Enum.Font.GothamMedium
+        Subtitle.TextXAlignment = Enum.TextXAlignment.Left
+
+        local SubtitleStroke = Instance.new("UIStroke")
+        SubtitleStroke.Color = Color3.fromRGB(180, 150, 50)
+        SubtitleStroke.Thickness = 1
+        SubtitleStroke.Transparency = 0.4
+        SubtitleStroke.Parent = Subtitle
+
+        Subtitle.ZIndex = 11
+        Subtitle.Parent = Header
+
+        local ControlContainer = Instance.new("Frame")
+        ControlContainer.Size = UDim2.new(0, IS_MOBILE and 55 or 70, 0, IS_MOBILE and 25 or 30)
+        ControlContainer.Position = UDim2.new(1, IS_MOBILE and -60 or -75, 0, IS_MOBILE and 17 or 20)
+        ControlContainer.BackgroundTransparency = 1
+        ControlContainer.ZIndex = 11
+        ControlContainer.Parent = Header
+
+        local MinimizeButton = Instance.new("TextButton")
+        MinimizeButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
+        MinimizeButton.Position = UDim2.new(0, 0, 0, 0)
+        MinimizeButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        MinimizeButton.BackgroundTransparency = 0.2
+        MinimizeButton.Text = "_"
+        MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
+        MinimizeButton.TextSize = IS_MOBILE and 14 or 16
+        MinimizeButton.Font = Enum.Font.GothamBlack
+
+        local MinimizeButtonStroke = Instance.new("UIStroke")
+        MinimizeButtonStroke.Color = Color3.fromRGB(180, 150, 50)
+        MinimizeButtonStroke.Thickness = 1.2
+        MinimizeButtonStroke.Transparency = 0.3
+        MinimizeButtonStroke.Parent = MinimizeButton
+
+        MinimizeButton.ZIndex = 11
+        MinimizeButton.Parent = ControlContainer
+
+        local MinimizeCorner = Instance.new("UICorner")
+        MinimizeCorner.CornerRadius = UDim.new(0, 6)
+        MinimizeCorner.Parent = MinimizeButton
+
+        local CloseButton = Instance.new("TextButton")
+        CloseButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
+        CloseButton.Position = UDim2.new(0, IS_MOBILE and 28 or 35, 0, 0)
+        CloseButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+        CloseButton.BackgroundTransparency = 0.2
+        CloseButton.Text = "×"
+        CloseButton.TextColor3 = Color3.new(1, 1, 1)
+        CloseButton.TextSize = IS_MOBILE and 16 or 18
+        CloseButton.Font = Enum.Font.GothamBlack
+
+        local CloseButtonStroke = Instance.new("UIStroke")
+        CloseButtonStroke.Color = Color3.fromRGB(180, 150, 50)
+        CloseButtonStroke.Thickness = 1.2
+        CloseButtonStroke.Transparency = 0.3
+        CloseButtonStroke.Parent = CloseButton
+
+        CloseButton.ZIndex = 11
+        CloseButton.Parent = ControlContainer
+
+        local CloseCorner = Instance.new("UICorner")
+        CloseCorner.CornerRadius = UDim.new(0, 6)
+        CloseCorner.Parent = CloseButton
+
+        local TabContainer = Instance.new("Frame")
+        TabContainer.Size = UDim2.new(1, -20, 0, IS_MOBILE and 28 or 32)
+        TabContainer.Position = UDim2.new(0, 10, 0, IS_MOBILE and 70 or 80)
+        TabContainer.BackgroundTransparency = 1
+        TabContainer.ZIndex = 10
+        TabContainer.Parent = MainContainer
+
+        local ContentFrame = Instance.new("ScrollingFrame")
+        ContentFrame.Size = UDim2.new(1, -20, 1, IS_MOBILE and -98 or -122)
+        ContentFrame.Position = UDim2.new(0, 10, 0, IS_MOBILE and 108 or 122)
+        ContentFrame.BackgroundTransparency = 1
+        ContentFrame.ScrollBarThickness = IS_MOBILE and 3 or 4
+        ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(212, 175, 55)
+        ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        ContentFrame.ZIndex = 10
+        ContentFrame.Parent = MainContainer
+
+        local ContentLayout = Instance.new("UIListLayout")
+        ContentLayout.Padding = UDim.new(0, IS_MOBILE and 8 or 10)
+        ContentLayout.Parent = ContentFrame
+
+        local Tabs = {
+            "Fling",
+            "Admin", 
+            "Movement",
+            "Visual",
+            "Combat",
+            "Hubs",
+            "Fun"
+        }
+
+        local CurrentTab = "Fling"
+
+        for i, tabName in ipairs(Tabs) do
+            local TabButton = Instance.new("TextButton")
+            TabButton.Size = UDim2.new(1/#Tabs, -4, 1, 0)
+            TabButton.Position = UDim2.new((i-1)/#Tabs, 0, 0, 0)
+            TabButton.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
+            TabButton.BackgroundTransparency = 0.3
+            TabButton.Text = tabName
+            TabButton.TextColor3 = Color3.fromRGB(200, 190, 220)
+            TabButton.Font = Enum.Font.GothamMedium
+            TabButton.TextSize = IS_MOBILE and 10 or 11
+            TabButton.AutoButtonColor = false
+            TabButton.ZIndex = 11
+            TabButton.Parent = TabContainer
+            
+            local TabButtonStroke = Instance.new("UIStroke")
+            TabButtonStroke.Color = Color3.fromRGB(180, 150, 50)
+            TabButtonStroke.Thickness = 1
+            TabButtonStroke.Transparency = 0.5
+            TabButtonStroke.Parent = TabButton
+            
+            local TabCorner = Instance.new("UICorner")
+            TabCorner.CornerRadius = UDim.new(0, 6)
+            TabCorner.Parent = TabButton
+            
+            TabButton.MouseEnter:Connect(function()
+                if TabButton.Text ~= CurrentTab then
+                    TweenService:Create(TabButton, TweenInfo.new(0.3), {
+                        BackgroundTransparency = 0.1,
+                        TextColor3 = Color3.fromRGB(255, 255, 255)
+                    }):Play()
+                    TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
+                        Transparency = 0.3,
+                        Color = Color3.fromRGB(200, 170, 60)
+                    }):Play()
+                end
+            end)
+            
+            TabButton.MouseLeave:Connect(function()
+                if TabButton.Text ~= CurrentTab then
+                    TweenService:Create(TabButton, TweenInfo.new(0.3), {
+                        BackgroundTransparency = 0.3,
+                        TextColor3 = Color3.fromRGB(200, 190, 220)
+                    }):Play()
+                    TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
+                        Transparency = 0.5,
+                        Color = Color3.fromRGB(180, 150, 50)
+                    }):Play()
+                end
+            end)
+            
+            TabButton.MouseButton1Click:Connect(function()
+                CurrentTab = tabName
+                UpdateContent()
+                UpdateTabAppearance()
+            end)
+        end
+
+        function UpdateTabAppearance()
+            for _, tab in ipairs(TabContainer:GetChildren()) do
+                if tab:IsA("TextButton") then
+                    if tab.Text == CurrentTab then
+                        TweenService:Create(tab, TweenInfo.new(0.3), {
+                            BackgroundColor3 = Color3.fromRGB(212, 175, 55),
+                            TextColor3 = Color3.fromRGB(20, 15, 25),
+                            BackgroundTransparency = 0.1
+                        }):Play()
+                        TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
+                            Transparency = 0.2,
+                            Color = Color3.fromRGB(100, 80, 30)
+                        }):Play()
+                    else
+                        TweenService:Create(tab, TweenInfo.new(0.3), {
+                            BackgroundColor3 = Color3.fromRGB(35, 30, 45),
+                            TextColor3 = Color3.fromRGB(200, 190, 220),
+                            BackgroundTransparency = 0.3
+                        }):Play()
+                        TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
+                            Transparency = 0.5,
+                            Color = Color3.fromRGB(180, 150, 50)
+                        }):Play()
+                    end
+                end
+            end
+        end
+
+        -- Wall modification functions
+        local function processPart(obj)
+            if obj:IsA("BasePart") then
+                originalWallProperties[obj] = {
+                    Color = obj.Color,
+                    Transparency = obj.Transparency,
+                    CanCollide = obj.CanCollide
+                }
+                local rainbowLoop = task.spawn(function()
+                    while wallsModified and obj and obj.Parent do
+                        for i = 0, 1, 0.01 do
+                            if not wallsModified then break end
+                            obj.Color = Color3.fromHSV(i, 1, 1)
+                            task.wait(0.02)
+                        end
+                    end
+                end)
+                rainbowLoops[obj] = rainbowLoop
+                obj.Transparency = 0.5
+                obj.CanCollide = false
+            end
+        end
+
+        local function recursiveProcess(obj)
+            processPart(obj)
+            for _, child in ipairs(obj:GetChildren()) do
+                recursiveProcess(child)
+            end
+        end
+
+        local function restoreWalls()
+            for obj, properties in pairs(originalWallProperties) do
+                if obj and obj.Parent then
+                    obj.Color = properties.Color
+                    obj.Transparency = properties.Transparency
+                    obj.CanCollide = properties.CanCollide
+                    if rainbowLoops[obj] then
+                        task.cancel(rainbowLoops[obj])
+                        rainbowLoops[obj] = nil
+                    end
+                end
+            end
+            originalWallProperties = {}
+            rainbowLoops = {}
+            wallsModified = false
+        end
+
+        local function modifyWalls()
+            if wallsModified then
+                restoreWalls()
+                return "OFF"
+            end
+            wallsModified = true
+            for _, v in pairs(workspace:FindFirstChild("Prison_OuterWall") and workspace.Prison_OuterWall:FindFirstChild("prison_wall") and workspace.Prison_OuterWall.prison_wall:GetChildren() or {}) do
+                recursiveProcess(v)
+            end
+            for _, v in pairs(workspace:FindFirstChild("Prison_guardtower") and workspace.Prison_guardtower:GetChildren() or {}) do
+                recursiveProcess(v)
+            end
+            for _, v in pairs(workspace:FindFirstChild("Prison_Fences") and workspace.Prison_Fences:GetChildren() or {}) do
+                if v.Name == "fence" then
+                    recursiveProcess(v)
+                    local dmg = v:FindFirstChild("damagePart")
+                    if dmg then
+                        local ti = dmg:FindFirstChild("TouchInterest")
+                        if ti then ti:Destroy() end
+                    end
+                end
+            end
+            local doors = workspace:FindFirstChild("Doors")
+            if doors then
+                for _, door in pairs(doors:GetChildren()) do
+                    recursiveProcess(door)
+                end
+            end
+            return "ON"
+        end
+
+        -- FIXED VEHICLE SCRIPT (non‑freezing)
+        local function LoadFormula1Car()
+            task.spawn(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/FORMULA1%20CAR!!!!"))()
+            end)
+        end
+
+        local function TennaDance()
+            local plr = game.Players.LocalPlayer
+            if plr.Character and plr.Character:FindFirstChild("Humanoid") then
+                local hum = plr.Character.Humanoid
+                local Anim = Instance.new("Animation")
+                Anim.AnimationId = "rbxassetid://75202452138001"
+                local track = hum:LoadAnimation(Anim)
+                track:Play()
+                track:AdjustSpeed(1.524)
+            end
+        end
+
+        local function LoadInfluenceESP()
+            loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
+        end
+
+        -- Crown Prison Hacks with Auto Modify
+        local CrownPrisonHacksLoaded = false
+        local CrownPrisonHacksFrame = nil
+
+        local function LoadCrownPrisonHacks()
+            if getgenv().crownloaded then
+                if CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent then
+                    CrownPrisonHacksFrame.Visible = not CrownPrisonHacksFrame.Visible
+                    return
+                end
+            end
+
+            getgenv().crownloaded = true
+            
+            local welcomeMsg = Instance.new("Message")
+            welcomeMsg.Parent = workspace
+            welcomeMsg.Text = "CROWN HUB PRISON HACKS"
+            task.wait(2)
+            welcomeMsg.Text = "Premium Edition"
+            task.wait(1.6)
+            welcomeMsg:Destroy()
+            
+            task.spawn(function()
+                while task.wait() do
+                    if game.Players.LocalPlayer and game.Players.LocalPlayer.Character then
+                        local hum = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            hum.WalkSpeed = 25
+                            game.Players.LocalPlayer:SetAttribute("BackpackEnabled", true)
+                            hum.JumpHeight = 5.5
+                        end
+                        if game.Players.LocalPlayer.Character:FindFirstChild("AntiJump") then
+                            game.Players.LocalPlayer.Character.AntiJump:Destroy()
+                        end
+                    end
+                end
+            end)
+            
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            local LocalPlayer = Players.LocalPlayer
+            local ESP_ENABLED = false
+            local TELEPORT_COOLDOWN = 1.6
+            local lastTeleport = 0
+            local lastArrestStart = 0
+            local ARREST_COOLDOWN = 3
+            
+            -- Auto modify variables
+            local AUTO_MODIFY_ENABLED = false
+            local modifiedWeapons = {}
+            
+            local function ModifyWeapon(weapon)
+                if not AUTO_MODIFY_ENABLED then return end
+                if not weapon or not weapon:GetAttribute("FireRate") then return end
+                
+                local weaponName = weapon.Name
+                if modifiedWeapons[weaponName] then return end
+                
+                if BURST_FIRE_ENABLED then
+                    weapon:SetAttribute("FireRate", 0.0001)
+                    weapon:SetAttribute("AutoFire", true)
+                    weapon:SetAttribute("SpreadRadius", 0)
+                    if weapon:GetAttribute("BurstCount") then
+                        weapon:SetAttribute("BurstCount", BURST_COUNT)
+                    end
                 else
-                    onTouch(input)
+                    weapon:SetAttribute("FireRate", IMPROVED_FIRE_RATE)
+                    weapon:SetAttribute("AutoFire", true)
+                    weapon:SetAttribute("SpreadRadius", 0)
+                end
+                
+                modifiedWeapons[weaponName] = true
+                game.StarterGui:SetCore("SendNotification", {
+                    Title = "Crown Hub",
+                    Text = "Auto-modified: " .. weaponName
+                })
+            end
+            
+            local function ScanAndModifyGuns(container)
+                for _, v in pairs(container:GetChildren()) do
+                    if v:GetAttribute("FireRate") ~= nil then
+                        ModifyWeapon(v)
+                    end
+                end
+            end
+            
+            local function ResetModificationTracking()
+                modifiedWeapons = {}
+            end
+            
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                ResetModificationTracking()
+                task.wait(1)
+                ScanAndModifyGuns(char)
+            end)
+            
+            local backpack = LocalPlayer:WaitForChild("Backpack")
+            backpack.ChildAdded:Connect(function(child)
+                if child:GetAttribute("FireRate") then
+                    ModifyWeapon(child)
+                end
+            end)
+            
+            local function onCharacterChildAdded(child)
+                if child:GetAttribute("FireRate") then
+                    ModifyWeapon(child)
+                end
+            end
+            
+            if LocalPlayer.Character then
+                LocalPlayer.Character.ChildAdded:Connect(onCharacterChildAdded)
+            end
+            LocalPlayer.CharacterAdded:Connect(function(char)
+                char.ChildAdded:Connect(onCharacterChildAdded)
+                task.wait(0.5)
+                ScanAndModifyGuns(char)
+            end)
+            
+            -- ESP functions (shortened for brevity, but full functionality)
+            local function GetBillboard(targetCharacter)
+                local head = targetCharacter:FindFirstChild("Head")
+                if not head then return nil end
+                local billboard = head:FindFirstChild("CrownESP_Billboard")
+                if not billboard then
+                    billboard = Instance.new("BillboardGui")
+                    billboard.Name = "CrownESP_Billboard"
+                    billboard.Adornee = head
+                    billboard.Size = UDim2.new(0, 200, 0, 120)
+                    billboard.StudsOffset = Vector3.new(0, 3, 0)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = head
+                    
+                    local emojiLabel = Instance.new("TextLabel")
+                    emojiLabel.Name = "EmojiLabel"
+                    emojiLabel.Size = UDim2.new(1, 0, 0.35, 0)
+                    emojiLabel.Position = UDim2.new(0, 0, 0, 0)
+                    emojiLabel.BackgroundTransparency = 1
+                    emojiLabel.TextColor3 = Color3.new(1, 1, 1)
+                    emojiLabel.TextStrokeTransparency = 0
+                    emojiLabel.Font = Enum.Font.GothamBold
+                    emojiLabel.TextSize = 24
+                    local emojiStroke = Instance.new("UIStroke")
+                    emojiStroke.Color = Color3.fromRGB(180, 150, 50)
+                    emojiStroke.Thickness = 1.2
+                    emojiStroke.Transparency = 0.3
+                    emojiStroke.Parent = emojiLabel
+                    emojiLabel.Parent = billboard
+                    
+                    local nameLabel = Instance.new("TextLabel")
+                    nameLabel.Name = "NameLabel"
+                    nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
+                    nameLabel.Position = UDim2.new(0, 0, 0.35, 0)
+                    nameLabel.BackgroundTransparency = 1
+                    nameLabel.TextColor3 = Color3.new(1, 1, 1)
+                    nameLabel.TextStrokeTransparency = 0
+                    nameLabel.Font = Enum.Font.GothamBold
+                    nameLabel.TextSize = 14
+                    local nameStroke = Instance.new("UIStroke")
+                    nameStroke.Color = Color3.fromRGB(180, 150, 50)
+                    nameStroke.Thickness = 1
+                    nameStroke.Transparency = 0.4
+                    nameStroke.Parent = nameLabel
+                    nameLabel.Parent = billboard
+                    
+                    local healthBarBG = Instance.new("Frame")
+                    healthBarBG.Name = "HealthBarBG"
+                    healthBarBG.Size = UDim2.new(0.8, 0, 0.12, 0)
+                    healthBarBG.Position = UDim2.new(0.1, 0, 0.75, 0)
+                    healthBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+                    healthBarBG.BorderSizePixel = 0
+                    healthBarBG.Parent = billboard
+                    
+                    local healthBarFill = Instance.new("Frame")
+                    healthBarFill.Name = "HealthBarFill"
+                    healthBarFill.Size = UDim2.new(1, 0, 1, 0)
+                    healthBarFill.Position = UDim2.new(0, 0, 0, 0)
+                    healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                    healthBarFill.BorderSizePixel = 0
+                    healthBarFill.Parent = healthBarBG
+                    
+                    local healthBarCorner = Instance.new("UICorner")
+                    healthBarCorner.CornerRadius = UDim.new(0, 3)
+                    healthBarCorner.Parent = healthBarBG
+                    local healthBarFillCorner = Instance.new("UICorner")
+                    healthBarFillCorner.CornerRadius = UDim.new(0, 3)
+                    healthBarFillCorner.Parent = healthBarFill
+                end
+                return billboard
+            end
+            
+            local function GetCham(targetCharacter)
+                local cham = targetCharacter:FindFirstChild("CrownESP_Cham")
+                if not cham then
+                    cham = Instance.new("Highlight")
+                    cham.Name = "CrownESP_Cham"
+                    cham.Adornee = targetCharacter
+                    cham.Parent = targetCharacter
+                    cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                end
+                return cham
+            end
+            
+            local function UpdateESP()
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        local billboard = GetBillboard(player.Character)
+                        local cham = GetCham(player.Character)
+                        if billboard and cham then
+                            if ESP_ENABLED then
+                                billboard.Enabled = true
+                                cham.Enabled = true
+                                local nameLabel = billboard:FindFirstChild("NameLabel")
+                                local emojiLabel = billboard:FindFirstChild("EmojiLabel")
+                                local healthBarFill = billboard:FindFirstChild("HealthBarBG") and billboard.HealthBarBG:FindFirstChild("HealthBarFill")
+                                local teamName = player.Team and player.Team.Name or "Neutral"
+                                local displayText = player.Name
+                                local emojiText = ""
+                                local color = Color3.new(1, 1, 1)
+                                if teamName == "Inmates" then
+                                    color = Color3.fromRGB(255, 170, 0)
+                                    displayText = displayText .. " [Inmate]"
+                                    local isHostile = player.Character:GetAttribute("Hostile")
+                                    local isTrespassing = player.Character:GetAttribute("Trespassing")
+                                    if isHostile then emojiText = emojiText .. "💢" end
+                                    if isTrespassing then emojiText = emojiText .. "🔗" end
+                                elseif teamName == "Guards" then
+                                    color = Color3.fromRGB(0, 100, 255)
+                                    displayText = displayText .. " [Guards]"
+                                elseif teamName == "Criminals" then
+                                    color = Color3.fromRGB(255, 50, 50)
+                                    displayText = displayText .. " [Criminals]"
+                                else
+                                    displayText = displayText .. " [" .. teamName .. "]"
+                                end
+                                nameLabel.Text = displayText
+                                nameLabel.TextColor3 = color
+                                emojiLabel.Text = emojiText
+                                cham.FillColor = color
+                                cham.OutlineColor = color
+                                cham.FillTransparency = 0.5
+                                cham.OutlineTransparency = 0
+                                local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                                if humanoid and healthBarFill then
+                                    local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
+                                    healthBarFill.Size = UDim2.new(healthPercent, 0, 1, 0)
+                                    if healthPercent > 0.5 then
+                                        healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                                    elseif healthPercent > 0.25 then
+                                        healthBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+                                    else
+                                        healthBarFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                                    end
+                                end
+                            else
+                                billboard.Enabled = false
+                                cham.Enabled = false
+                            end
+                        end
+                    end
+                end
+            end
+            
+            local function CanTeleport()
+                local now = tick()
+                local delta = now - lastTeleport
+                if delta < TELEPORT_COOLDOWN then
+                    local remaining = TELEPORT_COOLDOWN - delta
+                    game.StarterGui:SetCore("SendNotification", {
+                        Title = "TP Cooldown",
+                        Text = "Wait " .. string.format("%.1f", remaining) .. "s before teleporting again"
+                    })
+                    return false
+                end
+                lastTeleport = now
+                return true
+            end
+            
+            -- GUI Creation
+            local ScreenGui = Instance.new("ScreenGui")
+            ScreenGui.Name = "CrownPrisonHacksGUI"
+            ScreenGui.Parent = game:WaitForChild("CoreGui")
+            ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+            
+            CrownPrisonHacksFrame = Instance.new("Frame")
+            CrownPrisonHacksFrame.Name = "MainFrame"
+            CrownPrisonHacksFrame.Parent = ScreenGui
+            CrownPrisonHacksFrame.BackgroundTransparency = 0.7
+            CrownPrisonHacksFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+            CrownPrisonHacksFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
+            CrownPrisonHacksFrame.Size = UDim2.new(0, 300, 0, 300)
+            
+            local UIStroke = Instance.new("UIStroke")
+            UIStroke.Parent = CrownPrisonHacksFrame
+            UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+            UIStroke.Thickness = 2
+            UIStroke.Color = Color3.fromRGB(255, 215, 0)
+            
+            local UICorner = Instance.new("UICorner")
+            UICorner.Parent = CrownPrisonHacksFrame
+            
+            local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Parent = CrownPrisonHacksFrame
+            TitleLabel.Size = UDim2.new(1, 0, 0, 50)
+            TitleLabel.BackgroundTransparency = 1
+            TitleLabel.Text = "CROWN HUB PRISON"
+            TitleLabel.Font = Enum.Font.GothamBlack
+            TitleLabel.TextSize = 24
+            TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+            local TitleStrokeLabel = Instance.new("UIStroke")
+            TitleStrokeLabel.Color = Color3.fromRGB(180, 150, 50)
+            TitleStrokeLabel.Thickness = 1.5
+            TitleStrokeLabel.Transparency = 0.3
+            TitleStrokeLabel.Parent = TitleLabel
+            
+            local Scrolling = Instance.new("ScrollingFrame")
+            Scrolling.Parent = CrownPrisonHacksFrame
+            Scrolling.Position = UDim2.new(0, 0, 0, 50)
+            Scrolling.Size = UDim2.new(1, 0, 1, -50)
+            Scrolling.BackgroundTransparency = 1
+            Scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
+            Scrolling.ScrollBarThickness = 4
+            Scrolling.ScrollBarImageColor3 = Color3.fromRGB(255, 215, 0)
+            Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
+            Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
+            
+            local UIListLayout = Instance.new("UIListLayout")
+            UIListLayout.Parent = Scrolling
+            UIListLayout.Padding = UDim.new(0, 10)
+            UIListLayout.FillDirection = Enum.FillDirection.Vertical
+            UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+            UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+            
+            local Buttons = {
+                { name="CrimBaseTP", text="TP to Crim Base" },
+                { name="PrisonTP", text="TP to Prison" },
+                { name="GuardRoomTP", text="TP in Guard Room"},
+                { name="ModGguns", text="Burst Fire: OFF" },
+                { name="AutoModify", text="Auto Modify: OFF" },
+                { name="GetRem", text="Get Rem (shotgun)"},
+                { name="GetM9", text="Get MP5 (ar)"},
+                { name="GetFAL", text="Get FAL (paid/ar)"},
+                { name="GetAK", text="Get AK47 (ar)"},
+                { name="GetM4", text="Get M4A1 (paid/ar)"},
+                { name="ToggleESP", text="Toggle ESP (OFF)"},
+                { name="RainbowWalls", text="Rainbow Walls: OFF" },
+                { name="ArrestPlayer", text="Arrest Player"},
+                { name="CancelArrest", text="Cancel Arrest"}
+            }
+            
+            -- Arrest functions (simplified but functional)
+            local arrestGui = nil
+            local arrestConnection = nil
+            local function CloseArrestGui()
+                if arrestGui then arrestGui:Destroy() end
+                if arrestConnection then pcall(task.cancel, arrestConnection) end
+                arrestGui = nil
+                arrestConnection = nil
+            end
+            
+            local function GetArrestableTargets()
+                local targets = {}
+                for _, player in ipairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        local isTrespassing = player.Character:GetAttribute("Trespassing")
+                        local teamName = player.Team and player.Team.Name or ""
+                        if isTrespassing or teamName == "Criminals" then
+                            table.insert(targets, player)
+                        end
+                    end
+                end
+                return targets
+            end
+            
+            local activeArrestConnection = nil
+            local originalArrestPosition = nil
+            local antiSitConnection = nil
+            local arrestHighlight = nil
+            local currentArrestTarget = nil
+            local deathConnection = nil
+            local arrestFloor = nil
+            
+            local function StopArresting()
+                if activeArrestConnection then activeArrestConnection:Disconnect() end
+                if antiSitConnection then antiSitConnection:Disconnect() end
+                if deathConnection then deathConnection:Disconnect() end
+                if arrestHighlight then arrestHighlight:Destroy() end
+                if arrestFloor then arrestFloor:Destroy() end
+                activeArrestConnection = nil
+                antiSitConnection = nil
+                deathConnection = nil
+                arrestHighlight = nil
+                arrestFloor = nil
+                if originalArrestPosition then
+                    local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if myHRP then myHRP.CFrame = originalArrestPosition end
+                    originalArrestPosition = nil
+                end
+                currentArrestTarget = nil
+            end
+            
+            local function StartArresting(targetPlayer)
+                CloseArrestGui()
+                StopArresting()
+                local now = tick()
+                if now - lastArrestStart < ARREST_COOLDOWN then
+                    local remaining = ARREST_COOLDOWN - (now - lastArrestStart)
+                    game.StarterGui:SetCore("SendNotification", {Title = "Arrest Cooldown", Text = "Wait " .. string.format("%.1f", remaining) .. "s"})
+                    return
+                end
+                lastArrestStart = now
+                currentArrestTarget = targetPlayer
+                local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP then originalArrestPosition = myHRP.CFrame end
+                if not ESP_ENABLED and targetPlayer.Character then
+                    arrestHighlight = Instance.new("Highlight")
+                    arrestHighlight.Name = "ArrestTargetHighlight"
+                    arrestHighlight.Adornee = targetPlayer.Character
+                    arrestHighlight.Parent = targetPlayer.Character
+                    arrestHighlight.FillColor = Color3.fromRGB(255, 0, 0)
+                    arrestHighlight.OutlineColor = Color3.fromRGB(255, 255, 0)
+                    arrestHighlight.FillTransparency = 0.5
+                    arrestHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                end
+                local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if myHum then
+                    deathConnection = myHum.Died:Connect(function()
+                        game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "You died, arrest cancelled"})
+                        StopArresting()
+                    end)
+                end
+                arrestFloor = Instance.new("Part")
+                arrestFloor.Name = "ArrestFloor"
+                arrestFloor.Size = Vector3.new(6, 1, 6)
+                arrestFloor.Anchored = true
+                arrestFloor.CanCollide = true
+                arrestFloor.Transparency = 1
+                arrestFloor.Parent = workspace
+                
+                local TIMEOUT = 30
+                local startTime = tick()
+                local lastArrestCall = 0
+                local arrested = false
+                
+                antiSitConnection = RunService.RenderStepped:Connect(function()
+                    local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Sit then
+                        hum.Sit = false
+                        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    end
+                end)
+                
+                activeArrestConnection = RunService.RenderStepped:Connect(function()
+                    if arrested then return end
+                    if not targetPlayer or not targetPlayer.Character then
+                        game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Target left or died"})
+                        StopArresting()
+                        return
+                    end
+                    local isTrespassing = targetPlayer.Character:GetAttribute("Trespassing")
+                    local teamName = targetPlayer.Team and targetPlayer.Team.Name or ""
+                    if not isTrespassing and teamName ~= "Criminals" then
+                        game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Target no longer arrestable"})
+                        StopArresting()
+                        return
+                    end
+                    if tick() - startTime > TIMEOUT then
+                        game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arrest timed out"})
+                        StopArresting()
+                        return
+                    end
+                    local head = targetPlayer.Character:FindFirstChild("Head")
+                    if head and head:FindFirstChild("handcuffedGui") then
+                        arrested = true
+                        game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = targetPlayer.Name .. " arrested!"})
+                        StopArresting()
+                        return
+                    end
+                    local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    local myCharHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                    if targetHRP and myCharHRP then
+                        local targetPos = targetHRP.Position
+                        local undergroundY = targetPos.Y - 6
+                        myCharHRP.CFrame = CFrame.new(targetPos.X, undergroundY, targetPos.Z) * CFrame.Angles(targetHRP.CFrame:ToEulerAnglesYXZ())
+                        if arrestFloor then arrestFloor.CFrame = CFrame.new(targetPos.X, undergroundY - 3.5, targetPos.Z) end
+                    end
+                    if tick() - lastArrestCall >= ARREST_COOLDOWN then
+                        lastArrestCall = tick()
+                        pcall(function()
+                            local handcuffs = LocalPlayer.Backpack:FindFirstChild("Handcuffs") or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Handcuffs"))
+                            if handcuffs and handcuffs.Parent == LocalPlayer.Backpack then
+                                local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                                if hum then hum:EquipTool(handcuffs) end
+                            end
+                        end)
+                        pcall(function()
+                            local args = { game:GetService("Players"):WaitForChild(targetPlayer.Name) }
+                            game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer"):InvokeServer(unpack(args))
+                        end)
+                    end
+                end)
+            end
+            
+            local function ShowArrestGui()
+                CloseArrestGui()
+                local targets = GetArrestableTargets()
+                if #targets == 0 then
+                    game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "No arrestable players found"})
+                    return
+                end
+                arrestGui = Instance.new("Frame")
+                arrestGui.Name = "ArrestSelectGui"
+                arrestGui.Parent = CrownPrisonHacksFrame
+                arrestGui.BackgroundTransparency = 0.7
+                arrestGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                arrestGui.Position = UDim2.new(1.05, 0, 0, 0)
+                arrestGui.Size = UDim2.new(0, 250, 0, 260)
+                local arrestStroke = Instance.new("UIStroke")
+                arrestStroke.Parent = arrestGui
+                arrestStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+                arrestStroke.Thickness = 2
+                arrestStroke.Color = Color3.fromRGB(255, 80, 80)
+                local arrestCorner = Instance.new("UICorner")
+                arrestCorner.Parent = arrestGui
+                local arrestTitle = Instance.new("TextLabel")
+                arrestTitle.Parent = arrestGui
+                arrestTitle.Size = UDim2.new(1, 0, 0, 40)
+                arrestTitle.BackgroundTransparency = 1
+                arrestTitle.Text = "Select Target"
+                arrestTitle.Font = Enum.Font.GothamBlack
+                arrestTitle.TextSize = 18
+                arrestTitle.TextColor3 = Color3.fromRGB(255, 50, 50)
+                local arrestTitleStroke = Instance.new("UIStroke")
+                arrestTitleStroke.Color = Color3.fromRGB(180, 150, 50)
+                arrestTitleStroke.Thickness = 1.2
+                arrestTitleStroke.Transparency = 0.3
+                arrestTitleStroke.Parent = arrestTitle
+                local closeBtn = Instance.new("TextButton")
+                closeBtn.Parent = arrestGui
+                closeBtn.Size = UDim2.new(0, 30, 0, 30)
+                closeBtn.Position = UDim2.new(1, -35, 0, 5)
+                closeBtn.BackgroundTransparency = 0.6
+                closeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                closeBtn.Text = "X"
+                closeBtn.Font = Enum.Font.GothamBold
+                closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                closeBtn.TextSize = 14
+                local closeBtnStroke = Instance.new("UIStroke")
+                closeBtnStroke.Color = Color3.fromRGB(180, 150, 50)
+                closeBtnStroke.Thickness = 1
+                closeBtnStroke.Transparency = 0.4
+                closeBtnStroke.Parent = closeBtn
+                Instance.new("UICorner", closeBtn)
+                closeBtn.MouseButton1Click:Connect(CloseArrestGui)
+                local arrestScroll = Instance.new("ScrollingFrame")
+                arrestScroll.Parent = arrestGui
+                arrestScroll.Position = UDim2.new(0, 0, 0, 40)
+                arrestScroll.Size = UDim2.new(1, 0, 1, -40)
+                arrestScroll.BackgroundTransparency = 1
+                arrestScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+                arrestScroll.ScrollBarThickness = 4
+                arrestScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+                arrestScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+                local arrestLayout = Instance.new("UIListLayout")
+                arrestLayout.Parent = arrestScroll
+                arrestLayout.Padding = UDim.new(0, 8)
+                arrestLayout.FillDirection = Enum.FillDirection.Vertical
+                arrestLayout.SortOrder = Enum.SortOrder.LayoutOrder
+                arrestLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+                for _, targetPlayer in ipairs(targets) do
+                    local isTrespassing = targetPlayer.Character and targetPlayer.Character:GetAttribute("Trespassing")
+                    local teamName = targetPlayer.Team and targetPlayer.Team.Name or ""
+                    local statusText = ""
+                    if isTrespassing then statusText = " [Trespassing]" end
+                    if teamName == "Criminals" then statusText = statusText .. " [Criminal]" end
+                    local targetBtn = Instance.new("TextButton")
+                    targetBtn.Parent = arrestScroll
+                    targetBtn.Size = UDim2.new(0.9, 0, 0, 35)
+                    targetBtn.BackgroundTransparency = 0.6
+                    targetBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                    targetBtn.Text = targetPlayer.Name .. statusText
+                    targetBtn.Font = Enum.Font.GothamBold
+                    targetBtn.TextColor3 = teamName == "Criminals" and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 170, 0)
+                    targetBtn.TextScaled = true
+                    local targetBtnStroke = Instance.new("UIStroke")
+                    targetBtnStroke.Color = Color3.fromRGB(180, 150, 50)
+                    targetBtnStroke.Thickness = 1
+                    targetBtnStroke.Transparency = 0.4
+                    targetBtnStroke.Parent = targetBtn
+                    Instance.new("UICorner", targetBtn)
+                    targetBtn.MouseEnter:Connect(function()
+                        targetBtn.BackgroundTransparency = 0.3
+                        targetBtnStroke.Transparency = 0.2
+                    end)
+                    targetBtn.MouseLeave:Connect(function()
+                        targetBtn.BackgroundTransparency = 0.6
+                        targetBtnStroke.Transparency = 0.4
+                    end)
+                    targetBtn.MouseButton1Click:Connect(function()
+                        game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arresting " .. targetPlayer.Name .. "..."})
+                        StartArresting(targetPlayer)
+                    end)
+                end
+                arrestConnection = task.spawn(function()
+                    while true do
+                        for i = 0, 1, 0.01 do
+                            if not arrestGui then break end
+                            arrestStroke.Color = Color3.fromHSV(i, 1, 1)
+                            arrestTitle.TextColor3 = Color3.fromHSV(i, 1, 1)
+                            task.wait(0.02)
+                        end
+                        if not arrestGui then break end
+                    end
+                end)
+            end
+            
+            -- Button handlers
+            for _, info in ipairs(Buttons) do
+                local btn = Instance.new("TextButton")
+                btn.Name = info.name
+                btn.Parent = Scrolling
+                btn.Size = UDim2.new(0.85, 0, 0, 40)
+                btn.BackgroundTransparency = 0.6
+                btn.BackgroundColor3 = Color3.fromRGB(20, 15, 25)
+                btn.Text = info.text
+                btn.Font = Enum.Font.GothamBold
+                btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+                btn.TextScaled = true
+                
+                local btnStroke = Instance.new("UIStroke")
+                btnStroke.Color = Color3.fromRGB(180, 150, 50)
+                btnStroke.Thickness = 1.2
+                btnStroke.Transparency = 0.3
+                btnStroke.Parent = btn
+                
+                Instance.new("UICorner", btn)
+                btn.MouseEnter:Connect(function()
+                    btn.BackgroundTransparency = 0.3
+                    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    btnStroke.Transparency = 0.1
+                    btnStroke.Color = Color3.fromRGB(200, 170, 60)
+                end)
+                btn.MouseLeave:Connect(function()
+                    btn.BackgroundTransparency = 0.6
+                    btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+                    btnStroke.Transparency = 0.3
+                    btnStroke.Color = Color3.fromRGB(180, 150, 50)
+                end)
+                btn.MouseButton1Click:Connect(function()
+                    if info.name == "ModGguns" then
+                        BURST_FIRE_ENABLED = not BURST_FIRE_ENABLED
+                        btn.Text = "Burst Fire: " .. (BURST_FIRE_ENABLED and "ON" or "OFF")
+                        if AUTO_MODIFY_ENABLED then
+                            ScanAndModifyGuns(LocalPlayer.Character)
+                            ScanAndModifyGuns(LocalPlayer.Backpack)
+                        end
+                    elseif info.name == "AutoModify" then
+                        AUTO_MODIFY_ENABLED = not AUTO_MODIFY_ENABLED
+                        btn.Text = "Auto Modify: " .. (AUTO_MODIFY_ENABLED and "ON" or "OFF")
+                        if AUTO_MODIFY_ENABLED then
+                            ScanAndModifyGuns(LocalPlayer.Character)
+                            ScanAndModifyGuns(LocalPlayer.Backpack)
+                        end
+                    elseif info.name == "CrimBaseTP" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = workspace["Criminals Spawn"].SpawnLocation.CFrame
+                        end
+                    elseif info.name == "PrisonTP" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(916, 100, 2369)
+                        end
+                    elseif info.name == "GuardRoomTP" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(828, 100, 2303)
+                        end
+                    elseif info.name == "GetRem" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(820, 101, 2229)
+                        end
+                    elseif info.name == "GetM9" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(814, 101, 2229)
+                        end
+                    elseif info.name == "GetFAL" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-916, 94, 2048)
+                        end
+                    elseif info.name == "GetM4" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(848, 101, 2229)
+                        end
+                    elseif info.name == "GetAK" then
+                        if CanTeleport() then
+                            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-931, 94, 2039)
+                        end
+                    elseif info.name == "ToggleESP" then
+                        ESP_ENABLED = not ESP_ENABLED
+                        btn.Text = "Toggle ESP (" .. (ESP_ENABLED and "ON" or "OFF") .. ")"
+                        UpdateESP()
+                    elseif info.name == "RainbowWalls" then
+                        local result = modifyWalls()
+                        btn.Text = "Rainbow Walls: " .. result
+                        game.StarterGui:SetCore("SendNotification", {Title = "Crown Hub", Text = "Rainbow Walls: " .. result})
+                    elseif info.name == "ArrestPlayer" then
+                        ShowArrestGui()
+                    elseif info.name == "CancelArrest" then
+                        if currentArrestTarget then
+                            game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arrest cancelled"})
+                            StopArresting()
+                        else
+                            game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "No active arrest"})
+                        end
+                    end
+                end)
+            end
+            
+            local arrestButton = Scrolling:FindFirstChild("ArrestPlayer")
+            local cancelArrestButton = Scrolling:FindFirstChild("CancelArrest")
+            task.spawn(function()
+                while true do
+                    local isGuard = LocalPlayer.Team and LocalPlayer.Team.Name == "Guards"
+                    if arrestButton then arrestButton.Visible = isGuard end
+                    if cancelArrestButton then cancelArrestButton.Visible = isGuard and currentArrestTarget ~= nil end
+                    task.wait(0.5)
+                end
+            end)
+            
+            local UIS = game:GetService("UserInputService")
+            local dragging = false
+            local dragStart, startPos
+            CrownPrisonHacksFrame.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    dragStart = input.Position
+                    startPos = CrownPrisonHacksFrame.Position
+                end
+            end)
+            CrownPrisonHacksFrame.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end)
+            UIS.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    local delta = input.Position - dragStart
+                    CrownPrisonHacksFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+                end
+            end)
+            
+            task.spawn(function()
+                while CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent do
+                    for i = 0, 1, 0.01 do
+                        if not CrownPrisonHacksFrame then break end
+                        UIStroke.Color = Color3.fromHSV(i, 1, 1)
+                        TitleLabel.TextColor3 = Color3.fromHSV(i, 1, 1)
+                        task.wait(0.02)
+                    end
+                    if not CrownPrisonHacksFrame then break end
+                end
+            end)
+            
+            game.StarterGui:SetCore("SendNotification", {Text = "Loaded Successfully", Title = "CROWN HUB PRISON HACKS"})
+            RunService.RenderStepped:Connect(UpdateESP)
+            
+            local closeFrameBtn = Instance.new("TextButton")
+            closeFrameBtn.Parent = CrownPrisonHacksFrame
+            closeFrameBtn.Size = UDim2.new(0, 30, 0, 30)
+            closeFrameBtn.Position = UDim2.new(1, -35, 0, 5)
+            closeFrameBtn.BackgroundTransparency = 0.6
+            closeFrameBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            closeFrameBtn.Text = "X"
+            closeFrameBtn.Font = Enum.Font.GothamBold
+            closeFrameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+            closeFrameBtn.TextSize = 14
+            local closeFrameBtnStroke = Instance.new("UIStroke")
+            closeFrameBtnStroke.Color = Color3.fromRGB(180, 150, 50)
+            closeFrameBtnStroke.Thickness = 1
+            closeFrameBtnStroke.Transparency = 0.4
+            closeFrameBtnStroke.Parent = closeFrameBtn
+            Instance.new("UICorner", closeFrameBtn)
+            closeFrameBtn.MouseButton1Click:Connect(function()
+                CrownPrisonHacksFrame.Visible = false
+            end)
+        end
+
+        -- Fly, collision, orbital fling functions
+        local FlyEnabled = false
+        local BodyGyro, BodyVelocity
+
+        local function ToggleFly()
+            FlyEnabled = not FlyEnabled
+            if FlyEnabled then
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local root = player.Character.HumanoidRootPart
+                    BodyGyro = Instance.new("BodyGyro")
+                    BodyGyro.P = 1000
+                    BodyGyro.D = 50
+                    BodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+                    BodyGyro.CFrame = root.CFrame
+                    BodyGyro.Parent = root
+                    BodyVelocity = Instance.new("BodyVelocity")
+                    BodyVelocity.Velocity = Vector3.new(0, 0, 0)
+                    BodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+                    BodyVelocity.Parent = root
+                    local flyConnection
+                    flyConnection = RunService.Heartbeat:Connect(function()
+                        if not FlyEnabled or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
+                            flyConnection:Disconnect()
+                            return
+                        end
+                        local root = player.Character.HumanoidRootPart
+                        local camera = workspace.CurrentCamera
+                        BodyGyro.CFrame = camera.CFrame
+                        local velocity = Vector3.new(0, 0, 0)
+                        local speed = 50
+                        if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                            velocity = velocity + camera.CFrame.LookVector * speed
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                            velocity = velocity - camera.CFrame.LookVector * speed
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                            velocity = velocity - camera.CFrame.RightVector * speed
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                            velocity = velocity + camera.CFrame.RightVector * speed
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                            velocity = velocity + Vector3.new(0, speed, 0)
+                        end
+                        if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                            velocity = velocity - Vector3.new(0, speed, 0)
+                        end
+                        BodyVelocity.Velocity = velocity
+                    end)
+                end
+            else
+                if BodyGyro then BodyGyro:Destroy() end
+                if BodyVelocity then BodyVelocity:Destroy() end
+            end
+        end
+
+        local function EnableCollision()
+            for _, target in ipairs(Players:GetPlayers()) do
+                if target.Character then
+                    for _, part in pairs(target.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+
+        local OrbitalActive = false
+        local function GetNearestPlayer()
+            local nearestPlayer = nil
+            local shortestDistance = math.huge
+            if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local playerRoot = player.Character.HumanoidRootPart
+                for _, target in ipairs(Players:GetPlayers()) do
+                    if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                        local targetRoot = target.Character.HumanoidRootPart
+                        local distance = (playerRoot.Position - targetRoot.Position).Magnitude
+                        if distance < shortestDistance then
+                            shortestDistance = distance
+                            nearestPlayer = target
+                        end
+                    end
+                end
+            end
+            return nearestPlayer
+        end
+
+        local function OrbitalFling()
+            OrbitalActive = true
+            if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+            local root = player.Character.HumanoidRootPart
+            spawn(function()
+                while OrbitalActive and player.Character do
+                    local nearestTarget = GetNearestPlayer()
+                    if nearestTarget and nearestTarget.Character and nearestTarget.Character:FindFirstChild("HumanoidRootPart") then
+                        local targetRoot = nearestTarget.Character.HumanoidRootPart
+                        local angle = tick() * 8
+                        local radius = 6
+                        local orbitPosition = targetRoot.Position + Vector3.new(math.cos(angle) * radius, 2, math.sin(angle) * radius)
+                        root.CFrame = CFrame.new(orbitPosition)
+                        local flingBV = Instance.new("BodyVelocity")
+                        local flingDirection = (targetRoot.Position - root.Position).Unit
+                        flingBV.Velocity = flingDirection * 80 + Vector3.new(0, 60, 0)
+                        flingBV.MaxForce = Vector3.new(40000, 40000, 40000)
+                        flingBV.Parent = targetRoot
+                        game.Debris:AddItem(flingBV, 0.2)
+                    end
+                    RunService.Heartbeat:Wait()
                 end
             end)
         end
-    end)
-end
 
-local GradientBackground = Instance.new("Frame")
-GradientBackground.Size = UDim2.new(1, 0, 1, 0)
-GradientBackground.Position = UDim2.new(0, 0, 0, 0)
-GradientBackground.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
-GradientBackground.BorderSizePixel = 0
-GradientBackground.ZIndex = 0
-GradientBackground.Parent = MainContainer
+        -- Define Crown Functions with added external scripts
+        local CrownFunctions = {
+            ["Fling"] = {
+                {"🌀 Orbit Nearest", function()
+                    OrbitalActive = not OrbitalActive
+                    if OrbitalActive then OrbitalFling() end
+                end},
+                {"🔒 Enable Collision", EnableCollision},
+                {"🛑 Stop Fling", function() OrbitalActive = false end}
+            },
+            ["Admin"] = {
+                {"🛡️ Nameless Admin", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))()
+                end},
+                {"⚡ Infinite Yield", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+                end},
+                {"🤖 QuizBot", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))()
+                end},
+                {"🔤 Chat Bypasser", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/AnnaRoblox/AnnaBypasser/refs/heads/main/AnnaBypasser.lua",true))()
+                end}
+            },
+            ["Movement"] = {
+                {"🚀 Fly (WASD+Space+Ctrl)", ToggleFly},
+                {"⚡ Speed (100)", function()
+                    if player.Character and player.Character:FindFirstChild("Humanoid") then
+                        player.Character.Humanoid.WalkSpeed = 100
+                    end
+                end},
+                {"👻 Noclip", function()
+                    local noclip = false
+                    player.CharacterAdded:Connect(function(char)
+                        if noclip then
+                            wait(0.5)
+                            for _, part in pairs(char:GetDescendants()) do
+                                if part:IsA("BasePart") then part.CanCollide = false end
+                            end
+                        end
+                    end)
+                    noclip = not noclip
+                    if player.Character then
+                        for _, part in pairs(player.Character:GetDescendants()) do
+                            if part:IsA("BasePart") then part.CanCollide = not noclip end
+                        end
+                    end
+                end},
+                {"🔄 Reset", function()
+                    if player.Character and player.Character:FindFirstChild("Humanoid") then
+                        player.Character.Humanoid.WalkSpeed = 16
+                    end
+                    ToggleFly()
+                end}
+            },
+            ["Visual"] = {
+                {"🎯 ESP", function()
+                    for _, target in ipairs(Players:GetPlayers()) do
+                        if target ~= player and target.Character then
+                            local highlight = Instance.new("Highlight")
+                            highlight.FillColor = Color3.fromRGB(255, 215, 0)
+                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                            highlight.FillTransparency = 0.4
+                            highlight.Parent = target.Character
+                        end
+                    end
+                end},
+                {"👁️ X-Ray", function()
+                    for _, part in pairs(workspace:GetDescendants()) do
+                        if part:IsA("BasePart") and part.Transparency < 1 then
+                            part.LocalTransparencyModifier = 0.6
+                        end
+                    end
+                end},
+                {"🌟 Full Bright", function()
+                    Lighting.Brightness = 2
+                    Lighting.Ambient = Color3.new(1, 1, 1)
+                end},
+                {"🗑️ Clear", function()
+                    for _, target in ipairs(Players:GetPlayers()) do
+                        if target.Character then
+                            for _, highlight in ipairs(target.Character:GetChildren()) do
+                                if highlight:IsA("Highlight") then highlight:Destroy() end
+                            end
+                        end
+                    end
+                    for _, part in pairs(workspace:GetDescendants()) do
+                        if part:IsA("BasePart") then part.LocalTransparencyModifier = 0 end
+                    end
+                    Lighting.Brightness = 1
+                end}
+            },
+            ["Combat"] = {
+                {"🎯 Venum Aim", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/MAINCODE"))()
+                end},
+                {"⚡ Aim Assist", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))()
+                end},
+                {"👑 Crown Prison Hacks", LoadCrownPrisonHacks},
+                {"📡 Influence ESP", LoadInfluenceESP}
+            },
+            ["Hubs"] = {
+                {"🔪 Slicer FE V8", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Ahma174/Slicer/refs/heads/main/Slicer%20Fe%20V8.0.0%20%5BBETA%5D.txt"))()
+                end},
+                {"🌀 Gravity Trip", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))()
+                end},
+                {"🐹 FE Hamster Ball", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/KaterHub-Inc/scripts/refs/heads/main/unofficial-Projects/FEHamsterBall.lua"))()
+                end},
+                {"🎹 Piano", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/LunarZR/QOUTES/refs/heads/main/PIANO"))()
+                end},
+                {"👑 Z3U5 HUB V2", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Z3U5-G106/Script/refs/heads/main/Z3U5-HUB-V2-WESTWOOD"))()
+                end},
+                {"💀 Trollge Universe", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/egehanqq/trollgeuniverse/refs/heads/main/trollgeuniverse", true))()
+                end},
+                {"🌀 Super Ring Parts", function()
+                    loadstring(game:HttpGet("https://rscripts.net/raw/super-ring-parts-v4-by-lukas_1741980981842_td0ummjymf.txt", true))()
+                end}
+            },
+            ["Fun"] = {
+                {"🏎️ Formula 1 Car", LoadFormula1Car},
+                {"💃 Tenna Dance", TennaDance},
+                {"📽️ Animation Logger", function()
+                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Lov3lydev/Sodas-Shitty-Luau-Scripts/main/AnimationLogger.lua"))()
+                end}
+            }
+        }
 
-local MainGradient = Instance.new("UIGradient")
-MainGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 25, 50)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(60, 35, 80)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 20, 40))
-})
-MainGradient.Rotation = 45
-MainGradient.Parent = GradientBackground
-
-local MovingOverlay = Instance.new("Frame")
-MovingOverlay.Size = UDim2.new(2, 0, 2, 0)
-MovingOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-MovingOverlay.BackgroundTransparency = 0.9
-MovingOverlay.BorderSizePixel = 0
-MovingOverlay.ZIndex = 1
-MovingOverlay.Parent = MainContainer
-
-local OverlayGradient = Instance.new("UIGradient")
-OverlayGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 80, 160)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 120, 200)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 100, 120))
-})
-OverlayGradient.Transparency = NumberSequence.new({
-    NumberSequenceKeypoint.new(0, 0.8),
-    NumberSequenceKeypoint.new(0.5, 0.6),
-    NumberSequenceKeypoint.new(1, 0.8)
-})
-OverlayGradient.Parent = MovingOverlay
-
-spawn(function()
-    local time = 0
-    while CrownHub.Parent do
-        time = time + 0.02
-        
-        local x = math.sin(time * 0.5) * 0.3
-        local y = math.cos(time * 0.3) * 0.3
-        MovingOverlay.Position = UDim2.new(x, 0, y, 0)
-        
-        MainGradient.Rotation = (MainGradient.Rotation + 0.2) % 360
-        OverlayGradient.Rotation = (OverlayGradient.Rotation - 0.3) % 360
-        
-        RunService.Heartbeat:Wait()
-    end
-end)
-
-local GoldBorder = Instance.new("Frame")
-GoldBorder.Size = UDim2.new(1, 6, 1, 6)
-GoldBorder.Position = UDim2.new(0, -3, 0, -3)
-GoldBorder.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
-GoldBorder.BackgroundTransparency = 0.3
-GoldBorder.BorderSizePixel = 0
-GoldBorder.ZIndex = -1
-GoldBorder.Parent = MainContainer
-
-local BorderCorner = Instance.new("UICorner")
-BorderCorner.CornerRadius = UDim.new(0, 16)
-BorderCorner.Parent = GoldBorder
-
-local GlassLayer = Instance.new("Frame")
-GlassLayer.Size = UDim2.new(1, 0, 1, 0)
-GlassLayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-GlassLayer.BackgroundTransparency = 0.95
-GlassLayer.BorderSizePixel = 0
-GlassLayer.ZIndex = 2
-GlassLayer.Parent = MainContainer
-
-local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, IS_MOBILE and 60 or 70)
-Header.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
-Header.BackgroundTransparency = 0.1
-Header.BorderSizePixel = 0
-Header.ZIndex = 10
-Header.Parent = MainContainer
-
-local HeaderGradient = Instance.new("UIGradient")
-HeaderGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 30, 70)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 20, 50))
-})
-HeaderGradient.Rotation = 90
-HeaderGradient.Parent = Header
-
-local CrownIcon = Instance.new("ImageLabel")
-CrownIcon.Size = UDim2.new(0, IS_MOBILE and 35 or 40, 0, IS_MOBILE and 35 or 40)
-CrownIcon.Position = UDim2.new(0, 10, 0, IS_MOBILE and 12 or 15)
-CrownIcon.BackgroundTransparency = 1
-CrownIcon.Image = "rbxassetid://6031075938"
-CrownIcon.ImageColor3 = Color3.fromRGB(255, 215, 0)
-CrownIcon.ZIndex = 11
-CrownIcon.Parent = Header
-
-spawn(function()
-    while CrownHub.Parent do
-        TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-            Rotation = 5,
-            ImageColor3 = Color3.fromRGB(255, 230, 100)
-        }):Play()
-        wait(1.5)
-        TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-            Rotation = -5,
-            ImageColor3 = Color3.fromRGB(255, 215, 0)
-        }):Play()
-        wait(1.5)
-    end
-end)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -70, 0, IS_MOBILE and 25 or 35)
-Title.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 5 or 8)
-Title.BackgroundTransparency = 1
-Title.Text = "CROWN HUB"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = IS_MOBILE and 18 or 24
-Title.Font = Enum.Font.GothamBlack
-Title.TextXAlignment = Enum.TextXAlignment.Left
-
--- Add rich gold text outline
-local TitleStroke = Instance.new("UIStroke")
-TitleStroke.Color = Color3.fromRGB(180, 150, 50) -- Dark gold color
-TitleStroke.Thickness = 1.5 -- Thin outline
-TitleStroke.Transparency = 0.3
-TitleStroke.Parent = Title
-
-Title.Parent = Header
-
-local Subtitle = Instance.new("TextLabel")
-Subtitle.Size = UDim2.new(1, -70, 0, 18)
-Subtitle.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 30 or 40)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = IS_MOBILE and "Prison Edition" or "Prison Edition"
-Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
-Subtitle.TextSize = IS_MOBILE and 9 or 11
-Subtitle.Font = Enum.Font.GothamMedium
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-
--- Add rich gold text outline to subtitle
-local SubtitleStroke = Instance.new("UIStroke")
-SubtitleStroke.Color = Color3.fromRGB(180, 150, 50)
-SubtitleStroke.Thickness = 1
-SubtitleStroke.Transparency = 0.4
-SubtitleStroke.Parent = Subtitle
-
-Subtitle.ZIndex = 11
-Subtitle.Parent = Header
-
-local ControlContainer = Instance.new("Frame")
-ControlContainer.Size = UDim2.new(0, IS_MOBILE and 55 or 70, 0, IS_MOBILE and 25 or 30)
-ControlContainer.Position = UDim2.new(1, IS_MOBILE and -60 or -75, 0, IS_MOBILE and 17 or 20)
-ControlContainer.BackgroundTransparency = 1
-ControlContainer.ZIndex = 11
-ControlContainer.Parent = Header
-
-local MinimizeButton = Instance.new("TextButton")
-MinimizeButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
-MinimizeButton.Position = UDim2.new(0, 0, 0, 0)
-MinimizeButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
-MinimizeButton.BackgroundTransparency = 0.2
-MinimizeButton.Text = "_"
-MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
-MinimizeButton.TextSize = IS_MOBILE and 14 or 16
-MinimizeButton.Font = Enum.Font.GothamBlack
-
--- Add gold outline to minimize button text
-local MinimizeButtonStroke = Instance.new("UIStroke")
-MinimizeButtonStroke.Color = Color3.fromRGB(180, 150, 50)
-MinimizeButtonStroke.Thickness = 1.2
-MinimizeButtonStroke.Transparency = 0.3
-MinimizeButtonStroke.Parent = MinimizeButton
-
-MinimizeButton.ZIndex = 11
-MinimizeButton.Parent = ControlContainer
-
-local MinimizeCorner = Instance.new("UICorner")
-MinimizeCorner.CornerRadius = UDim.new(0, 6)
-MinimizeCorner.Parent = MinimizeButton
-
-local CloseButton = Instance.new("TextButton")
-CloseButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
-CloseButton.Position = UDim2.new(0, IS_MOBILE and 28 or 35, 0, 0)
-CloseButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
-CloseButton.BackgroundTransparency = 0.2
-CloseButton.Text = "×"
-CloseButton.TextColor3 = Color3.new(1, 1, 1)
-CloseButton.TextSize = IS_MOBILE and 16 or 18
-CloseButton.Font = Enum.Font.GothamBlack
-
--- Add gold outline to close button text
-local CloseButtonStroke = Instance.new("UIStroke")
-CloseButtonStroke.Color = Color3.fromRGB(180, 150, 50)
-CloseButtonStroke.Thickness = 1.2
-CloseButtonStroke.Transparency = 0.3
-CloseButtonStroke.Parent = CloseButton
-
-CloseButton.ZIndex = 11
-CloseButton.Parent = ControlContainer
-
-local CloseCorner = Instance.new("UICorner")
-CloseCorner.CornerRadius = UDim.new(0, 6)
-CloseCorner.Parent = CloseButton
-
-local TabContainer = Instance.new("Frame")
-TabContainer.Size = UDim2.new(1, -20, 0, IS_MOBILE and 28 or 32)
-TabContainer.Position = UDim2.new(0, 10, 0, IS_MOBILE and 70 or 80)
-TabContainer.BackgroundTransparency = 1
-TabContainer.ZIndex = 10
-TabContainer.Parent = MainContainer
-
-local ContentFrame = Instance.new("ScrollingFrame")
-ContentFrame.Size = UDim2.new(1, -20, 1, IS_MOBILE and -98 or -122)
-ContentFrame.Position = UDim2.new(0, 10, 0, IS_MOBILE and 108 or 122)
-ContentFrame.BackgroundTransparency = 1
-ContentFrame.ScrollBarThickness = IS_MOBILE and 3 or 4
-ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(212, 175, 55)
-ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
-ContentFrame.ZIndex = 10
-ContentFrame.Parent = MainContainer
-
-local ContentLayout = Instance.new("UIListLayout")
-ContentLayout.Padding = UDim.new(0, IS_MOBILE and 8 or 10)
-ContentLayout.Parent = ContentFrame
-
-local Tabs = {
-    "Fling",
-    "Admin", 
-    "Movement",
-    "Visual",
-    "Combat",
-    "Hubs",
-    "Fun"
-}
-
-local CurrentTab = "Fling"
-
-for i, tabName in ipairs(Tabs) do
-    local TabButton = Instance.new("TextButton")
-    TabButton.Size = UDim2.new(1/#Tabs, -4, 1, 0)
-    TabButton.Position = UDim2.new((i-1)/#Tabs, 0, 0, 0)
-    TabButton.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
-    TabButton.BackgroundTransparency = 0.3
-    TabButton.Text = tabName
-    TabButton.TextColor3 = Color3.fromRGB(200, 190, 220)
-    TabButton.Font = Enum.Font.GothamMedium
-    TabButton.TextSize = IS_MOBILE and 10 or 11
-    TabButton.AutoButtonColor = false
-    TabButton.ZIndex = 11
-    TabButton.Parent = TabContainer
-    
-    -- Add gold outline to tab text
-    local TabButtonStroke = Instance.new("UIStroke")
-    TabButtonStroke.Color = Color3.fromRGB(180, 150, 50)
-    TabButtonStroke.Thickness = 1
-    TabButtonStroke.Transparency = 0.5
-    TabButtonStroke.Parent = TabButton
-    
-    local TabCorner = Instance.new("UICorner")
-    TabCorner.CornerRadius = UDim.new(0, 6)
-    TabCorner.Parent = TabButton
-    
-    TabButton.MouseEnter:Connect(function()
-        if TabButton.Text ~= CurrentTab then
-            TweenService:Create(TabButton, TweenInfo.new(0.3), {
-                BackgroundTransparency = 0.1,
-                TextColor3 = Color3.fromRGB(255, 255, 255)
-            }):Play()
-            TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
-                Transparency = 0.3,
-                Color = Color3.fromRGB(200, 170, 60)
-            }):Play()
+        function UpdateContent()
+            for _, child in ipairs(ContentFrame:GetChildren()) do
+                if child:IsA("TextButton") then child:Destroy() end
+            end
+            local functions = CrownFunctions[CurrentTab] or {}
+            for _, func in ipairs(functions) do
+                CreateButton(func[1], func[2])
+            end
         end
-    end)
-    
-    TabButton.MouseLeave:Connect(function()
-        if TabButton.Text ~= CurrentTab then
-            TweenService:Create(TabButton, TweenInfo.new(0.3), {
-                BackgroundTransparency = 0.3,
-                TextColor3 = Color3.fromRGB(200, 190, 220)
-            }):Play()
-            TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
-                Transparency = 0.5,
-                Color = Color3.fromRGB(180, 150, 50)
-            }):Play()
-        end
-    end)
-    
-    TabButton.MouseButton1Click:Connect(function()
-        CurrentTab = tabName
-        UpdateContent()
-        UpdateTabAppearance()
-    end)
-end
 
-function UpdateTabAppearance()
-    for _, tab in ipairs(TabContainer:GetChildren()) do
-        if tab:IsA("TextButton") then
-            if tab.Text == CurrentTab then
-                TweenService:Create(tab, TweenInfo.new(0.3), {
+        function CreateButton(text, callback)
+            local button = Instance.new("TextButton")
+            button.Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
+            button.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
+            button.BackgroundTransparency = 0.2
+            button.Text = text
+            button.TextColor3 = Color3.fromRGB(240, 230, 255)
+            button.Font = Enum.Font.GothamMedium
+            button.TextSize = IS_MOBILE and 12 or 13
+            button.AutoButtonColor = false
+            button.ZIndex = 11
+            button.Parent = ContentFrame
+            
+            local buttonStroke = Instance.new("UIStroke")
+            buttonStroke.Color = Color3.fromRGB(180, 150, 50)
+            buttonStroke.Thickness = 1.2
+            buttonStroke.Transparency = 0.3
+            buttonStroke.Parent = button
+            
+            local buttonCorner = Instance.new("UICorner")
+            buttonCorner.CornerRadius = UDim.new(0, 8)
+            buttonCorner.Parent = button
+            
+            if not IS_MOBILE then
+                button.MouseEnter:Connect(function()
+                    TweenService:Create(button, TweenInfo.new(0.3), {
+                        BackgroundTransparency = 0.1,
+                        BackgroundColor3 = Color3.fromRGB(45, 40, 55),
+                        Size = UDim2.new(1, 5, 0, 45)
+                    }):Play()
+                    TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
+                        Transparency = 0.1,
+                        Color = Color3.fromRGB(200, 170, 60)
+                    }):Play()
+                end)
+                button.MouseLeave:Connect(function()
+                    TweenService:Create(button, TweenInfo.new(0.3), {
+                        BackgroundTransparency = 0.2,
+                        BackgroundColor3 = Color3.fromRGB(35, 30, 45),
+                        Size = UDim2.new(1, 0, 0, 42)
+                    }):Play()
+                    TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
+                        Transparency = 0.3,
+                        Color = Color3.fromRGB(180, 150, 50)
+                    }):Play()
+                end)
+            end
+            
+            button.MouseButton1Click:Connect(function()
+                TweenService:Create(button, TweenInfo.new(0.1), {
                     BackgroundColor3 = Color3.fromRGB(212, 175, 55),
                     TextColor3 = Color3.fromRGB(20, 15, 25),
-                    BackgroundTransparency = 0.1
+                    Size = UDim2.new(1, IS_MOBILE and -3 or -5, 0, IS_MOBILE and 35 or 38)
                 }):Play()
-                TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
+                TweenService:Create(buttonStroke, TweenInfo.new(0.1), {
                     Transparency = 0.2,
                     Color = Color3.fromRGB(100, 80, 30)
                 }):Play()
-            else
-                TweenService:Create(tab, TweenInfo.new(0.3), {
+                wait(0.1)
+                TweenService:Create(button, TweenInfo.new(0.3), {
                     BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-                    TextColor3 = Color3.fromRGB(200, 190, 220),
-                    BackgroundTransparency = 0.3
+                    TextColor3 = Color3.fromRGB(240, 230, 255),
+                    Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
                 }):Play()
-                TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
-                    Transparency = 0.5,
+                TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
+                    Transparency = 0.3,
                     Color = Color3.fromRGB(180, 150, 50)
                 }):Play()
-            end
-        end
-    end
-end
-
--- Wall Modification Functions
-local function processPart(obj)
-    if obj:IsA("BasePart") then
-        -- Store original properties
-        originalWallProperties[obj] = {
-            Color = obj.Color,
-            Transparency = obj.Transparency,
-            CanCollide = obj.CanCollide
-        }
-        
-        -- Start rainbow effect
-        local rainbowLoop = task.spawn(function()
-            while wallsModified and obj and obj.Parent do
-                for i = 0, 1, 0.01 do
-                    if not wallsModified then break end
-                    obj.Color = Color3.fromHSV(i, 1, 1)
-                    task.wait(0.02)
-                end
-            end
-        end)
-        
-        rainbowLoops[obj] = rainbowLoop
-        obj.Transparency = 0.5
-        obj.CanCollide = false
-    end
-end
-
-local function recursiveProcess(obj)
-    processPart(obj)
-    for _, child in ipairs(obj:GetChildren()) do
-        recursiveProcess(child)
-    end
-end
-
-local function restoreWalls()
-    for obj, properties in pairs(originalWallProperties) do
-        if obj and obj.Parent then
-            -- Restore original properties
-            obj.Color = properties.Color
-            obj.Transparency = properties.Transparency
-            obj.CanCollide = properties.CanCollide
-            
-            -- Stop rainbow loop
-            if rainbowLoops[obj] then
-                task.cancel(rainbowLoops[obj])
-                rainbowLoops[obj] = nil
-            end
-        end
-    end
-    
-    -- Clear tables
-    originalWallProperties = {}
-    rainbowLoops = {}
-    wallsModified = false
-end
-
-local function modifyWalls()
-    if wallsModified then
-        restoreWalls()
-        return "OFF"
-    end
-    
-    wallsModified = true
-    
-    -- Process prison walls
-    for _, v in pairs(workspace:FindFirstChild("Prison_OuterWall") and workspace.Prison_OuterWall:FindFirstChild("prison_wall") and workspace.Prison_OuterWall.prison_wall:GetChildren() or {}) do
-        recursiveProcess(v)
-    end
-    
-    -- Process guard towers
-    for _, v in pairs(workspace:FindFirstChild("Prison_guardtower") and workspace.Prison_guardtower:GetChildren() or {}) do
-        recursiveProcess(v)
-    end
-    
-    -- Process fences
-    for _, v in pairs(workspace:FindFirstChild("Prison_Fences") and workspace.Prison_Fences:GetChildren() or {}) do
-        if v.Name == "fence" then
-            recursiveProcess(v)
-            local dmg = v:FindFirstChild("damagePart")
-            if dmg then
-                local ti = dmg:FindFirstChild("TouchInterest")
-                if ti then
-                    ti:Destroy()
-                end
-            end
-        end
-    end
-    
-    -- Process doors
-    local doors = workspace:FindFirstChild("Doors")
-    if doors then
-        for _, door in pairs(doors:GetChildren()) do
-            recursiveProcess(door)
-        end
-    end
-    
-    return "ON"
-end
-
-local VehicleScriptLoaded = false
-local function LoadFormula1Car()
-    if not VehicleScriptLoaded then
-        VehicleScriptLoaded = true
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/FORMULA1%20CAR!!!!"))()
-    end
-end
-
-local function TennaDance()
-    local plr = game.Players.LocalPlayer
-    if plr.Character and plr.Character:FindFirstChild("Humanoid") then
-        local hum = plr.Character.Humanoid
-        local Anim = Instance.new("Animation")
-        Anim.AnimationId = "rbxassetid://75202452138001"
-        local track = hum:LoadAnimation(Anim)
-        track:Play()
-        track:AdjustSpeed(1.524)
-    end
-end
-
-local function LoadInfluenceESP()
-    loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
-end
-
-local CrownPrisonHacksLoaded = false
-local CrownPrisonHacksFrame = nil
-
-local function LoadCrownPrisonHacks()
-    if getgenv().crownloaded then
-        -- Show existing window
-        if CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent then
-            CrownPrisonHacksFrame.Visible = not CrownPrisonHacksFrame.Visible
-            return
-        end
-    end
-
-    getgenv().crownloaded = true
-    
-    -- Crown Hub welcome message
-    local welcomeMsg = Instance.new("Message")
-    welcomeMsg.Parent = workspace
-    welcomeMsg.Text = "CROWN HUB PRISON HACKS"
-    task.wait(2)
-    welcomeMsg.Text = "Premium Edition"
-    task.wait(1.6)
-    welcomeMsg:Destroy()
-    
-    -- Apply speed and jump improvements
-    task.spawn(function()
-        while task.wait() do
-            if game.Players.LocalPlayer and game.Players.LocalPlayer.Character then
-                local hum = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                if hum then
-                    hum.WalkSpeed = 25
-                    game.Players.LocalPlayer:SetAttribute("BackpackEnabled", true)
-                    hum.JumpHeight = 5.5
-                end
-                if game.Players.LocalPlayer.Character:FindFirstChild("AntiJump") then
-                    game.Players.LocalPlayer.Character.AntiJump:Destroy()
-                end
-            end
-        end
-    end)
-    
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local LocalPlayer = Players.LocalPlayer
-    local ESP_ENABLED = false
-    local TELEPORT_COOLDOWN = 1.6
-    local lastTeleport = 0
-    local lastArrestStart = 0
-    local ARREST_COOLDOWN = 3
-    
-    local function GetBillboard(targetCharacter)
-        local head = targetCharacter:FindFirstChild("Head")
-        if not head then
-            return nil
-        end
-        local billboard = head:FindFirstChild("CrownESP_Billboard")
-        if not billboard then
-            billboard = Instance.new("BillboardGui")
-            billboard.Name = "CrownESP_Billboard"
-            billboard.Adornee = head
-            billboard.Size = UDim2.new(0, 200, 0, 120)
-            billboard.StudsOffset = Vector3.new(0, 3, 0)
-            billboard.AlwaysOnTop = true
-            billboard.Parent = head
-            
-            local emojiLabel = Instance.new("TextLabel")
-            emojiLabel.Name = "EmojiLabel"
-            emojiLabel.Size = UDim2.new(1, 0, 0.35, 0)
-            emojiLabel.Position = UDim2.new(0, 0, 0, 0)
-            emojiLabel.BackgroundTransparency = 1
-            emojiLabel.TextColor3 = Color3.new(1, 1, 1)
-            emojiLabel.TextStrokeTransparency = 0
-            emojiLabel.Font = Enum.Font.GothamBold
-            emojiLabel.TextSize = 24
-            
-            -- Add gold outline to ESP text
-            local emojiStroke = Instance.new("UIStroke")
-            emojiStroke.Color = Color3.fromRGB(180, 150, 50)
-            emojiStroke.Thickness = 1.2
-            emojiStroke.Transparency = 0.3
-            emojiStroke.Parent = emojiLabel
-            
-            emojiLabel.Parent = billboard
-            
-            local nameLabel = Instance.new("TextLabel")
-            nameLabel.Name = "NameLabel"
-            nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
-            nameLabel.Position = UDim2.new(0, 0, 0.35, 0)
-            nameLabel.BackgroundTransparency = 1
-            nameLabel.TextColor3 = Color3.new(1, 1, 1)
-            nameLabel.TextStrokeTransparency = 0
-            nameLabel.Font = Enum.Font.GothamBold
-            nameLabel.TextSize = 14
-            
-            -- Add gold outline to ESP name text
-            local nameStroke = Instance.new("UIStroke")
-            nameStroke.Color = Color3.fromRGB(180, 150, 50)
-            nameStroke.Thickness = 1
-            nameStroke.Transparency = 0.4
-            nameStroke.Parent = nameLabel
-            
-            nameLabel.Parent = billboard
-            
-            local healthBarBG = Instance.new("Frame")
-            healthBarBG.Name = "HealthBarBG"
-            healthBarBG.Size = UDim2.new(0.8, 0, 0.12, 0)
-            healthBarBG.Position = UDim2.new(0.1, 0, 0.75, 0)
-            healthBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-            healthBarBG.BorderSizePixel = 0
-            healthBarBG.Parent = billboard
-            
-            local healthBarFill = Instance.new("Frame")
-            healthBarFill.Name = "HealthBarFill"
-            healthBarFill.Size = UDim2.new(1, 0, 1, 0)
-            healthBarFill.Position = UDim2.new(0, 0, 0, 0)
-            healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-            healthBarFill.BorderSizePixel = 0
-            healthBarFill.Parent = healthBarBG
-            
-            local healthBarCorner = Instance.new("UICorner")
-            healthBarCorner.CornerRadius = UDim.new(0, 3)
-            healthBarCorner.Parent = healthBarBG
-            
-            local healthBarFillCorner = Instance.new("UICorner")
-            healthBarFillCorner.CornerRadius = UDim.new(0, 3)
-            healthBarFillCorner.Parent = healthBarFill
-        end
-        return billboard
-    end
-    
-    local function GetCham(targetCharacter)
-        local cham = targetCharacter:FindFirstChild("CrownESP_Cham")
-        if not cham then
-            cham = Instance.new("Highlight")
-            cham.Name = "CrownESP_Cham"
-            cham.Adornee = targetCharacter
-            cham.Parent = targetCharacter
-            cham.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        end
-        return cham
-    end
-    
-    local function UpdateESP()
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local billboard = GetBillboard(player.Character)
-                local cham = GetCham(player.Character)
-                if billboard and cham then
-                    if ESP_ENABLED then
-                        billboard.Enabled = true
-                        cham.Enabled = true
-                        local nameLabel = billboard:FindFirstChild("NameLabel")
-                        local emojiLabel = billboard:FindFirstChild("EmojiLabel")
-                        local healthBarFill = billboard:FindFirstChild("HealthBarBG") and billboard.HealthBarBG:FindFirstChild("HealthBarFill")
-                        local teamName = player.Team and player.Team.Name or "Neutral"
-                        local displayText = player.Name
-                        local emojiText = ""
-                        local color = Color3.new(1, 1, 1)
-                        
-                        if teamName == "Inmates" then
-                            color = Color3.fromRGB(255, 170, 0)
-                            displayText = displayText .. " [Inmate]"
-                            local isHostile = player.Character:GetAttribute("Hostile")
-                            local isTrespassing = player.Character:GetAttribute("Trespassing")
-                            if isHostile then
-                                emojiText = emojiText .. "💢"
-                            end
-                            if isTrespassing then
-                                emojiText = emojiText .. "🔗"
-                            end
-                        elseif teamName == "Guards" then
-                            color = Color3.fromRGB(0, 100, 255)
-                            displayText = displayText .. " [Guards]"
-                        elseif teamName == "Criminals" then
-                            color = Color3.fromRGB(255, 50, 50)
-                            displayText = displayText .. " [Criminals]"
-                        else
-                            displayText = displayText .. " [" .. teamName .. "]"
-                        end
-                        
-                        nameLabel.Text = displayText
-                        nameLabel.TextColor3 = color
-                        emojiLabel.Text = emojiText
-                        cham.FillColor = color
-                        cham.OutlineColor = color
-                        cham.FillTransparency = 0.5
-                        cham.OutlineTransparency = 0
-                        
-                        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-                        if humanoid and healthBarFill then
-                            local healthPercent = math.clamp(humanoid.Health / humanoid.MaxHealth, 0, 1)
-                            healthBarFill.Size = UDim2.new(healthPercent, 0, 1, 0)
-                            if healthPercent > 0.5 then
-                                healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                            elseif healthPercent > 0.25 then
-                                healthBarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-                            else
-                                healthBarFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                            end
-                        end
-                    else
-                        billboard.Enabled = false
-                        cham.Enabled = false
-                    end
-                end
-            end
-        end
-    end
-    
-    local function CanTeleport()
-        local now = tick()
-        local delta = now - lastTeleport
-        if delta < TELEPORT_COOLDOWN then
-            local remaining = TELEPORT_COOLDOWN - delta
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "TP Cooldown",
-                Text = "Wait " .. string.format("%.1f", remaining) .. "s before teleporting again"
-            })
-            return false
-        end
-        lastTeleport = now
-        return true
-    end
-    
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "CrownPrisonHacksGUI"
-    ScreenGui.Parent = game:WaitForChild("CoreGui")
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    
-    CrownPrisonHacksFrame = Instance.new("Frame")
-    CrownPrisonHacksFrame.Name = "MainFrame"
-    CrownPrisonHacksFrame.Parent = ScreenGui
-    CrownPrisonHacksFrame.BackgroundTransparency = 0.7
-    CrownPrisonHacksFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    CrownPrisonHacksFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
-    CrownPrisonHacksFrame.Size = UDim2.new(0, 300, 0, 300)
-    
-    local UIStroke = Instance.new("UIStroke")
-    UIStroke.Parent = CrownPrisonHacksFrame
-    UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-    UIStroke.Thickness = 2
-    UIStroke.Color = Color3.fromRGB(255, 215, 0)
-    
-    local UICorner = Instance.new("UICorner")
-    UICorner.Parent = CrownPrisonHacksFrame
-    
-    local Title = Instance.new("TextLabel")
-    Title.Parent = CrownPrisonHacksFrame
-    Title.Size = UDim2.new(1, 0, 0, 50)
-    Title.BackgroundTransparency = 1
-    Title.Text = "CROWN HUB PRISON"
-    Title.Font = Enum.Font.GothamBlack
-    Title.TextSize = 24
-    Title.TextColor3 = Color3.fromRGB(255, 215, 0)
-    
-    -- Add gold outline to prison hacks title
-    local TitleStroke = Instance.new("UIStroke")
-    TitleStroke.Color = Color3.fromRGB(180, 150, 50)
-    TitleStroke.Thickness = 1.5
-    TitleStroke.Transparency = 0.3
-    TitleStroke.Parent = Title
-    
-    local Scrolling = Instance.new("ScrollingFrame")
-    Scrolling.Parent = CrownPrisonHacksFrame
-    Scrolling.Position = UDim2.new(0, 0, 0, 50)
-    Scrolling.Size = UDim2.new(1, 0, 1, -50)
-    Scrolling.BackgroundTransparency = 1
-    Scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
-    Scrolling.ScrollBarThickness = 4
-    Scrolling.ScrollBarImageColor3 = Color3.fromRGB(255, 215, 0)
-    Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
-    
-    local UIListLayout = Instance.new("UIListLayout")
-    UIListLayout.Parent = Scrolling
-    UIListLayout.Padding = UDim.new(0, 10)
-    UIListLayout.FillDirection = Enum.FillDirection.Vertical
-    UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    
-    local Buttons = {
-        { name="CrimBaseTP", text="TP to Crim Base" },
-        { name="PrisonTP", text="TP to Prison" },
-        { name="GuardRoomTP", text="TP in Guard Room"},
-        { name="ModGguns", text="Burst Fire: OFF" },
-        { name="InstantReload", text="Instant Reload: OFF" },
-        { name="GetRem", text="Get Rem (shotgun)"},
-        { name="GetM9", text="Get MP5 (ar)"},
-        { name="GetFAL", text="Get FAL (paid/ar)"},
-        { name="GetAK", text="Get AK47 (ar)"},
-        { name="GetM4", text="Get M4A1 (paid/ar)"},
-        { name="ToggleESP", text="Toggle ESP (OFF)"},
-        { name="RainbowWalls", text="Rainbow Walls: OFF" },
-        { name="ArrestPlayer", text="Arrest Player"},
-        { name="CancelArrest", text="Cancel Arrest"}
-    }
-
-    local arrestGui = nil
-    local arrestConnection = nil
-
-    local function CloseArrestGui()
-        if arrestGui then
-            arrestGui:Destroy()
-            arrestGui = nil
-        end
-        if arrestConnection then
-            pcall(function()
-                task.cancel(arrestConnection)
-            end)
-            arrestConnection = nil
-        end
-    end
-
-    local function GetArrestableTargets()
-        local targets = {}
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                local isTrespassing = player.Character:GetAttribute("Trespassing")
-                local teamName = player.Team and player.Team.Name or ""
-                if isTrespassing or teamName == "Criminals" then
-                    table.insert(targets, player)
-                end
-            end
-        end
-        return targets
-    end
-
-    local activeArrestConnection = nil
-    local originalArrestPosition = nil
-    local antiSitConnection = nil
-    local arrestHighlight = nil
-    local currentArrestTarget = nil
-    local deathConnection = nil
-    local arrestFloor = nil
-
-    local function StopArresting()
-        if activeArrestConnection then
-            activeArrestConnection:Disconnect()
-            activeArrestConnection = nil
-        end
-        if antiSitConnection then
-            antiSitConnection:Disconnect()
-            antiSitConnection = nil
-        end
-        if deathConnection then
-            deathConnection:Disconnect()
-            deathConnection = nil
-        end
-        if arrestHighlight then
-            arrestHighlight:Destroy()
-            arrestHighlight = nil
-        end
-        if arrestFloor then
-            arrestFloor:Destroy()
-            arrestFloor = nil
-        end
-        currentArrestTarget = nil
-        if originalArrestPosition then
-            local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if myHRP then
-                myHRP.CFrame = originalArrestPosition
-            end
-            originalArrestPosition = nil
-        end
-    end
-
-    local function StartArresting(targetPlayer)
-        CloseArrestGui()
-        StopArresting()
-        
-        -- Check arrest cooldown
-        local now = tick()
-        if now - lastArrestStart < ARREST_COOLDOWN then
-            local remaining = ARREST_COOLDOWN - (now - lastArrestStart)
-            game.StarterGui:SetCore("SendNotification", {
-                Title = "Arrest Cooldown",
-                Text = "Wait " .. string.format("%.1f", remaining) .. "s before arresting again"
-            })
-            return
-        end
-        
-        lastArrestStart = now
-        currentArrestTarget = targetPlayer
-        
-        local myHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if myHRP then
-            originalArrestPosition = myHRP.CFrame
-        end
-        
-        if not ESP_ENABLED and targetPlayer.Character then
-            arrestHighlight = Instance.new("Highlight")
-            arrestHighlight.Name = "ArrestTargetHighlight"
-            arrestHighlight.Adornee = targetPlayer.Character
-            arrestHighlight.Parent = targetPlayer.Character
-            arrestHighlight.FillColor = Color3.fromRGB(255, 0, 0)
-            arrestHighlight.OutlineColor = Color3.fromRGB(255, 255, 0)
-            arrestHighlight.FillTransparency = 0.5
-            arrestHighlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        end
-        
-        local myHum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if myHum then
-            deathConnection = myHum.Died:Connect(function()
-                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "You died, arrest cancelled"})
-                StopArresting()
+                pcall(callback)
             end)
         end
-        
-        arrestFloor = Instance.new("Part")
-        arrestFloor.Name = "ArrestFloor"
-        arrestFloor.Size = Vector3.new(6, 1, 6)
-        arrestFloor.Anchored = true
-        arrestFloor.CanCollide = true
-        arrestFloor.Transparency = 1
-        arrestFloor.Parent = workspace
-        
-        local TIMEOUT = 30
-        local startTime = tick()
-        local lastArrestCall = 0
-        local arrested = false
-        
-        antiSitConnection = RunService.RenderStepped:Connect(function()
-            local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Sit then
-                hum.Sit = false
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-        end)
-        
-        activeArrestConnection = RunService.RenderStepped:Connect(function()
-            if arrested then return end
-            
-            if not targetPlayer or not targetPlayer.Character then
-                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Target left or died"})
-                StopArresting()
-                return
-            end
-            
-            local isTrespassing = targetPlayer.Character:GetAttribute("Trespassing")
-            local teamName = targetPlayer.Team and targetPlayer.Team.Name or ""
-            if not isTrespassing and teamName ~= "Criminals" then
-                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Target is no longer arrestable"})
-                StopArresting()
-                return
-            end
-            
-            if tick() - startTime > TIMEOUT then
-                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arrest timed out after " .. TIMEOUT .. " seconds"})
-                StopArresting()
-                return
-            end
-            
-            local head = targetPlayer.Character:FindFirstChild("Head")
-            if head and head:FindFirstChild("handcuffedGui") then
-                arrested = true
-                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = targetPlayer.Name .. " has been arrested!"})
-                StopArresting()
-                return
-            end
-            
-            local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            local myCharHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if targetHRP and myCharHRP then
-                local targetPos = targetHRP.Position
-                local undergroundY = targetPos.Y - 6
-                myCharHRP.CFrame = CFrame.new(targetPos.X, undergroundY, targetPos.Z) * CFrame.Angles(targetHRP.CFrame:ToEulerAnglesYXZ())
-                if arrestFloor then
-                    arrestFloor.CFrame = CFrame.new(targetPos.X, undergroundY - 3.5, targetPos.Z)
-                end
-            end
-            
-            -- Arrest cooldown for each attempt
-            if tick() - lastArrestCall >= ARREST_COOLDOWN then
-                lastArrestCall = tick()
-                pcall(function()
-                    local handcuffs = LocalPlayer.Backpack:FindFirstChild("Handcuffs") or (LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Handcuffs"))
-                    if handcuffs and handcuffs.Parent == LocalPlayer.Backpack then
-                        local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            hum:EquipTool(handcuffs)
-                        end
-                    end
-                end)
-                pcall(function()
-                    local args = {
-                        game:GetService("Players"):WaitForChild(targetPlayer.Name)
-                    }
-                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("ArrestPlayer"):InvokeServer(unpack(args))
-                end)
-            end
-        end)
-    end
 
-    local function ShowArrestGui()
-        CloseArrestGui()
-        
-        local targets = GetArrestableTargets()
-        if #targets == 0 then
-            game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "No arrestable players found"})
-            return
-        end
-        
-        arrestGui = Instance.new("Frame")
-        arrestGui.Name = "ArrestSelectGui"
-        arrestGui.Parent = CrownPrisonHacksFrame
-        arrestGui.BackgroundTransparency = 0.7
-        arrestGui.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        arrestGui.Position = UDim2.new(1.05, 0, 0, 0)
-        arrestGui.Size = UDim2.new(0, 250, 0, 260)
-        
-        local arrestStroke = Instance.new("UIStroke")
-        arrestStroke.Parent = arrestGui
-        arrestStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        arrestStroke.Thickness = 2
-        arrestStroke.Color = Color3.fromRGB(255, 80, 80)
-        
-        local arrestCorner = Instance.new("UICorner")
-        arrestCorner.Parent = arrestGui
-        
-        local arrestTitle = Instance.new("TextLabel")
-        arrestTitle.Parent = arrestGui
-        arrestTitle.Size = UDim2.new(1, 0, 0, 40)
-        arrestTitle.BackgroundTransparency = 1
-        arrestTitle.Text = "Select Target"
-        arrestTitle.Font = Enum.Font.GothamBlack
-        arrestTitle.TextSize = 18
-        arrestTitle.TextColor3 = Color3.fromRGB(255, 50, 50)
-        
-        -- Add gold outline to arrest title
-        local arrestTitleStroke = Instance.new("UIStroke")
-        arrestTitleStroke.Color = Color3.fromRGB(180, 150, 50)
-        arrestTitleStroke.Thickness = 1.2
-        arrestTitleStroke.Transparency = 0.3
-        arrestTitleStroke.Parent = arrestTitle
-        
-        local closeBtn = Instance.new("TextButton")
-        closeBtn.Parent = arrestGui
-        closeBtn.Size = UDim2.new(0, 30, 0, 30)
-        closeBtn.Position = UDim2.new(1, -35, 0, 5)
-        closeBtn.BackgroundTransparency = 0.6
-        closeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        closeBtn.Text = "X"
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        closeBtn.TextSize = 14
-        
-        -- Add gold outline to close button text
-        local closeBtnStroke = Instance.new("UIStroke")
-        closeBtnStroke.Color = Color3.fromRGB(180, 150, 50)
-        closeBtnStroke.Thickness = 1
-        closeBtnStroke.Transparency = 0.4
-        closeBtnStroke.Parent = closeBtn
-        
-        Instance.new("UICorner", closeBtn)
-        closeBtn.MouseButton1Click:Connect(CloseArrestGui)
-        
-        local arrestScroll = Instance.new("ScrollingFrame")
-        arrestScroll.Parent = arrestGui
-        arrestScroll.Position = UDim2.new(0, 0, 0, 40)
-        arrestScroll.Size = UDim2.new(1, 0, 1, -40)
-        arrestScroll.BackgroundTransparency = 1
-        arrestScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-        arrestScroll.ScrollBarThickness = 4
-        arrestScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
-        arrestScroll.ScrollingDirection = Enum.ScrollingDirection.Y
-        
-        local arrestLayout = Instance.new("UIListLayout")
-        arrestLayout.Parent = arrestScroll
-        arrestLayout.Padding = UDim.new(0, 8)
-        arrestLayout.FillDirection = Enum.FillDirection.Vertical
-        arrestLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        arrestLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-        
-        for _, targetPlayer in ipairs(targets) do
-            local isTrespassing = targetPlayer.Character and targetPlayer.Character:GetAttribute("Trespassing")
-            local teamName = targetPlayer.Team and targetPlayer.Team.Name or ""
-            
-            local statusText = ""
-            if isTrespassing then
-                statusText = " [Trespassing]"
+        local Minimized = false
+        MinimizeButton.MouseButton1Click:Connect(function()
+            Minimized = not Minimized
+            if Minimized then
+                TweenService:Create(MainContainer, TweenInfo.new(0.3), {
+                    Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, IS_MOBILE and 60 or 70)
+                }):Play()
+                MinimizeButton.Text = "+"
+            else
+                TweenService:Create(MainContainer, TweenInfo.new(0.3), {
+                    Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
+                }):Play()
+                MinimizeButton.Text = "_"
             end
-            if teamName == "Criminals" then
-                statusText = statusText .. " [Criminal]"
-            end
-            
-            local targetBtn = Instance.new("TextButton")
-            targetBtn.Parent = arrestScroll
-            targetBtn.Size = UDim2.new(0.9, 0, 0, 35)
-            targetBtn.BackgroundTransparency = 0.6
-            targetBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-            targetBtn.Text = targetPlayer.Name .. statusText
-            targetBtn.Font = Enum.Font.GothamBold
-            targetBtn.TextColor3 = teamName == "Criminals" and Color3.fromRGB(255, 80, 80) or Color3.fromRGB(255, 170, 0)
-            targetBtn.TextScaled = true
-            
-            -- Add gold outline to target button text
-            local targetBtnStroke = Instance.new("UIStroke")
-            targetBtnStroke.Color = Color3.fromRGB(180, 150, 50)
-            targetBtnStroke.Thickness = 1
-            targetBtnStroke.Transparency = 0.4
-            targetBtnStroke.Parent = targetBtn
-            
-            Instance.new("UICorner", targetBtn)
-            
-            targetBtn.MouseEnter:Connect(function()
-                targetBtn.BackgroundTransparency = 0.3
-                targetBtnStroke.Transparency = 0.2
+        end)
+
+        if not IS_MOBILE then
+            MinimizeButton.MouseEnter:Connect(function()
+                TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
+                    BackgroundTransparency = 0,
+                    Size = UDim2.new(0, 32, 0, 32)
+                }):Play()
+                TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
+                    Transparency = 0.1
+                }):Play()
             end)
-            targetBtn.MouseLeave:Connect(function()
-                targetBtn.BackgroundTransparency = 0.6
-                targetBtnStroke.Transparency = 0.4
+            MinimizeButton.MouseLeave:Connect(function()
+                TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
+                    BackgroundTransparency = 0.2,
+                    Size = UDim2.new(0, 30, 0, 30)
+                }):Play()
+                TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
+                    Transparency = 0.3
+                }):Play()
             end)
-            
-            targetBtn.MouseButton1Click:Connect(function()
-                game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arresting " .. targetPlayer.Name .. "..."})
-                StartArresting(targetPlayer)
+            CloseButton.MouseEnter:Connect(function()
+                TweenService:Create(CloseButton, TweenInfo.new(0.2), {
+                    BackgroundTransparency = 0,
+                    Size = UDim2.new(0, 32, 0, 32)
+                }):Play()
+                TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
+                    Transparency = 0.1
+                }):Play()
+            end)
+            CloseButton.MouseLeave:Connect(function()
+                TweenService:Create(CloseButton, TweenInfo.new(0.2), {
+                    BackgroundTransparency = 0.2,
+                    Size = UDim2.new(0, 30, 0, 30)
+                }):Play()
+                TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
+                    Transparency = 0.3
+                }):Play()
             end)
         end
-        
-        arrestConnection = task.spawn(function()
-            while true do
-                for i = 0, 1, 0.01 do
-                    if not arrestGui then break end
-                    arrestStroke.Color = Color3.fromHSV(i, 1, 1)
-                    arrestTitle.TextColor3 = Color3.fromHSV(i, 1, 1)
-                    task.wait(0.02)
-                end
-                if not arrestGui then break end
-            end
-        end)
-    end
-    
-    -- Function to modify guns with burst fire
-    local function ModifyGunsWithBurst()
-        game.StarterGui:SetCore("SendNotification", {Text="Make sure you aren't holding any guns rn", Title="Crown Hub Gun Mod"})
-        for i, v in pairs(LocalPlayer.Backpack:GetChildren()) do
-            if v:GetAttribute("FireRate") ~= nil then
-                if BURST_FIRE_ENABLED then
-                    -- Enable burst fire
-                    v:SetAttribute("FireRate", 0.0001)  -- Extremely fast
-                    v:SetAttribute("AutoFire", true)
-                    v:SetAttribute("SpreadRadius", 0)
-                    
-                    -- Try to set burst count if attribute exists
-                    if v:GetAttribute("BurstCount") then
-                        v:SetAttribute("BurstCount", BURST_COUNT)
-                    end
-                else
-                    -- Regular fast fire rate
-                    v:SetAttribute("FireRate", IMPROVED_FIRE_RATE)
-                    v:SetAttribute("AutoFire", true)
-                    v:SetAttribute("SpreadRadius", 0)
-                end
-                
-                -- Instant reload if enabled
-                if INSTANT_RELOAD_ENABLED then
-                    if v:GetAttribute("ReloadTime") then
-                        v:SetAttribute("ReloadTime", 0.001)
-                    end
-                    if v:GetAttribute("ReloadSpeed") then
-                        v:SetAttribute("ReloadSpeed", 100)
-                    end
-                end
-                
-                game.StarterGui:SetCore("SendNotification", {Text="Modded " .. v.Name .. " successfully!", Title="Crown Hub Gun Mod"})
-            end
-        end
-    end
-    
-    for _, info in ipairs(Buttons) do
-        local btn = Instance.new("TextButton")
-        btn.Name = info.name
-        btn.Parent = Scrolling
-        btn.Size = UDim2.new(0.85, 0, 0, 40)
-        btn.BackgroundTransparency = 0.6
-        btn.BackgroundColor3 = Color3.fromRGB(20, 15, 25)
-        btn.Text = info.text
-        btn.Font = Enum.Font.GothamBold
-        btn.TextColor3 = Color3.fromRGB(255, 215, 0)
-        btn.TextScaled = true
-        
-        -- Add gold outline to prison hacks buttons
-        local btnStroke = Instance.new("UIStroke")
-        btnStroke.Color = Color3.fromRGB(180, 150, 50)
-        btnStroke.Thickness = 1.2
-        btnStroke.Transparency = 0.3
-        btnStroke.Parent = btn
-        
-        Instance.new("UICorner", btn)
-        btn.MouseEnter:Connect(function()
-            btn.BackgroundTransparency = 0.3
-            btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-            btnStroke.Transparency = 0.1
-            btnStroke.Color = Color3.fromRGB(200, 170, 60)
-        end)
-        btn.MouseLeave:Connect(function()
-            btn.BackgroundTransparency = 0.6
-            btn.TextColor3 = Color3.fromRGB(255, 215, 0)
-            btnStroke.Transparency = 0.3
-            btnStroke.Color = Color3.fromRGB(180, 150, 50)
-        end)
-        btn.MouseButton1Click:Connect(function()
-            if info.name == "ModGguns" then
-                BURST_FIRE_ENABLED = not BURST_FIRE_ENABLED
-                btn.Text = "Burst Fire: " .. (BURST_FIRE_ENABLED and "ON" or "OFF")
-                ModifyGunsWithBurst()
-            elseif info.name == "InstantReload" then
-                INSTANT_RELOAD_ENABLED = not INSTANT_RELOAD_ENABLED
-                btn.Text = "Instant Reload: " .. (INSTANT_RELOAD_ENABLED and "ON" or "OFF")
-                ModifyGunsWithBurst()
-            elseif info.name == "CrimBaseTP" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = workspace["Criminals Spawn"].SpawnLocation.CFrame
-                end
-            elseif info.name == "PrisonTP" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(916, 100, 2369)
-                end
-            elseif info.name == "GuardRoomTP" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(828, 100, 2303)
-                end
-            elseif info.name == "GetRem" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(820, 101, 2229)
-                end
-            elseif info.name == "GetM9" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(814, 101, 2229)
-                end
-            elseif info.name == "GetFAL" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-916, 94, 2048)
-                end
-            elseif info.name == "GetM4" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(848, 101, 2229)
-                end
-            elseif info.name == "GetAK" then
-                if CanTeleport() then
-                    LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(-931, 94, 2039)
-                end
-            elseif info.name == "ToggleESP" then
-                ESP_ENABLED = not ESP_ENABLED
-                btn.Text = "Toggle ESP (" .. (ESP_ENABLED and "ON" or "OFF") .. ")"
-                UpdateESP()
-            elseif info.name == "RainbowWalls" then
-                local result = modifyWalls()
-                btn.Text = "Rainbow Walls: " .. result
-                game.StarterGui:SetCore("SendNotification", {
-                    Title = "Crown Hub",
-                    Text = "Rainbow Walls: " .. result
-                })
-            elseif info.name == "ArrestPlayer" then
-                ShowArrestGui()
-            elseif info.name == "CancelArrest" then
-                if currentArrestTarget then
-                    game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "Arrest cancelled"})
-                    StopArresting()
-                else
-                    game.StarterGui:SetCore("SendNotification", {Title = "Arrest", Text = "No active arrest to cancel"})
-                end
-            end
-        end)
-    end
 
-    local arrestButton = Scrolling:FindFirstChild("ArrestPlayer")
-    local cancelArrestButton = Scrolling:FindFirstChild("CancelArrest")
-
-    task.spawn(function()
-        while true do
-            local isGuard = LocalPlayer.Team and LocalPlayer.Team.Name == "Guards"
-            if arrestButton then
-                arrestButton.Visible = isGuard
-                if not isGuard then
-                    CloseArrestGui()
-                end
-            end
-            if cancelArrestButton then
-                cancelArrestButton.Visible = isGuard and currentArrestTarget ~= nil
-            end
-            task.wait(0.5)
-        end
-    end)
-
-    local UIS = game:GetService("UserInputService")
-    local dragging = false
-    local dragStart, startPos
-
-    CrownPrisonHacksFrame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = CrownPrisonHacksFrame.Position
-        end
-    end)
-
-    CrownPrisonHacksFrame.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-
-    UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
-            CrownPrisonHacksFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-
-    -- Animate title color
-    task.spawn(function()
-        while CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent do
-            for i = 0, 1, 0.01 do
-                if not CrownPrisonHacksFrame then break end
-                UIStroke.Color = Color3.fromHSV(i, 1, 1)
-                Title.TextColor3 = Color3.fromHSV(i, 1, 1)
-                task.wait(0.02)
-            end
-            if not CrownPrisonHacksFrame then break end
-        end
-    end)
-    
-    game.StarterGui:SetCore("SendNotification", {Text = "Loaded Successfully", Title = "CROWN HUB PRISON HACKS"})
-    RunService.RenderStepped:Connect(UpdateESP)
-    
-    -- Close button for the frame
-    local closeFrameBtn = Instance.new("TextButton")
-    closeFrameBtn.Parent = CrownPrisonHacksFrame
-    closeFrameBtn.Size = UDim2.new(0, 30, 0, 30)
-    closeFrameBtn.Position = UDim2.new(1, -35, 0, 5)
-    closeFrameBtn.BackgroundTransparency = 0.6
-    closeFrameBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    closeFrameBtn.Text = "X"
-    closeFrameBtn.Font = Enum.Font.GothamBold
-    closeFrameBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeFrameBtn.TextSize = 14
-    
-    -- Add gold outline to close button text
-    local closeFrameBtnStroke = Instance.new("UIStroke")
-    closeFrameBtnStroke.Color = Color3.fromRGB(180, 150, 50)
-    closeFrameBtnStroke.Thickness = 1
-    closeFrameBtnStroke.Transparency = 0.4
-    closeFrameBtnStroke.Parent = closeFrameBtn
-    
-    Instance.new("UICorner", closeFrameBtn)
-    closeFrameBtn.MouseButton1Click:Connect(function()
-        CrownPrisonHacksFrame.Visible = false
-    end)
-end
-
-local FlyEnabled = false
-local BodyGyro, BodyVelocity
-
-local function ToggleFly()
-    FlyEnabled = not FlyEnabled
-    
-    if FlyEnabled then
-        if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local root = player.Character.HumanoidRootPart
-            
-            BodyGyro = Instance.new("BodyGyro")
-            BodyGyro.P = 1000
-            BodyGyro.D = 50
-            BodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
-            BodyGyro.CFrame = root.CFrame
-            BodyGyro.Parent = root
-            
-            BodyVelocity = Instance.new("BodyVelocity")
-            BodyVelocity.Velocity = Vector3.new(0, 0, 0)
-            BodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
-            BodyVelocity.Parent = root
-            
-            local flyConnection
-            flyConnection = RunService.Heartbeat:Connect(function()
-                if not FlyEnabled or not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then
-                    flyConnection:Disconnect()
-                    return
-                end
-                
-                local root = player.Character.HumanoidRootPart
-                local camera = workspace.CurrentCamera
-                
-                BodyGyro.CFrame = camera.CFrame
-                
-                local velocity = Vector3.new(0, 0, 0)
-                local speed = 50
-                
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                    velocity = velocity + camera.CFrame.LookVector * speed
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                    velocity = velocity - camera.CFrame.LookVector * speed
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                    velocity = velocity - camera.CFrame.RightVector * speed
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                    velocity = velocity + camera.CFrame.RightVector * speed
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
-                    velocity = velocity + Vector3.new(0, speed, 0)
-                end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
-                    velocity = velocity - Vector3.new(0, speed, 0)
-                end
-                
-                BodyVelocity.Velocity = velocity
-            end)
-        end
-    else
-        if BodyGyro then BodyGyro:Destroy() end
-        if BodyVelocity then BodyVelocity:Destroy() end
-    end
-end
-
-local function EnableCollision()
-    for _, target in ipairs(Players:GetPlayers()) do
-        if target.Character then
-            for _, part in pairs(target.Character:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.CanCollide = true
-                end
-            end
-        end
-    end
-end
-
-local OrbitalActive = false
-local function GetNearestPlayer()
-    local nearestPlayer = nil
-    local shortestDistance = math.huge
-    
-    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local playerRoot = player.Character.HumanoidRootPart
-        
-        for _, target in ipairs(Players:GetPlayers()) do
-            if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local targetRoot = target.Character.HumanoidRootPart
-                local distance = (playerRoot.Position - targetRoot.Position).Magnitude
-                
-                if distance < shortestDistance then
-                    shortestDistance = distance
-                    nearestPlayer = target
-                end
-            end
-        end
-    end
-    
-    return nearestPlayer
-end
-
-local function OrbitalFling()
-    OrbitalActive = true
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-    
-    local root = player.Character.HumanoidRootPart
-    
-    spawn(function()
-        while OrbitalActive and player.Character do
-            local nearestTarget = GetNearestPlayer()
-            
-            if nearestTarget and nearestTarget.Character and nearestTarget.Character:FindFirstChild("HumanoidRootPart") then
-                local targetRoot = nearestTarget.Character.HumanoidRootPart
-                
-                local angle = tick() * 8
-                local radius = 6
-                local orbitPosition = targetRoot.Position + Vector3.new(
-                    math.cos(angle) * radius,
-                    2,
-                    math.sin(angle) * radius
-                )
-                
-                root.CFrame = CFrame.new(orbitPosition)
-                
-                local flingBV = Instance.new("BodyVelocity")
-                local flingDirection = (targetRoot.Position - root.Position).Unit
-                flingBV.Velocity = flingDirection * 80 + Vector3.new(0, 60, 0)
-                flingBV.MaxForce = Vector3.new(40000, 40000, 40000)
-                flingBV.Parent = targetRoot
-                game.Debris:AddItem(flingBV, 0.2)
-            end
-            
-            RunService.Heartbeat:Wait()
-        end
-    end)
-end
-
-local CrownFunctions = {
-    ["Fling"] = {
-        {"🌀 Orbit Nearest", function()
-            OrbitalActive = not OrbitalActive
-            if OrbitalActive then
-                OrbitalFling()
-            end
-        end},
-        
-        {"🔒 Enable Collision", function()
-            EnableCollision()
-        end},
-        
-        {"🛑 Stop Fling", function()
-            OrbitalActive = false
-        end}
-    },
-    
-    ["Admin"] = {
-        {"🛡️ Nameless Admin", function()
-          loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))()
-        end},
-        
-        {"⚡ Infinite Yield", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-        end},
-        
-        {"🤖 QuizBot", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))()
-        end},
-        
-        {"🔤 Chat Bypasser", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/AnnaRoblox/AnnaBypasser/refs/heads/main/AnnaBypasser.lua",true))()
-        end}
-    },
-    
-    ["Movement"] = {
-        {"🚀 Fly (WASD+Space+Ctrl)", function()
-            ToggleFly()
-        end},
-        
-        {"⚡ Speed (100)", function()
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.WalkSpeed = 100
-            end
-        end},
-        
-        {"👻 Noclip", function()
-            local noclip = false
-            player.CharacterAdded:Connect(function(char)
-                if noclip then
-                    wait(0.5)
-                    for _, part in pairs(char:GetDescendants()) do
-                        if part:IsA("BasePart") then
-                            part.CanCollide = false
-                        end
-                    end
+        if not IS_MOBILE then
+            local dragging = false
+            local dragStart, startPos
+            Header.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    dragStart = input.Position
+                    startPos = MainContainer.Position
                 end
             end)
-            
-            noclip = not noclip
-            if player.Character then
-                for _, part in pairs(player.Character:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.CanCollide = not noclip
-                    end
+            Header.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
                 end
-            end
-        end},
-        
-        {"🔄 Reset", function()
-            if player.Character and player.Character:FindFirstChild("Humanoid") then
-                player.Character.Humanoid.WalkSpeed = 16
-            end
-            ToggleFly()
-        end}
-    },
-    
-    ["Visual"] = {
-        {"🎯 ESP", function()
-            for _, target in ipairs(Players:GetPlayers()) do
-                if target ~= player and target.Character then
-                    local highlight = Instance.new("Highlight")
-                    highlight.FillColor = Color3.fromRGB(255, 215, 0)
-                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    highlight.FillTransparency = 0.4
-                    highlight.Parent = target.Character
+            end)
+            Header.InputChanged:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
+                    local delta = input.Position - dragStart
+                    MainContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
                 end
-            end
-        end},
-        
-        {"👁️ X-Ray", function()
-            for _, part in pairs(workspace:GetDescendants()) do
-                if part:IsA("BasePart") and part.Transparency < 1 then
-                    part.LocalTransparencyModifier = 0.6
-                end
-            end
-        end},
-        
-        {"🌟 Full Bright", function()
-            Lighting.Brightness = 2
-            Lighting.Ambient = Color3.new(1, 1, 1)
-        end},
-        
-        {"🗑️ Clear", function()
-            for _, target in ipairs(Players:GetPlayers()) do
-                if target.Character then
-                    for _, highlight in ipairs(target.Character:GetChildren()) do
-                        if highlight:IsA("Highlight") then
-                            highlight:Destroy()
-                        end
-                    end
-                end
-            end
-            for _, part in pairs(workspace:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    part.LocalTransparencyModifier = 0
-                end
-            end
-            Lighting.Brightness = 1
-        end}
-    },
-    
-    ["Combat"] = {
-        {"🎯 Venum Aim", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/MAINCODE"))()
-        end},
-        
-        {"⚡ Aim Assist", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))()
-        end},
-        
-        {"👑 Crown Prison Hacks", function()
-            LoadCrownPrisonHacks()
-        end},
-        
-        {"📡 Influence ESP", function()
-            LoadInfluenceESP()
-        end}
-    },
-    
-    ["Hubs"] = {
-        {"🔪 Slicer FE V8", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Ahma174/Slicer/refs/heads/main/Slicer%20Fe%20V8.0.0%20%5BBETA%5D.txt"))()
-        end},
-        
-        {"🌀 Gravity Trip", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))()
-        end},
-        
-        {"🐹 FE Hamster Ball", function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/KaterHub-Inc/scripts/refs/heads/main/unofficial-Projects/FEHamsterBall.lua"))()
-        end}
-    },
-    
-    ["Fun"] = {
-        {"🏎️ Formula 1 Car", function()  -- Changed text from "Universal Vehicle"
-            LoadFormula1Car()  -- Changed function call
-        end},
-        
-        {"💃 Tenna Dance", function()
-            TennaDance()
-        end}
-    }
-}
-
-function UpdateContent()
-    for _, child in ipairs(ContentFrame:GetChildren()) do
-        if child:IsA("TextButton") then
-            child:Destroy()
+            end)
         end
-    end
-    
-    local functions = CrownFunctions[CurrentTab] or {}
-    
-    for _, func in ipairs(functions) do
-        CreateButton(func[1], func[2])
-    end
-end
 
-function CreateButton(text, callback)
-    local button = Instance.new("TextButton")
-    button.Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
-    button.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
-    button.BackgroundTransparency = 0.2
-    button.Text = text
-    button.TextColor3 = Color3.fromRGB(240, 230, 255)
-    button.Font = Enum.Font.GothamMedium
-    button.TextSize = IS_MOBILE and 12 or 13
-    button.AutoButtonColor = false
-    button.ZIndex = 11
-    button.Parent = ContentFrame
-    
-    -- Add rich gold outline to all button text
-    local buttonStroke = Instance.new("UIStroke")
-    buttonStroke.Color = Color3.fromRGB(180, 150, 50) -- Dark gold color
-    buttonStroke.Thickness = 1.2 -- Thin outline
-    buttonStroke.Transparency = 0.3
-    buttonStroke.Parent = button
-    
-    local buttonCorner = Instance.new("UICorner")
-    buttonCorner.CornerRadius = UDim.new(0, 8)
-    buttonCorner.Parent = button
-    
-    if not IS_MOBILE then
-        button.MouseEnter:Connect(function()
-            TweenService:Create(button, TweenInfo.new(0.3), {
-                BackgroundTransparency = 0.1,
-                BackgroundColor3 = Color3.fromRGB(45, 40, 55),
-                Size = UDim2.new(1, 5, 0, 45)
+        CloseButton.MouseButton1Click:Connect(function()
+            TweenService:Create(MainContainer, TweenInfo.new(0.4), {
+                Size = UDim2.new(0, 0, 0, 0),
+                Position = UDim2.new(0.5, 0, 0.5, 0),
+                BackgroundTransparency = 1
             }):Play()
-            TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
-                Transparency = 0.1,
-                Color = Color3.fromRGB(200, 170, 60)
-            }):Play()
+            wait(0.4)
+            CrownHub:Destroy()
         end)
-        
-        button.MouseLeave:Connect(function()
-            TweenService:Create(button, TweenInfo.new(0.3), {
-                BackgroundTransparency = 0.2,
-                BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-                Size = UDim2.new(1, 0, 0, 42)
-            }):Play()
-            TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
-                Transparency = 0.3,
-                Color = Color3.fromRGB(180, 150, 50)
-            }):Play()
-        end)
-    end
-    
-    button.MouseButton1Click:Connect(function()
-        TweenService:Create(button, TweenInfo.new(0.1), {
-            BackgroundColor3 = Color3.fromRGB(212, 175, 55),
-            TextColor3 = Color3.fromRGB(20, 15, 25),
-            Size = UDim2.new(1, IS_MOBILE and -3 or -5, 0, IS_MOBILE and 35 or 38)
-        }):Play()
-        TweenService:Create(buttonStroke, TweenInfo.new(0.1), {
-            Transparency = 0.2,
-            Color = Color3.fromRGB(100, 80, 30)
-        }):Play()
+
+        MainContainer.Size = UDim2.new(0, 0, 0, 0)
+        MainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+        MainContainer.BackgroundTransparency = 1
         wait(0.1)
-        TweenService:Create(button, TweenInfo.new(0.3), {
-            BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-            TextColor3 = Color3.fromRGB(240, 230, 255),
-            Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
+        TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE),
+            Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2),
+            BackgroundTransparency = 0.05
         }):Play()
-        TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
-            Transparency = 0.3,
-            Color = Color3.fromRGB(180, 150, 50)
-        }):Play()
-        
-        pcall(callback)
+        UpdateContent()
+        UpdateTabAppearance()
+        -- ========== END MAIN CROWN HUB ==========
     end)
-end
-
-local Minimized = false
-MinimizeButton.MouseButton1Click:Connect(function()
-    Minimized = not Minimized
-    if Minimized then
-        TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-            Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, IS_MOBILE and 60 or 70)
-        }):Play()
-        MinimizeButton.Text = "+"
-    else
-        TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-            Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
-        }):Play()
-        MinimizeButton.Text = "_"
-    end
 end)
-
-if not IS_MOBILE then
-    MinimizeButton.MouseEnter:Connect(function()
-        TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
-            BackgroundTransparency = 0,
-            Size = UDim2.new(0, 32, 0, 32)
-        }):Play()
-        TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
-            Transparency = 0.1
-        }):Play()
-    end)
-    
-    MinimizeButton.MouseLeave:Connect(function()
-        TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
-            BackgroundTransparency = 0.2,
-            Size = UDim2.new(0, 30, 0, 30)
-        }):Play()
-        TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
-            Transparency = 0.3
-        }):Play()
-    end)
-    
-    CloseButton.MouseEnter:Connect(function()
-        TweenService:Create(CloseButton, TweenInfo.new(0.2), {
-            BackgroundTransparency = 0,
-            Size = UDim2.new(0, 32, 0, 32)
-        }):Play()
-        TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
-            Transparency = 0.1
-        }):Play()
-    end)
-    
-    CloseButton.MouseLeave:Connect(function()
-        TweenService:Create(CloseButton, TweenInfo.new(0.2), {
-            BackgroundTransparency = 0.2,
-            Size = UDim2.new(0, 30, 0, 30)
-        }):Play()
-        TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
-            Transparency = 0.3
-        }):Play()
-    end)
-end
-
-if not IS_MOBILE then
-    local dragging = false
-    local dragStart, startPos
-
-    Header.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainContainer.Position
-        end
-    end)
-
-    Header.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-
-    Header.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
-            local delta = input.Position - dragStart
-            MainContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-CloseButton.MouseButton1Click:Connect(function()
-    TweenService:Create(MainContainer, TweenInfo.new(0.4), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1
-    }):Play()
-    wait(0.4)
-    CrownHub:Destroy()
-end)
-
-MainContainer.Size = UDim2.new(0, 0, 0, 0)
-MainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
-MainContainer.BackgroundTransparency = 1
-
-wait(0.1)
-
-TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-    Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE),
-    Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2),
-    BackgroundTransparency = 0.05
-}):Play()
-
-UpdateContent()
-UpdateTabAppearance()
