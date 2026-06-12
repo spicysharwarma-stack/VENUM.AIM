@@ -1,7 +1,13 @@
 --[[
     Crown Hub Vehicle Script
     FIXED: Front wheel detection now handles Prison Life style cars
-]]
+    DEFAULT SETTINGS:
+        Velocity Multiplier: 0.05 (≈ 50 speed)
+        Brake Force (Q): 1.00
+        Flight Speed: 500
+        Wheel Increment: 1.00
+    Also prevents conflict with main Crown Hub GUI.
+--]]
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -10,7 +16,9 @@ local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
-local mouse = player:GetMouse()
+
+-- Avoid creating a second GUI if main CrownHub already exists
+if CoreGui:FindFirstChild("CrownHubUniversal") then return end
 
 local CrownHub = Instance.new("ScreenGui")
 CrownHub.Name = "CrownHubVehicle"
@@ -19,16 +27,16 @@ CrownHub.DisplayOrder = 1000
 CrownHub.ResetOnSpawn = false
 CrownHub.Parent = CoreGui
 
--- Vehicle Variables
+-- Vehicle Variables (defaults applied)
 local velocityEnabled = true
-local velocityMult = 0.025
+local velocityMult = 0.05          -- default for ~50 speed
 local velocityEnabledKeyCode = Enum.KeyCode.W
-local velocityMult2 = 0.15
+local velocityMult2 = 1.0          -- brake force 1.00
 local qbEnabledKeyCode = Enum.KeyCode.Q
 local flightEnabled = false
-local flightSpeed = 1
+local flightSpeed = 5              -- 5 = 500 in slider (÷100)
 local defaultCharacterParent
-local wheelIncrement = 0.1
+local wheelIncrement = 1.0         -- default 1.00
 local rearWheelModified = false
 local originalFrictions = {}
 local collisionDisabled = false
@@ -246,39 +254,41 @@ local function ToggleCollision()
     end
 end
 
--- Flight System
+-- Flight System (wrapped in pcall to avoid breaking anything)
 RunService.Stepped:Connect(function()
-    local Character = player.Character
-    if flightEnabled == true then
-        if Character and typeof(Character) == "Instance" then
-            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-            if Humanoid and typeof(Humanoid) == "Instance" then
-                local SeatPart = Humanoid.SeatPart
-                if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
-                    local Vehicle = GetVehicleFromDescendant(SeatPart)
-                    if Vehicle and Vehicle:IsA("Model") then
-                        Character.Parent = Vehicle
-                        if not Vehicle.PrimaryPart then
-                            if SeatPart.Parent == Vehicle then
-                                Vehicle.PrimaryPart = SeatPart
-                            else
-                                Vehicle.PrimaryPart = Vehicle:FindFirstChildWhichIsA("BasePart")
+    pcall(function()
+        local Character = player.Character
+        if flightEnabled == true then
+            if Character and typeof(Character) == "Instance" then
+                local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                if Humanoid and typeof(Humanoid) == "Instance" then
+                    local SeatPart = Humanoid.SeatPart
+                    if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                        local Vehicle = GetVehicleFromDescendant(SeatPart)
+                        if Vehicle and Vehicle:IsA("Model") then
+                            Character.Parent = Vehicle
+                            if not Vehicle.PrimaryPart then
+                                if SeatPart.Parent == Vehicle then
+                                    Vehicle.PrimaryPart = SeatPart
+                                else
+                                    Vehicle.PrimaryPart = Vehicle:FindFirstChildWhichIsA("BasePart")
+                                end
                             end
+                            local PrimaryPartCFrame = Vehicle:GetPrimaryPartCFrame()
+                            Vehicle:SetPrimaryPartCFrame(CFrame.new(PrimaryPartCFrame.Position, PrimaryPartCFrame.Position + workspace.CurrentCamera.CFrame.LookVector) * (UserInputService:GetFocusedTextBox() and CFrame.new(0, 0, 0) or CFrame.new((UserInputService:IsKeyDown(Enum.KeyCode.D) and flightSpeed) or (UserInputService:IsKeyDown(Enum.KeyCode.A) and -flightSpeed) or 0, (UserInputService:IsKeyDown(Enum.KeyCode.E) and flightSpeed / 2) or (UserInputService:IsKeyDown(Enum.KeyCode.Q) and -flightSpeed / 2) or 0, (UserInputService:IsKeyDown(Enum.KeyCode.S) and flightSpeed) or (UserInputService:IsKeyDown(Enum.KeyCode.W) and -flightSpeed) or 0)))
+                            SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                            SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                         end
-                        local PrimaryPartCFrame = Vehicle:GetPrimaryPartCFrame()
-                        Vehicle:SetPrimaryPartCFrame(CFrame.new(PrimaryPartCFrame.Position, PrimaryPartCFrame.Position + workspace.CurrentCamera.CFrame.LookVector) * (UserInputService:GetFocusedTextBox() and CFrame.new(0, 0, 0) or CFrame.new((UserInputService:IsKeyDown(Enum.KeyCode.D) and flightSpeed) or (UserInputService:IsKeyDown(Enum.KeyCode.A) and -flightSpeed) or 0, (UserInputService:IsKeyDown(Enum.KeyCode.E) and flightSpeed / 2) or (UserInputService:IsKeyDown(Enum.KeyCode.Q) and -flightSpeed / 2) or 0, (UserInputService:IsKeyDown(Enum.KeyCode.S) and flightSpeed) or (UserInputService:IsKeyDown(Enum.KeyCode.W) and -flightSpeed) or 0)))
-                        SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                        SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
                 end
             end
+        else
+            if Character and typeof(Character) == "Instance" then
+                Character.Parent = defaultCharacterParent or Character.Parent
+                defaultCharacterParent = Character.Parent
+            end
         end
-    else
-        if Character and typeof(Character) == "Instance" then
-            Character.Parent = defaultCharacterParent or Character.Parent
-            defaultCharacterParent = Character.Parent
-        end
-    end
+    end)
 end)
 
 -- Input Handling
@@ -293,16 +303,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
         spawn(function()
             while accelerationActive and velocityEnabled do
                 task.wait()
-                local Character = player.Character
-                if Character and typeof(Character) == "Instance" then
-                    local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-                    if Humanoid and typeof(Humanoid) == "Instance" then
-                        local SeatPart = Humanoid.SeatPart
-                        if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
-                            SeatPart.AssemblyLinearVelocity = SeatPart.AssemblyLinearVelocity * Vector3.new(1 + velocityMult, 1, 1 + velocityMult)
+                pcall(function()
+                    local Character = player.Character
+                    if Character and typeof(Character) == "Instance" then
+                        local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                        if Humanoid and typeof(Humanoid) == "Instance" then
+                            local SeatPart = Humanoid.SeatPart
+                            if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                                SeatPart.AssemblyLinearVelocity = SeatPart.AssemblyLinearVelocity * Vector3.new(1 + velocityMult, 1, 1 + velocityMult)
+                            end
                         end
                     end
-                end
+                end)
             end
         end)
     end
@@ -312,32 +324,36 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
         spawn(function()
             while brakeActive and velocityEnabled do
                 task.wait()
-                local Character = player.Character
-                if Character and typeof(Character) == "Instance" then
-                    local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-                    if Humanoid and typeof(Humanoid) == "Instance" then
-                        local SeatPart = Humanoid.SeatPart
-                        if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
-                            SeatPart.AssemblyLinearVelocity = SeatPart.AssemblyLinearVelocity * Vector3.new(1 - velocityMult2, 1, 1 - velocityMult2)
+                pcall(function()
+                    local Character = player.Character
+                    if Character and typeof(Character) == "Instance" then
+                        local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                        if Humanoid and typeof(Humanoid) == "Instance" then
+                            local SeatPart = Humanoid.SeatPart
+                            if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                                SeatPart.AssemblyLinearVelocity = SeatPart.AssemblyLinearVelocity * Vector3.new(1 - velocityMult2, 1, 1 - velocityMult2)
+                            end
                         end
                     end
-                end
+                end)
             end
         end)
     end
     
     if input.KeyCode == Enum.KeyCode.P and velocityEnabled then
-        local Character = player.Character
-        if Character and typeof(Character) == "Instance" then
-            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
-            if Humanoid and typeof(Humanoid) == "Instance" then
-                local SeatPart = Humanoid.SeatPart
-                if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
-                    SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                    SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        pcall(function()
+            local Character = player.Character
+            if Character and typeof(Character) == "Instance" then
+                local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                if Humanoid and typeof(Humanoid) == "Instance" then
+                    local SeatPart = Humanoid.SeatPart
+                    if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                        SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    end
                 end
             end
-        end
+        end)
     end
 end)
 
