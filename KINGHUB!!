@@ -369,11 +369,7 @@ task.delay(3.6, function()
     Tween(BG, {BackgroundTransparency = 1}, 0.9, Enum.EasingStyle.Sine, nil, 0.3)
     task.delay(1.5, function()
         if Gui and Gui.Parent then Gui:Destroy() end
-        -- ========== MAIN CROWN HUB CODE (your original script) ==========
-        --[[
-            Crown Hub Universal - Prison Edition
-            Fully integrated with all requested features
-        ]]
+        -- ========== MAIN CROWN HUB (FIXED & ENHANCED) ==========
 
         local Players = game:GetService("Players")
         local TweenService = game:GetService("TweenService")
@@ -383,7 +379,6 @@ task.delay(3.6, function()
         local CoreGui = game:GetService("CoreGui")
 
         local player = Players.LocalPlayer
-        local mouse = player:GetMouse()
 
         local CrownHub = Instance.new("ScreenGui")
         CrownHub.Name = "CrownHubUniversal"
@@ -392,316 +387,294 @@ task.delay(3.6, function()
         CrownHub.ResetOnSpawn = false
         CrownHub.Parent = CoreGui
 
-        -- Wall modification variables
-        local wallsModified = false
-        local originalWallProperties = {}
-        local rainbowLoops = {}
+        -- THEMES -----------------------------------------------------------------
+        local Themes = {
+            ["Default Gold"] = {
+                MainBg         = Color3.fromRGB(15,12,18),
+                EdgeGlowC1     = Color3.fromRGB(255,215,0),
+                EdgeGlowC2     = Color3.fromRGB(255,255,150),
+                Stroke         = Color3.fromRGB(255,215,0),
+                TabActiveBg    = Color3.fromRGB(212,175,55),
+                TabActiveText  = Color3.fromRGB(20,15,25),
+                SliderFill     = Color3.fromRGB(212,175,55),
+                Anim           = "pulse",
+                Subtitle       = "Fit for Kings",
+            },
+            ["Thunder Blue"] = {
+                MainBg         = Color3.fromRGB(5,10,25),
+                EdgeGlowC1     = Color3.fromRGB(0,200,255),
+                EdgeGlowC2     = Color3.fromRGB(150,240,255),
+                Stroke         = Color3.fromRGB(0,180,255),
+                TabActiveBg    = Color3.fromRGB(0,160,255),
+                TabActiveText  = Color3.fromRGB(0,20,40),
+                SliderFill     = Color3.fromRGB(0,180,255),
+                Anim           = "lightning",
+                Subtitle       = "MOTIVATED.",
+            },
+            ["Dante's Inferno"] = {
+                MainBg         = Color3.fromRGB(30,5,5),
+                EdgeGlowC1     = Color3.fromRGB(255,50,0),
+                EdgeGlowC2     = Color3.fromRGB(255,140,60),
+                Stroke         = Color3.fromRGB(200,60,20),
+                TabActiveBg    = Color3.fromRGB(200,60,20),
+                TabActiveText  = Color3.fromRGB(30,10,0),
+                SliderFill     = Color3.fromRGB(200,60,20),
+                Anim           = "fire",
+                Subtitle       = "pizza",
+            },
+        }
 
-        -- Fire rate improvement (burst/fast fire)
-        local IMPROVED_FIRE_RATE = 0.0001
-        local BURST_FIRE_ENABLED = false
-        local BURST_COUNT = 10
+        local currentTheme = "Default Gold"
+        local theme = Themes[currentTheme]
 
-        -- Arrest cooldown
-        local arrestCooldown = false
-        local lastArrestTime = 0
-
+        -- UI scaling
         local IS_MOBILE = UserInputService.TouchEnabled
-        local SCREEN_WIDTH = workspace.CurrentCamera.ViewportSize.X
-        local UI_SCALE = IS_MOBILE and math.min(SCREEN_WIDTH / 1200, 0.8) or 1
-        local UI_WIDTH = IS_MOBILE and 380 or 450
+        local UI_SCALE = IS_MOBILE and math.min(workspace.CurrentCamera.ViewportSize.X/1200, 0.8) or 1
+        local UI_WIDTH  = IS_MOBILE and 380 or 450
         local UI_HEIGHT = IS_MOBILE and 480 or 520
 
+        -- Main container
         local MainContainer = Instance.new("Frame")
-        MainContainer.Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
-        MainContainer.Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2)
-        MainContainer.BackgroundColor3 = Color3.fromRGB(15, 12, 18)
+        MainContainer.Size = UDim2.new(0, UI_WIDTH*UI_SCALE, 0, UI_HEIGHT*UI_SCALE)
+        MainContainer.Position = UDim2.new(0.5, -(UI_WIDTH*UI_SCALE)/2, 0.5, -(UI_HEIGHT*UI_SCALE)/2)
+        MainContainer.BackgroundColor3 = theme.MainBg
         MainContainer.BackgroundTransparency = 0.05
         MainContainer.BorderSizePixel = 0
         MainContainer.ClipsDescendants = true
         MainContainer.Parent = CrownHub
 
-        -- Edge glow and styling
+        -- Edge glow (outer)
         local EdgeGlow = Instance.new("Frame")
-        EdgeGlow.Size = UDim2.new(1, 12, 1, 12)
-        EdgeGlow.Position = UDim2.new(0, -6, 0, -6)
-        EdgeGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        EdgeGlow.Size = UDim2.new(1,12,1,12)
+        EdgeGlow.Position = UDim2.new(0,-6,0,-6)
+        EdgeGlow.BackgroundColor3 = theme.EdgeGlowC1
         EdgeGlow.BackgroundTransparency = 0.7
         EdgeGlow.BorderSizePixel = 0
         EdgeGlow.ZIndex = -2
         EdgeGlow.Parent = MainContainer
 
         local EdgeStroke = Instance.new("UIStroke")
-        EdgeStroke.Color = Color3.fromRGB(255, 215, 0)
+        EdgeStroke.Color = theme.Stroke
         EdgeStroke.Thickness = 6
         EdgeStroke.Transparency = 0.5
         EdgeStroke.Parent = MainContainer
 
         local InnerGlow = Instance.new("Frame")
-        InnerGlow.Size = UDim2.new(1, 0, 1, 0)
-        InnerGlow.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+        InnerGlow.Size = UDim2.new(1,0,1,0)
+        InnerGlow.BackgroundColor3 = theme.EdgeGlowC1
         InnerGlow.BackgroundTransparency = 0.95
         InnerGlow.BorderSizePixel = 0
         InnerGlow.ZIndex = 3
         InnerGlow.Parent = MainContainer
 
-        local EdgeGlowCorner = Instance.new("UICorner")
-        EdgeGlowCorner.CornerRadius = UDim.new(0, 20)
-        EdgeGlowCorner.Parent = EdgeGlow
-
         local MainCorner = Instance.new("UICorner")
-        MainCorner.CornerRadius = UDim.new(0, 12)
+        MainCorner.CornerRadius = UDim.new(0,12)
         MainCorner.Parent = MainContainer
 
-        spawn(function()
-            while CrownHub.Parent do
-                TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    BackgroundTransparency = 0.4,
-                    BackgroundColor3 = Color3.fromRGB(255, 255, 150)
-                }):Play()
-                TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    Transparency = 0.2,
-                    Color = Color3.fromRGB(255, 255, 200)
-                }):Play()
-                TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    BackgroundTransparency = 0.9
-                }):Play()
-                wait(1.5)
-                
-                TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    BackgroundTransparency = 0.7,
-                    BackgroundColor3 = Color3.fromRGB(255, 215, 0)
-                }):Play()
-                TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    Transparency = 0.5,
-                    Color = Color3.fromRGB(255, 215, 0)
-                }):Play()
-                TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
-                    BackgroundTransparency = 0.95
-                }):Play()
-                wait(1.5)
-            end
-        end)
-
-        -- Rest of UI setup (gradients, header, etc.)
-        local GradientBackground = Instance.new("Frame")
-        GradientBackground.Size = UDim2.new(1, 0, 1, 0)
-        GradientBackground.Position = UDim2.new(0, 0, 0, 0)
-        GradientBackground.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
-        GradientBackground.BorderSizePixel = 0
-        GradientBackground.ZIndex = 0
-        GradientBackground.Parent = MainContainer
-
-        local MainGradient = Instance.new("UIGradient")
-        MainGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 25, 50)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(60, 35, 80)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 20, 40))
-        })
-        MainGradient.Rotation = 45
-        MainGradient.Parent = GradientBackground
-
-        local MovingOverlay = Instance.new("Frame")
-        MovingOverlay.Size = UDim2.new(2, 0, 2, 0)
-        MovingOverlay.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        MovingOverlay.BackgroundTransparency = 0.9
-        MovingOverlay.BorderSizePixel = 0
-        MovingOverlay.ZIndex = 1
-        MovingOverlay.Parent = MainContainer
-
-        local OverlayGradient = Instance.new("UIGradient")
-        OverlayGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(120, 80, 160)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80, 120, 200)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(160, 100, 120))
-        })
-        OverlayGradient.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0.8),
-            NumberSequenceKeypoint.new(0.5, 0.6),
-            NumberSequenceKeypoint.new(1, 0.8)
-        })
-        OverlayGradient.Parent = MovingOverlay
-
-        spawn(function()
-            local time = 0
-            while CrownHub.Parent do
-                time = time + 0.02
-                
-                local x = math.sin(time * 0.5) * 0.3
-                local y = math.cos(time * 0.3) * 0.3
-                MovingOverlay.Position = UDim2.new(x, 0, y, 0)
-                
-                MainGradient.Rotation = (MainGradient.Rotation + 0.2) % 360
-                OverlayGradient.Rotation = (OverlayGradient.Rotation - 0.3) % 360
-                
-                RunService.Heartbeat:Wait()
-            end
-        end)
-
+        -- Gold border (inside)
         local GoldBorder = Instance.new("Frame")
-        GoldBorder.Size = UDim2.new(1, 6, 1, 6)
-        GoldBorder.Position = UDim2.new(0, -3, 0, -3)
-        GoldBorder.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        GoldBorder.Size = UDim2.new(1,6,1,6)
+        GoldBorder.Position = UDim2.new(0,-3,0,-3)
+        GoldBorder.BackgroundColor3 = theme.Stroke
         GoldBorder.BackgroundTransparency = 0.3
         GoldBorder.BorderSizePixel = 0
         GoldBorder.ZIndex = -1
         GoldBorder.Parent = MainContainer
+        Instance.new("UICorner", GoldBorder).CornerRadius = UDim.new(0,16)
 
-        local BorderCorner = Instance.new("UICorner")
-        BorderCorner.CornerRadius = UDim.new(0, 16)
-        BorderCorner.Parent = GoldBorder
+        -- Gradient background
+        local GradientBG = Instance.new("Frame")
+        GradientBG.Size = UDim2.new(1,0,1,0)
+        GradientBG.BackgroundColor3 = Color3.fromRGB(25,20,30)
+        GradientBG.BorderSizePixel = 0
+        GradientBG.ZIndex = 0
+        GradientBG.Parent = MainContainer
+        local MainGrad = Instance.new("UIGradient")
+        MainGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(40,25,50)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(60,35,80)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(30,20,40))
+        })
+        MainGrad.Rotation = 45
+        MainGrad.Parent = GradientBG
 
-        local GlassLayer = Instance.new("Frame")
-        GlassLayer.Size = UDim2.new(1, 0, 1, 0)
-        GlassLayer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-        GlassLayer.BackgroundTransparency = 0.95
-        GlassLayer.BorderSizePixel = 0
-        GlassLayer.ZIndex = 2
-        GlassLayer.Parent = MainContainer
+        -- Moving overlay (decorative)
+        local MovingOverlay = Instance.new("Frame")
+        MovingOverlay.Size = UDim2.new(2,0,2,0)
+        MovingOverlay.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        MovingOverlay.BackgroundTransparency = 0.9
+        MovingOverlay.BorderSizePixel = 0
+        MovingOverlay.ZIndex = 1
+        MovingOverlay.Parent = MainContainer
+        local OverlayGrad = Instance.new("UIGradient")
+        OverlayGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(120,80,160)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80,120,200)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(160,100,120))
+        })
+        OverlayGrad.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0,0.8), NumberSequenceKeypoint.new(0.5,0.6), NumberSequenceKeypoint.new(1,0.8)
+        })
+        OverlayGrad.Parent = MovingOverlay
 
+        -- Header
         local Header = Instance.new("Frame")
-        Header.Size = UDim2.new(1, 0, 0, IS_MOBILE and 60 or 70)
-        Header.BackgroundColor3 = Color3.fromRGB(25, 20, 30)
+        Header.Size = UDim2.new(1,0,0, IS_MOBILE and 60 or 70)
+        Header.BackgroundColor3 = Color3.fromRGB(25,20,30)
         Header.BackgroundTransparency = 0.1
         Header.BorderSizePixel = 0
         Header.ZIndex = 10
         Header.Parent = MainContainer
-
-        local HeaderGradient = Instance.new("UIGradient")
-        HeaderGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(50, 30, 70)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(35, 20, 50))
+        local HeaderGrad = Instance.new("UIGradient")
+        HeaderGrad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(50,30,70)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(35,20,50))
         })
-        HeaderGradient.Rotation = 90
-        HeaderGradient.Parent = Header
+        HeaderGrad.Rotation = 90
+        HeaderGrad.Parent = Header
 
+        -- Crown icon
         local CrownIcon = Instance.new("ImageLabel")
         CrownIcon.Size = UDim2.new(0, IS_MOBILE and 35 or 40, 0, IS_MOBILE and 35 or 40)
-        CrownIcon.Position = UDim2.new(0, 10, 0, IS_MOBILE and 12 or 15)
+        CrownIcon.Position = UDim2.new(0,10,0, IS_MOBILE and 12 or 15)
         CrownIcon.BackgroundTransparency = 1
         CrownIcon.Image = "rbxassetid://6031075938"
-        CrownIcon.ImageColor3 = Color3.fromRGB(255, 215, 0)
+        CrownIcon.ImageColor3 = theme.EdgeGlowC1
         CrownIcon.ZIndex = 11
         CrownIcon.Parent = Header
 
-        spawn(function()
-            while CrownHub.Parent do
-                TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-                    Rotation = 5,
-                    ImageColor3 = Color3.fromRGB(255, 230, 100)
-                }):Play()
-                wait(1.5)
-                TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
-                    Rotation = -5,
-                    ImageColor3 = Color3.fromRGB(255, 215, 0)
-                }):Play()
-                wait(1.5)
-            end
-        end)
-
+        -- Title / Subtitle
         local Title = Instance.new("TextLabel")
-        Title.Size = UDim2.new(1, -70, 0, IS_MOBILE and 25 or 35)
+        Title.Size = UDim2.new(1,-70,0, IS_MOBILE and 25 or 35)
         Title.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 5 or 8)
         Title.BackgroundTransparency = 1
         Title.Text = "CROWN HUB"
-        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Title.TextColor3 = Color3.new(1,1,1)
         Title.TextSize = IS_MOBILE and 18 or 24
         Title.Font = Enum.Font.GothamBlack
         Title.TextXAlignment = Enum.TextXAlignment.Left
-
+        Title.Parent = Header
         local TitleStroke = Instance.new("UIStroke")
-        TitleStroke.Color = Color3.fromRGB(180, 150, 50)
+        TitleStroke.Color = theme.Stroke
         TitleStroke.Thickness = 1.5
         TitleStroke.Transparency = 0.3
         TitleStroke.Parent = Title
 
-        Title.Parent = Header
-
         local Subtitle = Instance.new("TextLabel")
-        Subtitle.Size = UDim2.new(1, -70, 0, 18)
+        Subtitle.Size = UDim2.new(1,-70,0,18)
         Subtitle.Position = UDim2.new(0, IS_MOBILE and 50 or 60, 0, IS_MOBILE and 30 or 40)
         Subtitle.BackgroundTransparency = 1
-        Subtitle.Text = IS_MOBILE and "Prison Edition" or "Prison Edition"
-        Subtitle.TextColor3 = Color3.fromRGB(200, 180, 255)
+        Subtitle.Text = theme.Subtitle
+        Subtitle.TextColor3 = Color3.fromRGB(200,180,255)
         Subtitle.TextSize = IS_MOBILE and 9 or 11
         Subtitle.Font = Enum.Font.GothamMedium
         Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-
+        Subtitle.Parent = Header
         local SubtitleStroke = Instance.new("UIStroke")
-        SubtitleStroke.Color = Color3.fromRGB(180, 150, 50)
+        SubtitleStroke.Color = theme.Stroke
         SubtitleStroke.Thickness = 1
         SubtitleStroke.Transparency = 0.4
         SubtitleStroke.Parent = Subtitle
 
-        Subtitle.ZIndex = 11
-        Subtitle.Parent = Header
-
+        -- Control buttons (minimize, close, theme selector)
         local ControlContainer = Instance.new("Frame")
-        ControlContainer.Size = UDim2.new(0, IS_MOBILE and 55 or 70, 0, IS_MOBILE and 25 or 30)
-        ControlContainer.Position = UDim2.new(1, IS_MOBILE and -60 or -75, 0, IS_MOBILE and 17 or 20)
+        ControlContainer.Size = UDim2.new(0, IS_MOBILE and 150 or 170, 0, 30)
+        ControlContainer.Position = UDim2.new(1, -(IS_MOBILE and 155 or 175), 0, IS_MOBILE and 15 or 18)
         ControlContainer.BackgroundTransparency = 1
         ControlContainer.ZIndex = 11
         ControlContainer.Parent = Header
 
+        -- Theme dropdown
+        local ThemeDropdown = Instance.new("TextButton")
+        ThemeDropdown.Size = UDim2.new(0,70,1,0)
+        ThemeDropdown.Position = UDim2.new(0,0,0,0)
+        ThemeDropdown.BackgroundColor3 = Color3.fromRGB(35,30,45)
+        ThemeDropdown.BackgroundTransparency = 0.3
+        ThemeDropdown.Text = currentTheme
+        ThemeDropdown.TextColor3 = Color3.new(1,1,1)
+        ThemeDropdown.TextSize = 11
+        ThemeDropdown.Font = Enum.Font.GothamBold
+        ThemeDropdown.AutoButtonColor = false
+        ThemeDropdown.ZIndex = 11
+        ThemeDropdown.Parent = ControlContainer
+        Instance.new("UICorner", ThemeDropdown).CornerRadius = UDim.new(0,6)
+
+        local themeListFrame = Instance.new("Frame")
+        themeListFrame.Size = UDim2.new(0,70,0,90)
+        themeListFrame.Position = UDim2.new(0,0,1,5)
+        themeListFrame.BackgroundColor3 = Color3.fromRGB(30,25,40)
+        themeListFrame.BorderSizePixel = 0
+        themeListFrame.Visible = false
+        themeListFrame.ZIndex = 12
+        themeListFrame.Parent = ThemeDropdown
+        Instance.new("UICorner", themeListFrame).CornerRadius = UDim.new(0,6)
+
+        for i, themeName in ipairs({"Default Gold","Thunder Blue","Dante's Inferno"}) do
+            local opt = Instance.new("TextButton")
+            opt.Size = UDim2.new(1,0,0,30)
+            opt.Position = UDim2.new(0,0,(i-1)/3,0)
+            opt.BackgroundTransparency = 1
+            opt.Text = themeName
+            opt.TextColor3 = Color3.new(1,1,1)
+            opt.TextSize = 11
+            opt.Font = Enum.Font.Gotham
+            opt.ZIndex = 12
+            opt.Parent = themeListFrame
+            opt.MouseButton1Click:Connect(function()
+                currentTheme = themeName
+                theme = Themes[themeName]
+                ThemeDropdown.Text = themeName
+                themeListFrame.Visible = false
+                ApplyFullTheme()
+            end)
+        end
+
+        ThemeDropdown.MouseButton1Click:Connect(function()
+            themeListFrame.Visible = not themeListFrame.Visible
+        end)
+
+        -- Minimize
         local MinimizeButton = Instance.new("TextButton")
-        MinimizeButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
-        MinimizeButton.Position = UDim2.new(0, 0, 0, 0)
-        MinimizeButton.BackgroundColor3 = Color3.fromRGB(212, 175, 55)
+        MinimizeButton.Size = UDim2.new(0,25,1,0)
+        MinimizeButton.Position = UDim2.new(0,80,0,0)
+        MinimizeButton.BackgroundColor3 = theme.Stroke
         MinimizeButton.BackgroundTransparency = 0.2
         MinimizeButton.Text = "_"
-        MinimizeButton.TextColor3 = Color3.new(1, 1, 1)
-        MinimizeButton.TextSize = IS_MOBILE and 14 or 16
+        MinimizeButton.TextColor3 = Color3.new(1,1,1)
+        MinimizeButton.TextSize = 16
         MinimizeButton.Font = Enum.Font.GothamBlack
-
-        local MinimizeButtonStroke = Instance.new("UIStroke")
-        MinimizeButtonStroke.Color = Color3.fromRGB(180, 150, 50)
-        MinimizeButtonStroke.Thickness = 1.2
-        MinimizeButtonStroke.Transparency = 0.3
-        MinimizeButtonStroke.Parent = MinimizeButton
-
         MinimizeButton.ZIndex = 11
         MinimizeButton.Parent = ControlContainer
+        Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0,6)
 
-        local MinimizeCorner = Instance.new("UICorner")
-        MinimizeCorner.CornerRadius = UDim.new(0, 6)
-        MinimizeCorner.Parent = MinimizeButton
-
+        -- Close
         local CloseButton = Instance.new("TextButton")
-        CloseButton.Size = UDim2.new(0, IS_MOBILE and 25 or 30, 0, IS_MOBILE and 25 or 30)
-        CloseButton.Position = UDim2.new(0, IS_MOBILE and 28 or 35, 0, 0)
-        CloseButton.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
+        CloseButton.Size = UDim2.new(0,25,1,0)
+        CloseButton.Position = UDim2.new(0,110,0,0)
+        CloseButton.BackgroundColor3 = Color3.fromRGB(180,60,60)
         CloseButton.BackgroundTransparency = 0.2
         CloseButton.Text = "×"
-        CloseButton.TextColor3 = Color3.new(1, 1, 1)
-        CloseButton.TextSize = IS_MOBILE and 16 or 18
+        CloseButton.TextColor3 = Color3.new(1,1,1)
+        CloseButton.TextSize = 18
         CloseButton.Font = Enum.Font.GothamBlack
-
-        local CloseButtonStroke = Instance.new("UIStroke")
-        CloseButtonStroke.Color = Color3.fromRGB(180, 150, 50)
-        CloseButtonStroke.Thickness = 1.2
-        CloseButtonStroke.Transparency = 0.3
-        CloseButtonStroke.Parent = CloseButton
-
         CloseButton.ZIndex = 11
         CloseButton.Parent = ControlContainer
+        Instance.new("UICorner", CloseButton).CornerRadius = UDim.new(0,6)
 
-        local CloseCorner = Instance.new("UICorner")
-        CloseCorner.CornerRadius = UDim.new(0, 6)
-        CloseCorner.Parent = CloseButton
-
+        -- Tab container
         local TabContainer = Instance.new("Frame")
-        TabContainer.Size = UDim2.new(1, -20, 0, IS_MOBILE and 28 or 32)
-        TabContainer.Position = UDim2.new(0, 10, 0, IS_MOBILE and 70 or 80)
+        TabContainer.Size = UDim2.new(1,-20,0, IS_MOBILE and 28 or 32)
+        TabContainer.Position = UDim2.new(0,10,0, IS_MOBILE and 70 or 80)
         TabContainer.BackgroundTransparency = 1
         TabContainer.ZIndex = 10
         TabContainer.Parent = MainContainer
 
         local ContentFrame = Instance.new("ScrollingFrame")
-        ContentFrame.Size = UDim2.new(1, -20, 1, IS_MOBILE and -98 or -122)
-        ContentFrame.Position = UDim2.new(0, 10, 0, IS_MOBILE and 108 or 122)
+        ContentFrame.Size = UDim2.new(1,-20,1, IS_MOBILE and -118 or -152)
+        ContentFrame.Position = UDim2.new(0,10,0, IS_MOBILE and 108 or 122)
         ContentFrame.BackgroundTransparency = 1
-        ContentFrame.ScrollBarThickness = IS_MOBILE and 3 or 4
-        ContentFrame.ScrollBarImageColor3 = Color3.fromRGB(212, 175, 55)
+        ContentFrame.ScrollBarThickness = 4
+        ContentFrame.ScrollBarImageColor3 = theme.SliderFill
         ContentFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
         ContentFrame.ZIndex = 10
         ContentFrame.Parent = MainContainer
@@ -710,69 +683,27 @@ task.delay(3.6, function()
         ContentLayout.Padding = UDim.new(0, IS_MOBILE and 8 or 10)
         ContentLayout.Parent = ContentFrame
 
-        local Tabs = {
-            "Fling",
-            "Admin", 
-            "Movement",
-            "Visual",
-            "Combat",
-            "Hubs",
-            "Fun"
-        }
-
+        -- Tabs
+        local Tabs = {"Fling","Admin","Movement","Visual","Combat","Hubs","Fun","Vehicle"}
         local CurrentTab = "Fling"
 
+        -- Create tab buttons
         for i, tabName in ipairs(Tabs) do
-            local TabButton = Instance.new("TextButton")
-            TabButton.Size = UDim2.new(1/#Tabs, -4, 1, 0)
-            TabButton.Position = UDim2.new((i-1)/#Tabs, 0, 0, 0)
-            TabButton.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
-            TabButton.BackgroundTransparency = 0.3
-            TabButton.Text = tabName
-            TabButton.TextColor3 = Color3.fromRGB(200, 190, 220)
-            TabButton.Font = Enum.Font.GothamMedium
-            TabButton.TextSize = IS_MOBILE and 10 or 11
-            TabButton.AutoButtonColor = false
-            TabButton.ZIndex = 11
-            TabButton.Parent = TabContainer
-            
-            local TabButtonStroke = Instance.new("UIStroke")
-            TabButtonStroke.Color = Color3.fromRGB(180, 150, 50)
-            TabButtonStroke.Thickness = 1
-            TabButtonStroke.Transparency = 0.5
-            TabButtonStroke.Parent = TabButton
-            
-            local TabCorner = Instance.new("UICorner")
-            TabCorner.CornerRadius = UDim.new(0, 6)
-            TabCorner.Parent = TabButton
-            
-            TabButton.MouseEnter:Connect(function()
-                if TabButton.Text ~= CurrentTab then
-                    TweenService:Create(TabButton, TweenInfo.new(0.3), {
-                        BackgroundTransparency = 0.1,
-                        TextColor3 = Color3.fromRGB(255, 255, 255)
-                    }):Play()
-                    TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
-                        Transparency = 0.3,
-                        Color = Color3.fromRGB(200, 170, 60)
-                    }):Play()
-                end
-            end)
-            
-            TabButton.MouseLeave:Connect(function()
-                if TabButton.Text ~= CurrentTab then
-                    TweenService:Create(TabButton, TweenInfo.new(0.3), {
-                        BackgroundTransparency = 0.3,
-                        TextColor3 = Color3.fromRGB(200, 190, 220)
-                    }):Play()
-                    TweenService:Create(TabButtonStroke, TweenInfo.new(0.3), {
-                        Transparency = 0.5,
-                        Color = Color3.fromRGB(180, 150, 50)
-                    }):Play()
-                end
-            end)
-            
-            TabButton.MouseButton1Click:Connect(function()
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1/#Tabs,-4,1,0)
+            btn.Position = UDim2.new((i-1)/#Tabs,0,0,0)
+            btn.BackgroundColor3 = Color3.fromRGB(35,30,45)
+            btn.BackgroundTransparency = 0.3
+            btn.Text = tabName
+            btn.TextColor3 = Color3.fromRGB(200,190,220)
+            btn.Font = Enum.Font.GothamMedium
+            btn.TextSize = IS_MOBILE and 9 or 11
+            btn.AutoButtonColor = false
+            btn.ZIndex = 11
+            btn.Parent = TabContainer
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
+
+            btn.MouseButton1Click:Connect(function()
                 CurrentTab = tabName
                 UpdateContent()
                 UpdateTabAppearance()
@@ -783,31 +714,366 @@ task.delay(3.6, function()
             for _, tab in ipairs(TabContainer:GetChildren()) do
                 if tab:IsA("TextButton") then
                     if tab.Text == CurrentTab then
-                        TweenService:Create(tab, TweenInfo.new(0.3), {
-                            BackgroundColor3 = Color3.fromRGB(212, 175, 55),
-                            TextColor3 = Color3.fromRGB(20, 15, 25),
-                            BackgroundTransparency = 0.1
-                        }):Play()
-                        TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
-                            Transparency = 0.2,
-                            Color = Color3.fromRGB(100, 80, 30)
-                        }):Play()
+                        tab.BackgroundColor3 = theme.TabActiveBg
+                        tab.TextColor3 = theme.TabActiveText
+                        tab.BackgroundTransparency = 0.1
                     else
-                        TweenService:Create(tab, TweenInfo.new(0.3), {
-                            BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-                            TextColor3 = Color3.fromRGB(200, 190, 220),
-                            BackgroundTransparency = 0.3
-                        }):Play()
-                        TweenService:Create(tab:FindFirstChild("UIStroke"), TweenInfo.new(0.3), {
-                            Transparency = 0.5,
-                            Color = Color3.fromRGB(180, 150, 50)
-                        }):Play()
+                        tab.BackgroundColor3 = Color3.fromRGB(35,30,45)
+                        tab.TextColor3 = Color3.fromRGB(200,190,220)
+                        tab.BackgroundTransparency = 0.3
                     end
                 end
             end
         end
 
-        -- Wall modification functions
+        -- Lightning strike generator (for Thunder Blue theme)
+        local lightningStrikes = {}
+        local function CreateLightningStrike(x, y, angle, length, thickness, color)
+            local line = Instance.new("Frame")
+            line.Size = UDim2.new(0, length, 0, thickness)
+            line.Position = UDim2.new(0, x, 0, y)
+            line.Rotation = angle
+            line.BackgroundColor3 = color
+            line.BackgroundTransparency = 0.8
+            line.BorderSizePixel = 0
+            line.ZIndex = 20
+            line.Parent = MainContainer
+            local grad = Instance.new("UIGradient")
+            grad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, color),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
+            })
+            grad.Transparency = NumberSequence.new(0.2, 0.8)
+            grad.Parent = line
+            table.insert(lightningStrikes, line)
+            TweenService:Create(line, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {BackgroundTransparency = 0.2}):Play()
+            task.delay(0.4, function()
+                if line and line.Parent then
+                    TweenService:Create(line, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
+                    task.delay(0.8, function() if line and line.Parent then line:Destroy() end end)
+                end
+            end)
+        end
+
+        local function GenerateLightningBolt(centerX, centerY)
+            local startX = centerX + math.random(-80, 80)
+            local startY = centerY + math.random(-40, 40)
+            local segments = math.random(4, 8)
+            local currentX, currentY = startX, startY
+            for i = 1, segments do
+                local nextX = currentX + math.random(-40, 40)
+                local nextY = currentY + math.random(-30, 30)
+                local dx = nextX - currentX
+                local dy = nextY - currentY
+                local length = math.sqrt(dx*dx + dy*dy)
+                local angle = math.deg(math.atan2(dy, dx))
+                local thickness = math.random(2, 4)
+                CreateLightningStrike(currentX, currentY, angle, length, thickness, Color3.fromRGB(180,220,255))
+                -- Branch occasionally
+                if math.random() > 0.7 then
+                    local branchAngle = angle + math.random(-40, 40)
+                    local branchLen = length * math.random(30, 70)/100
+                    local branchX = currentX + dx * 0.7
+                    local branchY = currentY + dy * 0.7
+                    CreateLightningStrike(branchX, branchY, branchAngle, branchLen, thickness-1, Color3.fromRGB(150,200,255))
+                end
+                currentX, currentY = nextX, nextY
+            end
+        end
+
+        -- Full theme application (updates everything)
+        function ApplyFullTheme()
+            MainContainer.BackgroundColor3 = theme.MainBg
+            EdgeGlow.BackgroundColor3 = theme.EdgeGlowC1
+            EdgeStroke.Color = theme.Stroke
+            InnerGlow.BackgroundColor3 = theme.EdgeGlowC1
+            GoldBorder.BackgroundColor3 = theme.Stroke
+            HeaderGrad.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, theme.MainBg:Lerp(Color3.new(0,0,0), 0.6)),
+                ColorSequenceKeypoint.new(1, theme.MainBg:Lerp(Color3.new(0,0,0), 0.8))
+            })
+            CrownIcon.ImageColor3 = theme.EdgeGlowC1
+            TitleStroke.Color = theme.Stroke
+            SubtitleStroke.Color = theme.Stroke
+            Subtitle.Text = theme.Subtitle
+            MinimizeButton.BackgroundColor3 = theme.Stroke
+            ContentFrame.ScrollBarImageColor3 = theme.SliderFill
+            UpdateTabAppearance()
+            UpdateContent()
+            -- Update prison hacks frame if open
+            local prisonFrame = CoreGui:FindFirstChild("CrownPrisonHacksGUI")
+            if prisonFrame and prisonFrame:FindFirstChild("MainFrame") then
+                local main = prisonFrame.MainFrame
+                local stroke = main:FindFirstChild("UIStroke")
+                if stroke then stroke.Color = theme.Stroke end
+                local titleLbl = main:FindFirstChild("TitleLabel")
+                if titleLbl then titleLbl.TextColor3 = theme.SliderFill end
+                local scroll = main:FindFirstChild("Scrolling")
+                if scroll then scroll.ScrollBarImageColor3 = theme.SliderFill end
+            end
+            StopThemeAnim()
+            StartThemeAnim()
+        end
+
+        -- Theme animation coroutine
+        local themeAnimCoroutine = nil
+        local fireParticles = {}
+
+        function StopThemeAnim()
+            if themeAnimCoroutine then
+                task.cancel(themeAnimCoroutine)
+                themeAnimCoroutine = nil
+            end
+            for _, strike in ipairs(lightningStrikes) do
+                if strike and strike.Parent then strike:Destroy() end
+            end
+            lightningStrikes = {}
+            for _, p in ipairs(fireParticles) do if p and p.Parent then p:Destroy() end end
+            fireParticles = {}
+        end
+
+        function StartThemeAnim()
+            StopThemeAnim()
+            if theme.Anim == "pulse" then
+                themeAnimCoroutine = task.spawn(function()
+                    while CrownHub.Parent do
+                        TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.4,
+                            BackgroundColor3 = theme.EdgeGlowC2
+                        }):Play()
+                        TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            Transparency = 0.2,
+                            Color = theme.EdgeGlowC2
+                        }):Play()
+                        TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.9
+                        }):Play()
+                        task.wait(1.5)
+                        TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.7,
+                            BackgroundColor3 = theme.EdgeGlowC1
+                        }):Play()
+                        TweenService:Create(EdgeStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            Transparency = 0.5,
+                            Color = theme.Stroke
+                        }):Play()
+                        TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.95
+                        }):Play()
+                        task.wait(1.5)
+                    end
+                end)
+            elseif theme.Anim == "lightning" then
+                themeAnimCoroutine = task.spawn(function()
+                    while CrownHub.Parent do
+                        -- Flash edge glow
+                        TweenService:Create(EdgeGlow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            BackgroundTransparency = 0.2,
+                            BackgroundColor3 = theme.EdgeGlowC2
+                        }):Play()
+                        TweenService:Create(EdgeStroke, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            Transparency = 0.1,
+                            Color = theme.EdgeGlowC2
+                        }):Play()
+                        TweenService:Create(InnerGlow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                            BackgroundTransparency = 0.7
+                        }):Play()
+                        -- Generate lightning strikes
+                        local centerX = MainContainer.AbsolutePosition.X + MainContainer.AbsoluteSize.X/2
+                        local centerY = MainContainer.AbsolutePosition.Y + MainContainer.AbsoluteSize.Y/2
+                        for i = 1, math.random(2, 4) do
+                            GenerateLightningBolt(centerX, centerY)
+                        end
+                        task.wait(0.12)
+                        TweenService:Create(EdgeGlow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                            BackgroundTransparency = 0.8,
+                            BackgroundColor3 = theme.EdgeGlowC1
+                        }):Play()
+                        TweenService:Create(EdgeStroke, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                            Transparency = 0.5,
+                            Color = theme.Stroke
+                        }):Play()
+                        TweenService:Create(InnerGlow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                            BackgroundTransparency = 0.95
+                        }):Play()
+                        task.wait(math.random(0.8, 2.0))
+                    end
+                end)
+            elseif theme.Anim == "fire" then
+                themeAnimCoroutine = task.spawn(function()
+                    while CrownHub.Parent do
+                        local ember = Instance.new("Frame")
+                        ember.Size = UDim2.new(0, math.random(4,10), 0, math.random(4,10))
+                        ember.BackgroundColor3 = math.random()>0.5 and Color3.fromRGB(255,100,0) or Color3.fromRGB(255,200,50)
+                        ember.BackgroundTransparency = 0.3
+                        ember.BorderSizePixel = 0
+                        ember.Position = UDim2.new(math.random(0,100)/100, 0, 1, 0)
+                        ember.AnchorPoint = Vector2.new(0.5,1)
+                        ember.ZIndex = 5
+                        ember.Parent = MainContainer
+                        table.insert(fireParticles, ember)
+                        TweenService:Create(ember, TweenInfo.new(math.random(1,3), Enum.EasingStyle.Linear), {
+                            Position = UDim2.new(ember.Position.X.Scale + math.random(-10,10)/100, 0, -0.2, 0),
+                            BackgroundTransparency = 1,
+                            Size = UDim2.new(0, ember.Size.X.Offset*0.5, 0, ember.Size.Y.Offset*0.5)
+                        }):Play()
+                        task.wait(math.random(0.05,0.2))
+                        for i=#fireParticles,1,-1 do
+                            if not fireParticles[i] or not fireParticles[i].Parent then
+                                table.remove(fireParticles, i)
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+
+        -- Button/Slider creators (use theme colors)
+        function CreateButton(text, callback)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1,0,0, IS_MOBILE and 38 or 42)
+            btn.BackgroundColor3 = Color3.fromRGB(35,30,45)
+            btn.BackgroundTransparency = 0.2
+            btn.Text = text
+            btn.TextColor3 = Color3.fromRGB(240,230,255)
+            btn.Font = Enum.Font.GothamMedium
+            btn.TextSize = IS_MOBILE and 12 or 13
+            btn.AutoButtonColor = false
+            btn.ZIndex = 11
+            btn.Parent = ContentFrame
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+            btn.MouseButton1Click:Connect(function()
+                TweenService:Create(btn, TweenInfo.new(0.1), {
+                    BackgroundColor3 = theme.TabActiveBg,
+                    TextColor3 = theme.TabActiveText
+                }):Play()
+                task.wait(0.1)
+                TweenService:Create(btn, TweenInfo.new(0.3), {
+                    BackgroundColor3 = Color3.fromRGB(35,30,45),
+                    TextColor3 = Color3.fromRGB(240,230,255)
+                }):Play()
+                pcall(callback)
+            end)
+            return btn
+        end
+
+        function CreateToggleButton(text, initialState, callback)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1,0,0,32)
+            frame.BackgroundTransparency = 1
+            frame.Parent = ContentFrame
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1,0,1,0)
+            btn.BackgroundColor3 = Color3.fromRGB(35,30,45)
+            btn.BackgroundTransparency = 0.2
+            btn.Text = text .. ": " .. (initialState and "ON" or "OFF")
+            btn.TextColor3 = initialState and Color3.fromRGB(100,255,100) or Color3.fromRGB(255,100,100)
+            btn.Font = Enum.Font.GothamMedium
+            btn.TextSize = 12
+            btn.AutoButtonColor = false
+            btn.Parent = frame
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+            local state = initialState
+            local function update(newState)
+                state = newState
+                btn.Text = text .. ": " .. (state and "ON" or "OFF")
+                btn.TextColor3 = state and Color3.fromRGB(100,255,100) or Color3.fromRGB(255,100,100)
+            end
+            btn.MouseButton1Click:Connect(function()
+                state = not state
+                update(state)
+                TweenService:Create(btn, TweenInfo.new(0.1), {
+                    BackgroundColor3 = theme.TabActiveBg,
+                    TextColor3 = theme.TabActiveText
+                }):Play()
+                task.wait(0.1)
+                TweenService:Create(btn, TweenInfo.new(0.3), {
+                    BackgroundColor3 = Color3.fromRGB(35,30,45),
+                    TextColor3 = state and Color3.fromRGB(100,255,100) or Color3.fromRGB(255,100,100)
+                }):Play()
+                pcall(callback, state)
+            end)
+            return {update = update}
+        end
+
+        function CreateSlider(text, min, max, current, callback)
+            local frame = Instance.new("Frame")
+            frame.Size = UDim2.new(1,0,0,40)
+            frame.BackgroundTransparency = 1
+            frame.Parent = ContentFrame
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1,0,0,15)
+            label.BackgroundTransparency = 1
+            label.Text = text .. ": " .. string.format("%.3f", current)
+            label.TextColor3 = Color3.fromRGB(240,230,255)
+            label.Font = Enum.Font.GothamMedium
+            label.TextSize = 11
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = frame
+            local track = Instance.new("Frame")
+            track.Size = UDim2.new(1,0,0,6)
+            track.Position = UDim2.new(0,0,0,20)
+            track.BackgroundColor3 = Color3.fromRGB(45,40,55)
+            track.BorderSizePixel = 0
+            track.Parent = frame
+            Instance.new("UICorner", track).CornerRadius = UDim.new(1,0)
+            local fill = Instance.new("Frame")
+            fill.Size = UDim2.new((current-min)/(max-min),0,1,0)
+            fill.BackgroundColor3 = theme.SliderFill
+            fill.BorderSizePixel = 0
+            fill.ZIndex = 12
+            fill.Parent = track
+            Instance.new("UICorner", fill).CornerRadius = UDim.new(1,0)
+            local thumb = Instance.new("Frame")
+            thumb.Size = UDim2.new(0,12,0,12)
+            thumb.Position = UDim2.new((current-min)/(max-min),-6,0.5,-6)
+            thumb.BackgroundColor3 = Color3.new(1,1,1)
+            thumb.BorderSizePixel = 0
+            thumb.ZIndex = 13
+            thumb.Parent = track
+            Instance.new("UICorner", thumb).CornerRadius = UDim.new(1,0)
+            local dragging = false
+            local function updateValue(value)
+                local clamped = math.clamp(value, min, max)
+                current = clamped
+                label.Text = text .. ": " .. string.format("%.3f", clamped)
+                fill.Size = UDim2.new((clamped-min)/(max-min),0,1,0)
+                thumb.Position = UDim2.new((clamped-min)/(max-min),-6,0.5,-6)
+                pcall(callback, clamped)
+            end
+            local function onInput(input)
+                if dragging then
+                    local relX = (input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X
+                    updateValue(min + relX * (max - min))
+                end
+            end
+            track.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = true
+                    onInput(input)
+                end
+            end)
+            track.InputChanged:Connect(function(input)
+                if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                    onInput(input)
+                end
+            end)
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragging = false
+                end
+            end)
+            return {update = updateValue}
+        end
+
+        -- Wall modification functions (original)
+        local wallsModified = false
+        local originalWallProperties = {}
+        local rainbowLoops = {}
+        local IMPROVED_FIRE_RATE = 0.0001
+        local BURST_FIRE_ENABLED = false
+        local BURST_COUNT = 10
+
         local function processPart(obj)
             if obj:IsA("BasePart") then
                 originalWallProperties[obj] = {
@@ -885,13 +1151,7 @@ task.delay(3.6, function()
             return "ON"
         end
 
-        -- FIXED VEHICLE SCRIPT (non‑freezing)
-        local function LoadFormula1Car()
-            task.spawn(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/FORMULA1%20CAR!!!!"))()
-            end)
-        end
-
+        -- Tenna Dance
         local function TennaDance()
             local plr = game.Players.LocalPlayer
             if plr.Character and plr.Character:FindFirstChild("Humanoid") then
@@ -908,7 +1168,7 @@ task.delay(3.6, function()
             loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
         end
 
-        -- Crown Prison Hacks with Auto Modify
+        -- ==================== ORIGINAL WORKING PRISON HACKS ====================
         local CrownPrisonHacksLoaded = false
         local CrownPrisonHacksFrame = nil
 
@@ -955,7 +1215,6 @@ task.delay(3.6, function()
             local lastArrestStart = 0
             local ARREST_COOLDOWN = 3
             
-            -- Auto modify variables
             local AUTO_MODIFY_ENABLED = false
             local modifiedWeapons = {}
             
@@ -1026,7 +1285,7 @@ task.delay(3.6, function()
                 ScanAndModifyGuns(char)
             end)
             
-            -- ESP functions (shortened for brevity, but full functionality)
+            -- FULL ESP with health bars, emojis, team colors
             local function GetBillboard(targetCharacter)
                 local head = targetCharacter:FindFirstChild("Head")
                 if not head then return nil end
@@ -1083,7 +1342,6 @@ task.delay(3.6, function()
                     local healthBarFill = Instance.new("Frame")
                     healthBarFill.Name = "HealthBarFill"
                     healthBarFill.Size = UDim2.new(1, 0, 1, 0)
-                    healthBarFill.Position = UDim2.new(0, 0, 0, 0)
                     healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
                     healthBarFill.BorderSizePixel = 0
                     healthBarFill.Parent = healthBarBG
@@ -1203,33 +1461,30 @@ task.delay(3.6, function()
             UIStroke.Parent = CrownPrisonHacksFrame
             UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             UIStroke.Thickness = 2
-            UIStroke.Color = Color3.fromRGB(255, 215, 0)
+            UIStroke.Color = theme.Stroke
             
             local UICorner = Instance.new("UICorner")
             UICorner.Parent = CrownPrisonHacksFrame
             
             local TitleLabel = Instance.new("TextLabel")
+            TitleLabel.Name = "TitleLabel"
             TitleLabel.Parent = CrownPrisonHacksFrame
             TitleLabel.Size = UDim2.new(1, 0, 0, 50)
             TitleLabel.BackgroundTransparency = 1
             TitleLabel.Text = "CROWN HUB PRISON"
             TitleLabel.Font = Enum.Font.GothamBlack
             TitleLabel.TextSize = 24
-            TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-            local TitleStrokeLabel = Instance.new("UIStroke")
-            TitleStrokeLabel.Color = Color3.fromRGB(180, 150, 50)
-            TitleStrokeLabel.Thickness = 1.5
-            TitleStrokeLabel.Transparency = 0.3
-            TitleStrokeLabel.Parent = TitleLabel
+            TitleLabel.TextColor3 = theme.SliderFill
             
             local Scrolling = Instance.new("ScrollingFrame")
+            Scrolling.Name = "Scrolling"
             Scrolling.Parent = CrownPrisonHacksFrame
             Scrolling.Position = UDim2.new(0, 0, 0, 50)
             Scrolling.Size = UDim2.new(1, 0, 1, -50)
             Scrolling.BackgroundTransparency = 1
             Scrolling.CanvasSize = UDim2.new(0, 0, 0, 0)
             Scrolling.ScrollBarThickness = 4
-            Scrolling.ScrollBarImageColor3 = Color3.fromRGB(255, 215, 0)
+            Scrolling.ScrollBarImageColor3 = theme.SliderFill
             Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
             Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
             
@@ -1257,7 +1512,7 @@ task.delay(3.6, function()
                 { name="CancelArrest", text="Cancel Arrest"}
             }
             
-            -- Arrest functions (simplified but functional)
+            -- Arrest functions (full original)
             local arrestGui = nil
             local arrestConnection = nil
             local function CloseArrestGui()
@@ -1439,11 +1694,6 @@ task.delay(3.6, function()
                 arrestTitle.Font = Enum.Font.GothamBlack
                 arrestTitle.TextSize = 18
                 arrestTitle.TextColor3 = Color3.fromRGB(255, 50, 50)
-                local arrestTitleStroke = Instance.new("UIStroke")
-                arrestTitleStroke.Color = Color3.fromRGB(180, 150, 50)
-                arrestTitleStroke.Thickness = 1.2
-                arrestTitleStroke.Transparency = 0.3
-                arrestTitleStroke.Parent = arrestTitle
                 local closeBtn = Instance.new("TextButton")
                 closeBtn.Parent = arrestGui
                 closeBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -1454,11 +1704,6 @@ task.delay(3.6, function()
                 closeBtn.Font = Enum.Font.GothamBold
                 closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
                 closeBtn.TextSize = 14
-                local closeBtnStroke = Instance.new("UIStroke")
-                closeBtnStroke.Color = Color3.fromRGB(180, 150, 50)
-                closeBtnStroke.Thickness = 1
-                closeBtnStroke.Transparency = 0.4
-                closeBtnStroke.Parent = closeBtn
                 Instance.new("UICorner", closeBtn)
                 closeBtn.MouseButton1Click:Connect(CloseArrestGui)
                 local arrestScroll = Instance.new("ScrollingFrame")
@@ -1533,15 +1778,13 @@ task.delay(3.6, function()
                 btn.BackgroundColor3 = Color3.fromRGB(20, 15, 25)
                 btn.Text = info.text
                 btn.Font = Enum.Font.GothamBold
-                btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+                btn.TextColor3 = theme.SliderFill
                 btn.TextScaled = true
-                
                 local btnStroke = Instance.new("UIStroke")
                 btnStroke.Color = Color3.fromRGB(180, 150, 50)
                 btnStroke.Thickness = 1.2
                 btnStroke.Transparency = 0.3
                 btnStroke.Parent = btn
-                
                 Instance.new("UICorner", btn)
                 btn.MouseEnter:Connect(function()
                     btn.BackgroundTransparency = 0.3
@@ -1551,7 +1794,7 @@ task.delay(3.6, function()
                 end)
                 btn.MouseLeave:Connect(function()
                     btn.BackgroundTransparency = 0.6
-                    btn.TextColor3 = Color3.fromRGB(255, 215, 0)
+                    btn.TextColor3 = theme.SliderFill
                     btnStroke.Transparency = 0.3
                     btnStroke.Color = Color3.fromRGB(180, 150, 50)
                 end)
@@ -1623,6 +1866,30 @@ task.delay(3.6, function()
                 end)
             end
             
+            -- Dragging for prison hacks frame
+            local dragStartPos, dragStartMouse
+            local function onInputBegan(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragStartPos = CrownPrisonHacksFrame.Position
+                    dragStartMouse = input.Position
+                end
+            end
+            local function onInputChanged(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement and dragStartPos then
+                    local delta = input.Position - dragStartMouse
+                    CrownPrisonHacksFrame.Position = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset + delta.X, dragStartPos.Y.Scale, dragStartPos.Y.Offset + delta.Y)
+                end
+            end
+            local function onInputEnded(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                    dragStartPos = nil
+                end
+            end
+            CrownPrisonHacksFrame.InputBegan:Connect(onInputBegan)
+            UserInputService.InputChanged:Connect(onInputChanged)
+            UserInputService.InputEnded:Connect(onInputEnded)
+            
+            -- Visibility toggle for Arrest/Cancel buttons based on team
             local arrestButton = Scrolling:FindFirstChild("ArrestPlayer")
             local cancelArrestButton = Scrolling:FindFirstChild("CancelArrest")
             task.spawn(function()
@@ -1634,28 +1901,7 @@ task.delay(3.6, function()
                 end
             end)
             
-            local UIS = game:GetService("UserInputService")
-            local dragging = false
-            local dragStart, startPos
-            CrownPrisonHacksFrame.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
-                    dragStart = input.Position
-                    startPos = CrownPrisonHacksFrame.Position
-                end
-            end)
-            CrownPrisonHacksFrame.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = false
-                end
-            end)
-            UIS.InputChanged:Connect(function(input)
-                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                    local delta = input.Position - dragStart
-                    CrownPrisonHacksFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                end
-            end)
-            
+            -- Rainbow border effect
             task.spawn(function()
                 while CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent do
                     for i = 0, 1, 0.01 do
@@ -1692,7 +1938,7 @@ task.delay(3.6, function()
             end)
         end
 
-        -- Fly, collision, orbital fling functions
+        -- Fly, collision, orbital fling
         local FlyEnabled = false
         local BodyGyro, BodyVelocity
 
@@ -1799,283 +2045,479 @@ task.delay(3.6, function()
                         flingBV.Velocity = flingDirection * 80 + Vector3.new(0, 60, 0)
                         flingBV.MaxForce = Vector3.new(40000, 40000, 40000)
                         flingBV.Parent = targetRoot
-                        game.Debris:AddItem(flingBV, 0.2)
+                        Debris:AddItem(flingBV, 0.2)
                     end
                     RunService.Heartbeat:Wait()
                 end
             end)
         end
 
-        -- Define Crown Functions with added external scripts
-        local CrownFunctions = {
-            ["Fling"] = {
-                {"🌀 Orbit Nearest", function()
-                    OrbitalActive = not OrbitalActive
-                    if OrbitalActive then OrbitalFling() end
-                end},
-                {"🔒 Enable Collision", EnableCollision},
-                {"🛑 Stop Fling", function() OrbitalActive = false end}
-            },
-            ["Admin"] = {
-                {"🛡️ Nameless Admin", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))()
-                end},
-                {"⚡ Infinite Yield", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
-                end},
-                {"🤖 QuizBot", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))()
-                end},
-                {"🔤 Chat Bypasser", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/AnnaRoblox/AnnaBypasser/refs/heads/main/AnnaBypasser.lua",true))()
-                end}
-            },
-            ["Movement"] = {
-                {"🚀 Fly (WASD+Space+Ctrl)", ToggleFly},
-                {"⚡ Speed (100)", function()
-                    if player.Character and player.Character:FindFirstChild("Humanoid") then
-                        player.Character.Humanoid.WalkSpeed = 100
+        -- ==================== VEHICLE SYSTEM (FULLY INTEGRATED) ====================
+        local velocityEnabled = true
+        local velocityMult = 0.05
+        local qbEnabled = 1.0
+        local flightSpeed = 5
+        local wheelIncrement = 1.0
+        local collisionDisabled = false
+        local rearWheelModified = false
+        local selectedcar = nil
+        local defaultCharacterParent = nil
+        local flightEnabled = false
+
+        -- Vehicle detection (original method)
+        local cars = workspace:FindFirstChild("CarContainer") or workspace
+
+        local function GetVehicleFromDescendant(descendant)
+            return
+                descendant:FindFirstAncestor(player.Name .. "\'s Car") or
+                (descendant:FindFirstAncestor("Body") and descendant:FindFirstAncestor("Body").Parent) or
+                (descendant:FindFirstAncestor("Misc") and descendant:FindFirstAncestor("Misc").Parent) or
+                descendant:FindFirstAncestorWhichIsA("Model")
+        end
+
+        local function RefreshSelectedCar()
+            selectedcar = nil
+            for _, v in pairs(cars:GetDescendants()) do
+                if v:IsA("Weld") and v.Part1 and v.Part1.Parent and v.Part1.Parent.Name == player.Name then
+                    selectedcar = v.Parent.Parent.Parent
+                    break
+                end
+            end
+            return selectedcar
+        end
+
+        -- Collision disable
+        local originalCollisionStates = {}
+        local function ToggleCollision()
+            if not selectedcar then return false end
+            if not collisionDisabled then
+                local bodyFolder = selectedcar:FindFirstChild("Body")
+                if bodyFolder then
+                    for _, v in pairs(bodyFolder:GetDescendants()) do
+                        if v:IsA("BasePart") then
+                            originalCollisionStates[v] = v.CanCollide
+                            v.CanCollide = false
+                        end
                     end
-                end},
-                {"👻 Noclip", function()
-                    local noclip = false
-                    player.CharacterAdded:Connect(function(char)
-                        if noclip then
-                            wait(0.5)
-                            for _, part in pairs(char:GetDescendants()) do
-                                if part:IsA("BasePart") then part.CanCollide = false end
+                    collisionDisabled = true
+                    return true
+                else
+                    return false
+                end
+            else
+                for part, canCollide in pairs(originalCollisionStates) do
+                    if part and part.Parent then
+                        part.CanCollide = canCollide
+                    end
+                end
+                originalCollisionStates = {}
+                collisionDisabled = false
+                return false
+            end
+        end
+
+        -- Wheel modification
+        local originalFrictions = {}
+        local function ModifyRearWheels()
+            if not selectedcar then return false end
+            if not rearWheelModified then
+                for _, part in pairs(selectedcar:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        local partName = part.Name:lower()
+                        if partName:find("rear") or partName:find("back") or partName:find("rwd") then
+                            originalFrictions[part] = {
+                                Friction = part.Friction,
+                                FrictionWeight = part.FrictionWeight
+                            }
+                            part.Friction = 0.2
+                            part.FrictionWeight = 54
+                        end
+                    end
+                end
+                rearWheelModified = true
+            else
+                for part, props in pairs(originalFrictions) do
+                    if part and part.Parent then
+                        part.Friction = props.Friction
+                        part.FrictionWeight = props.FrictionWeight
+                    end
+                end
+                originalFrictions = {}
+                rearWheelModified = false
+            end
+            return rearWheelModified
+        end
+
+        local function ModifyWheelHeight(wheelType, direction)
+            if not selectedcar then return end
+            local wheelNames = {
+                ["Front"] = {
+                    "front", "fw", "lf", "rf", "fl", "fr",
+                    "frontwheel", "front wheel", "front tire",
+                    "frontaxle", "front axle", "lfront", "rfront"
+                },
+                ["Rear"] = {
+                    "rear", "back", "rw", "lrear", "rrear",
+                    "rearwheel", "rear wheel", "rear tire",
+                    "rearaxle", "rear axle", "rwd"
+                }
+            }
+            local names = wheelNames[wheelType]
+            if not names then return end
+            for _, part in pairs(selectedcar:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local partName = part.Name:lower()
+                    local parentName = part.Parent and part.Parent.Name:lower() or ""
+                    local isMatch = false
+                    for _, name in ipairs(names) do
+                        if partName:find(name) then
+                            isMatch = true
+                            break
+                        end
+                    end
+                    if not isMatch then
+                        if wheelType == "Front" then
+                            if parentName == "lw" or parentName == "rw" then
+                                isMatch = true
+                            end
+                        elseif wheelType == "Rear" then
+                            if parentName == "rwd" then
+                                isMatch = true
+                            elseif parentName == "body" and (partName == "ml" or partName == "mr") then
+                                isMatch = true
+                            end
+                        end
+                    end
+                    if isMatch then
+                        part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
+                    end
+                end
+            end
+        end
+
+        local function ModifyAllWheels(direction)
+            if not selectedcar then return end
+            for _, part in pairs(selectedcar:GetDescendants()) do
+                if part:IsA("BasePart") and (part.Name:lower():find("wheel") or part.Name:lower():find("tire") or part.Name:lower():find("wd") or part.Name:lower():find("vs") or part.Name:lower():find("ss")) then
+                    part.Position = part.Position + Vector3.new(0, direction * wheelIncrement, 0)
+                end
+            end
+        end
+
+        local function ToggleSpringsVisibility()
+            if not selectedcar then return false end
+            local anySpring = nil
+            for _, spring in pairs(selectedcar:GetDescendants()) do
+                if spring:IsA("SpringConstraint") then
+                    anySpring = spring
+                    break
+                end
+            end
+            if anySpring then
+                local newVisibility = not anySpring.Visible
+                for _, spring in pairs(selectedcar:GetDescendants()) do
+                    if spring:IsA("SpringConstraint") then
+                        spring.Visible = newVisibility
+                    end
+                end
+                return newVisibility
+            end
+            return false
+        end
+
+        -- Vehicle flight loop
+        RunService.Stepped:Connect(function()
+            pcall(function()
+                local Character = player.Character
+                if flightEnabled and Character and typeof(Character) == "Instance" then
+                    local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                    if Humanoid and typeof(Humanoid) == "Instance" then
+                        local SeatPart = Humanoid.SeatPart
+                        if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                            local Vehicle = GetVehicleFromDescendant(SeatPart)
+                            if Vehicle and Vehicle:IsA("Model") then
+                                Character.Parent = Vehicle
+                                if not Vehicle.PrimaryPart then
+                                    if SeatPart.Parent == Vehicle then
+                                        Vehicle.PrimaryPart = SeatPart
+                                    else
+                                        Vehicle.PrimaryPart = Vehicle:FindFirstChildWhichIsA("BasePart")
+                                    end
+                                end
+                                local PrimaryPartCFrame = Vehicle:GetPrimaryPartCFrame()
+                                Vehicle:SetPrimaryPartCFrame(CFrame.new(PrimaryPartCFrame.Position, PrimaryPartCFrame.Position + workspace.CurrentCamera.CFrame.LookVector) * (UserInputService:GetFocusedTextBox() and CFrame.new(0, 0, 0) or CFrame.new((UserInputService:IsKeyDown(Enum.KeyCode.D) and flightSpeed) or (UserInputService:IsKeyDown(Enum.KeyCode.A) and -flightSpeed) or 0, (UserInputService:IsKeyDown(Enum.KeyCode.E) and flightSpeed / 2) or (UserInputService:IsKeyDown(Enum.KeyCode.Q) and -flightSpeed / 2) or 0, (UserInputService:IsKeyDown(Enum.KeyCode.S) and flightSpeed) or (UserInputService:IsKeyDown(Enum.KeyCode.W) and -flightSpeed) or 0)))
+                                SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                                SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                            end
+                        end
+                    end
+                else
+                    if Character and typeof(Character) == "Instance" then
+                        Character.Parent = defaultCharacterParent or Character.Parent
+                        defaultCharacterParent = Character.Parent
+                    end
+                end
+            end)
+        end)
+
+        -- Vehicle acceleration/brake input
+        local accelerationActive = false
+        local brakeActive = false
+        UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+            if gameProcessedEvent then return end
+            if input.KeyCode == Enum.KeyCode.W and velocityEnabled then
+                accelerationActive = true
+                task.spawn(function()
+                    while accelerationActive and velocityEnabled do
+                        task.wait()
+                        pcall(function()
+                            local Character = player.Character
+                            if Character and typeof(Character) == "Instance" then
+                                local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                                if Humanoid and typeof(Humanoid) == "Instance" then
+                                    local SeatPart = Humanoid.SeatPart
+                                    if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                                        SeatPart.AssemblyLinearVelocity = SeatPart.AssemblyLinearVelocity * Vector3.new(1 + velocityMult, 1, 1 + velocityMult)
+                                    end
+                                end
+                            end
+                        end)
+                    end
+                end)
+            end
+            if input.KeyCode == Enum.KeyCode.Q and velocityEnabled then
+                brakeActive = true
+                task.spawn(function()
+                    while brakeActive and velocityEnabled do
+                        task.wait()
+                        pcall(function()
+                            local Character = player.Character
+                            if Character and typeof(Character) == "Instance" then
+                                local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                                if Humanoid and typeof(Humanoid) == "Instance" then
+                                    local SeatPart = Humanoid.SeatPart
+                                    if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                                        SeatPart.AssemblyLinearVelocity = SeatPart.AssemblyLinearVelocity * Vector3.new(1 - qbEnabled, 1, 1 - qbEnabled)
+                                    end
+                                end
+                            end
+                        end)
+                    end
+                end)
+            end
+            if input.KeyCode == Enum.KeyCode.P and velocityEnabled then
+                pcall(function()
+                    local Character = player.Character
+                    if Character and typeof(Character) == "Instance" then
+                        local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                        if Humanoid and typeof(Humanoid) == "Instance" then
+                            local SeatPart = Humanoid.SeatPart
+                            if SeatPart and typeof(SeatPart) == "Instance" and SeatPart:IsA("VehicleSeat") then
+                                SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                                SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input, gameProcessedEvent)
+            if gameProcessedEvent then return end
+            if input.KeyCode == Enum.KeyCode.W then accelerationActive = false end
+            if input.KeyCode == Enum.KeyCode.Q then brakeActive = false end
+        end)
+
+        -- ==================== CONTENT UPDATE ====================
+        function UpdateContent()
+            for _, child in ipairs(ContentFrame:GetChildren()) do
+                if child:IsA("TextButton") or child:IsA("Frame") then child:Destroy() end
+            end
+
+            if CurrentTab == "Vehicle" then
+                -- Refresh button and car label
+                CreateButton("🔄 Refresh Selected Car", function()
+                    RefreshSelectedCar()
+                    if carLabel then carLabel.Text = "Car: " .. (selectedcar and selectedcar.Name or "None") end
+                end)
+                local carLabel = Instance.new("TextLabel")
+                carLabel.Size = UDim2.new(1,0,0,20)
+                carLabel.BackgroundTransparency = 1
+                carLabel.Text = "Car: " .. (selectedcar and selectedcar.Name or "None")
+                carLabel.TextColor3 = theme.SliderFill
+                carLabel.Font = Enum.Font.GothamMedium
+                carLabel.TextSize = 11
+                carLabel.TextXAlignment = Enum.TextXAlignment.Center
+                carLabel.Parent = ContentFrame
+
+                -- Keybinds toggle
+                local keybindsToggle = CreateToggleButton("Keybinds Active", velocityEnabled, function(state)
+                    velocityEnabled = state
+                end)
+
+                -- Accel slider
+                CreateSlider("Accel Multiplier", 0, 0.05, velocityMult, function(value)
+                    velocityMult = value
+                end)
+
+                -- Brake slider
+                CreateSlider("Brake Force (Q)", 0, 3.0, qbEnabled, function(value)
+                    qbEnabled = value
+                end)
+
+                -- Collision button
+                CreateButton("Disable Body Collision: " .. (collisionDisabled and "ON" or "OFF"), function()
+                    local result = ToggleCollision()
+                    for _, child in ipairs(ContentFrame:GetChildren()) do
+                        if child:IsA("TextButton") and child.Text:find("Disable Body Collision") then
+                            child.Text = "Disable Body Collision: " .. (result and "ON" or "OFF")
+                            break
+                        end
+                    end
+                end)
+
+                -- Stop vehicle
+                CreateButton("Stop Vehicle (P)", function()
+                    pcall(function()
+                        local Character = player.Character
+                        if Character then
+                            local Humanoid = Character:FindFirstChildWhichIsA("Humanoid")
+                            if Humanoid then
+                                local SeatPart = Humanoid.SeatPart
+                                if SeatPart and SeatPart:IsA("VehicleSeat") then
+                                    SeatPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                                    SeatPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                                end
                             end
                         end
                     end)
-                    noclip = not noclip
-                    if player.Character then
-                        for _, part in pairs(player.Character:GetDescendants()) do
-                            if part:IsA("BasePart") then part.CanCollide = not noclip end
-                        end
-                    end
-                end},
-                {"🔄 Reset", function()
-                    if player.Character and player.Character:FindFirstChild("Humanoid") then
-                        player.Character.Humanoid.WalkSpeed = 16
-                    end
-                    ToggleFly()
-                end}
-            },
-            ["Visual"] = {
-                {"🎯 ESP", function()
-                    for _, target in ipairs(Players:GetPlayers()) do
-                        if target ~= player and target.Character then
-                            local highlight = Instance.new("Highlight")
-                            highlight.FillColor = Color3.fromRGB(255, 215, 0)
-                            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-                            highlight.FillTransparency = 0.4
-                            highlight.Parent = target.Character
-                        end
-                    end
-                end},
-                {"👁️ X-Ray", function()
-                    for _, part in pairs(workspace:GetDescendants()) do
-                        if part:IsA("BasePart") and part.Transparency < 1 then
-                            part.LocalTransparencyModifier = 0.6
-                        end
-                    end
-                end},
-                {"🌟 Full Bright", function()
-                    Lighting.Brightness = 2
-                    Lighting.Ambient = Color3.new(1, 1, 1)
-                end},
-                {"🗑️ Clear", function()
-                    for _, target in ipairs(Players:GetPlayers()) do
-                        if target.Character then
-                            for _, highlight in ipairs(target.Character:GetChildren()) do
-                                if highlight:IsA("Highlight") then highlight:Destroy() end
-                            end
-                        end
-                    end
-                    for _, part in pairs(workspace:GetDescendants()) do
-                        if part:IsA("BasePart") then part.LocalTransparencyModifier = 0 end
-                    end
-                    Lighting.Brightness = 1
-                end}
-            },
-            ["Combat"] = {
-                {"🎯 Venum Aim", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/MAINCODE"))()
-                end},
-                {"⚡ Aim Assist", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))()
-                end},
-                {"👑 Crown Prison Hacks", LoadCrownPrisonHacks},
-                {"📡 Influence ESP", LoadInfluenceESP}
-            },
-            ["Hubs"] = {
-                {"🔪 Slicer FE V8", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Ahma174/Slicer/refs/heads/main/Slicer%20Fe%20V8.0.0%20%5BBETA%5D.txt"))()
-                end},
-                {"🌀 Gravity Trip", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))()
-                end},
-                {"🐹 FE Hamster Ball", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/KaterHub-Inc/scripts/refs/heads/main/unofficial-Projects/FEHamsterBall.lua"))()
-                end},
-                {"🎹 Piano", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/LunarZR/QOUTES/refs/heads/main/PIANO"))()
-                end},
-                {"👑 Z3U5 HUB V2", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Z3U5-G106/Script/refs/heads/main/Z3U5-HUB-V2-WESTWOOD"))()
-                end},
-                {"💀 Trollge Universe", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/egehanqq/trollgeuniverse/refs/heads/main/trollgeuniverse", true))()
-                end},
-                {"🌀 Super Ring Parts", function()
-                    loadstring(game:HttpGet("https://rscripts.net/raw/super-ring-parts-v4-by-lukas_1741980981842_td0ummjymf.txt", true))()
-                end}
-            },
-            ["Fun"] = {
-                {"🏎️ Formula 1 Car", LoadFormula1Car},
-                {"💃 Tenna Dance", TennaDance},
-                {"📽️ Animation Logger", function()
-                    loadstring(game:HttpGet("https://raw.githubusercontent.com/Lov3lydev/Sodas-Shitty-Luau-Scripts/main/AnimationLogger.lua"))()
-                end}
-            }
-        }
+                end)
 
-        function UpdateContent()
-            for _, child in ipairs(ContentFrame:GetChildren()) do
-                if child:IsA("TextButton") then child:Destroy() end
+                -- Rear wheel friction toggle
+                CreateToggleButton("Rear Wheel Friction", rearWheelModified, function(state)
+                    rearWheelModified = ModifyRearWheels()
+                end)
+
+                -- Springs visibility button
+                CreateButton("Springs Visibility", function()
+                    local visible = ToggleSpringsVisibility()
+                    for _, child in ipairs(ContentFrame:GetChildren()) do
+                        if child:IsA("TextButton") and child.Text:find("Springs") then
+                            child.Text = "Springs: " .. (visible and "VISIBLE" or "HIDDEN")
+                            break
+                        end
+                    end
+                end)
+
+                -- Flight toggle
+                CreateToggleButton("Flight Mode", flightEnabled, function(state)
+                    flightEnabled = state
+                end)
+
+                -- Flight speed slider
+                CreateSlider("Flight Speed", 0, 800, flightSpeed * 100, function(value)
+                    flightSpeed = value / 100
+                end)
+
+                -- Wheel increment slider
+                CreateSlider("Wheel Increment", 0.1, 5.0, wheelIncrement, function(value)
+                    wheelIncrement = value
+                end)
+
+                -- Wheel movement buttons
+                CreateButton("Lower All Wheels", function() ModifyAllWheels(1) end)
+                CreateButton("Raise All Wheels", function() ModifyAllWheels(-1) end)
+                CreateButton("Lower Front Wheels", function() ModifyWheelHeight("Front", 1) end)
+                CreateButton("Raise Front Wheels", function() ModifyWheelHeight("Front", -1) end)
+                CreateButton("Lower Rear Wheels", function() ModifyWheelHeight("Rear", 1) end)
+                CreateButton("Raise Rear Wheels", function() ModifyWheelHeight("Rear", -1) end)
+                return
             end
+
+            -- Other tabs content (Fling, Admin, etc.)
+            local CrownFunctions = {
+                ["Fling"] = {
+                    {"🌀 Orbit Nearest", function() OrbitalActive = not OrbitalActive if OrbitalActive then OrbitalFling() end end},
+                    {"🔒 Enable Collision", EnableCollision},
+                    {"🛑 Stop Fling", function() OrbitalActive = false end}
+                },
+                ["Admin"] = {
+                    {"🛡️ Nameless Admin", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/ltseverydayyou/Nameless-Admin/main/Source.lua"))() end},
+                    {"⚡ Infinite Yield", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))() end},
+                    {"🤖 QuizBot", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Damian-11/quizbot/master/quizbot.luau"))() end},
+                    {"🔤 Chat Bypasser", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/AnnaRoblox/AnnaBypasser/refs/heads/main/AnnaBypasser.lua",true))() end}
+                },
+                ["Movement"] = {
+                    {"🚀 Fly (WASD+Space+Ctrl)", ToggleFly},
+                    {"⚡ Speed (100)", function() if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.WalkSpeed = 100 end end},
+                    {"👻 Noclip", function()
+                        local noclip = false
+                        player.CharacterAdded:Connect(function(char) if noclip then wait(0.5) for _, p in ipairs(char:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = false end end end end)
+                        noclip = not noclip
+                        if player.Character then for _, p in ipairs(player.Character:GetDescendants()) do if p:IsA("BasePart") then p.CanCollide = not noclip end end end
+                    end},
+                    {"🔄 Reset", function() if player.Character and player.Character:FindFirstChild("Humanoid") then player.Character.Humanoid.WalkSpeed = 16 end ToggleFly() end}
+                },
+                ["Visual"] = {
+                    {"🎯 ESP", function() for _, t in ipairs(Players:GetPlayers()) do if t ~= player and t.Character then local h = Instance.new("Highlight") h.FillColor = Color3.fromRGB(255,215,0) h.OutlineColor = Color3.new(1,1,1) h.FillTransparency = 0.4 h.Parent = t.Character end end end},
+                    {"👁️ X-Ray", function() for _, p in ipairs(workspace:GetDescendants()) do if p:IsA("BasePart") and p.Transparency < 1 then p.LocalTransparencyModifier = 0.6 end end end},
+                    {"🌟 Full Bright", function() Lighting.Brightness = 2 Lighting.Ambient = Color3.new(1,1,1) end},
+                    {"🗑️ Clear", function() for _, t in ipairs(Players:GetPlayers()) do if t.Character then for _, h in ipairs(t.Character:GetChildren()) do if h:IsA("Highlight") then h:Destroy() end end end end for _, p in ipairs(workspace:GetDescendants()) do if p:IsA("BasePart") then p.LocalTransparencyModifier = 0 end end Lighting.Brightness = 1 end}
+                },
+                ["Combat"] = {
+                    {"🎯 Venum Aim", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/MAINCODE"))() end},
+                    {"⚡ Aim Assist", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/RunDTM/ZeeroxHub/main/Loader.lua"))() end},
+                    {"👑 Crown Prison Hacks", LoadCrownPrisonHacks},
+                    {"📡 Influence ESP", LoadInfluenceESP}
+                },
+                ["Hubs"] = {
+                    {"🔪 Slicer FE V8", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Ahma174/Slicer/refs/heads/main/Slicer%20Fe%20V8.0.0%20%5BBETA%5D.txt"))() end},
+                    {"🌀 Gravity Trip", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Rawbr10/Roblox-Scripts/refs/heads/main/0%20Graviy%20Trip%20Universal"))() end},
+                    {"🐹 FE Hamster Ball", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/KaterHub-Inc/scripts/refs/heads/main/unofficial-Projects/FEHamsterBall.lua"))() end},
+                    {"🎹 Piano", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/LunarZR/QOUTES/refs/heads/main/PIANO"))() end},
+                    {"👑 Z3U5 HUB V2", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Z3U5-G106/Script/refs/heads/main/Z3U5-HUB-V2-WESTWOOD"))() end},
+                    {"💀 Trollge Universe", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/egehanqq/trollgeuniverse/refs/heads/main/trollgeuniverse", true))() end},
+                    {"🌀 Super Ring Parts", function() loadstring(game:HttpGet("https://rscripts.net/raw/super-ring-parts-v4-by-lukas_1741980981842_td0ummjymf.txt", true))() end}
+                },
+                ["Fun"] = {
+                    {"💃 Tenna Dance", TennaDance},
+                    {"📽️ Animation Logger", function() loadstring(game:HttpGet("https://raw.githubusercontent.com/Lov3lydev/Sodas-Shitty-Luau-Scripts/main/AnimationLogger.lua"))() end},
+                    {"⚔️ Invincible Combat", function()
+                        task.spawn(function()
+                            local success, err = pcall(function()
+                                loadstring(game:HttpGet("https://raw.githubusercontent.com/giobolqv1/invincible-characters-animations-by-GioBolqv1-/refs/heads/main/universal.lua"))()
+                            end)
+                            if not success then
+                                game.StarterGui:SetCore("SendNotification", {
+                                    Title = "Crown Hub",
+                                    Text = "Invincible Combat failed to load.",
+                                    Duration = 5
+                                })
+                            end
+                        end)
+                    end},
+                    {"😎 Mood Script", function() loadstring(game:HttpGet('https://raw.githubusercontent.com/Gazer-Ha/Gaze-stuff/refs/heads/main/Mood'))() end}
+                }
+            }
+
             local functions = CrownFunctions[CurrentTab] or {}
             for _, func in ipairs(functions) do
                 CreateButton(func[1], func[2])
             end
         end
 
-        function CreateButton(text, callback)
-            local button = Instance.new("TextButton")
-            button.Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
-            button.BackgroundColor3 = Color3.fromRGB(35, 30, 45)
-            button.BackgroundTransparency = 0.2
-            button.Text = text
-            button.TextColor3 = Color3.fromRGB(240, 230, 255)
-            button.Font = Enum.Font.GothamMedium
-            button.TextSize = IS_MOBILE and 12 or 13
-            button.AutoButtonColor = false
-            button.ZIndex = 11
-            button.Parent = ContentFrame
-            
-            local buttonStroke = Instance.new("UIStroke")
-            buttonStroke.Color = Color3.fromRGB(180, 150, 50)
-            buttonStroke.Thickness = 1.2
-            buttonStroke.Transparency = 0.3
-            buttonStroke.Parent = button
-            
-            local buttonCorner = Instance.new("UICorner")
-            buttonCorner.CornerRadius = UDim.new(0, 8)
-            buttonCorner.Parent = button
-            
-            if not IS_MOBILE then
-                button.MouseEnter:Connect(function()
-                    TweenService:Create(button, TweenInfo.new(0.3), {
-                        BackgroundTransparency = 0.1,
-                        BackgroundColor3 = Color3.fromRGB(45, 40, 55),
-                        Size = UDim2.new(1, 5, 0, 45)
-                    }):Play()
-                    TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
-                        Transparency = 0.1,
-                        Color = Color3.fromRGB(200, 170, 60)
-                    }):Play()
-                end)
-                button.MouseLeave:Connect(function()
-                    TweenService:Create(button, TweenInfo.new(0.3), {
-                        BackgroundTransparency = 0.2,
-                        BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-                        Size = UDim2.new(1, 0, 0, 42)
-                    }):Play()
-                    TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
-                        Transparency = 0.3,
-                        Color = Color3.fromRGB(180, 150, 50)
-                    }):Play()
-                end)
-            end
-            
-            button.MouseButton1Click:Connect(function()
-                TweenService:Create(button, TweenInfo.new(0.1), {
-                    BackgroundColor3 = Color3.fromRGB(212, 175, 55),
-                    TextColor3 = Color3.fromRGB(20, 15, 25),
-                    Size = UDim2.new(1, IS_MOBILE and -3 or -5, 0, IS_MOBILE and 35 or 38)
-                }):Play()
-                TweenService:Create(buttonStroke, TweenInfo.new(0.1), {
-                    Transparency = 0.2,
-                    Color = Color3.fromRGB(100, 80, 30)
-                }):Play()
-                wait(0.1)
-                TweenService:Create(button, TweenInfo.new(0.3), {
-                    BackgroundColor3 = Color3.fromRGB(35, 30, 45),
-                    TextColor3 = Color3.fromRGB(240, 230, 255),
-                    Size = UDim2.new(1, 0, 0, IS_MOBILE and 38 or 42)
-                }):Play()
-                TweenService:Create(buttonStroke, TweenInfo.new(0.3), {
-                    Transparency = 0.3,
-                    Color = Color3.fromRGB(180, 150, 50)
-                }):Play()
-                pcall(callback)
-            end)
-        end
-
+        -- Minimize/Close/Drag
         local Minimized = false
         MinimizeButton.MouseButton1Click:Connect(function()
             Minimized = not Minimized
             if Minimized then
-                TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-                    Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, IS_MOBILE and 60 or 70)
-                }):Play()
+                TweenService:Create(MainContainer, TweenInfo.new(0.3), { Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, Header.AbsoluteSize.Y) }):Play()
                 MinimizeButton.Text = "+"
             else
-                TweenService:Create(MainContainer, TweenInfo.new(0.3), {
-                    Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE)
-                }):Play()
+                TweenService:Create(MainContainer, TweenInfo.new(0.3), { Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE) }):Play()
                 MinimizeButton.Text = "_"
             end
         end)
-
-        if not IS_MOBILE then
-            MinimizeButton.MouseEnter:Connect(function()
-                TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
-                    BackgroundTransparency = 0,
-                    Size = UDim2.new(0, 32, 0, 32)
-                }):Play()
-                TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
-                    Transparency = 0.1
-                }):Play()
-            end)
-            MinimizeButton.MouseLeave:Connect(function()
-                TweenService:Create(MinimizeButton, TweenInfo.new(0.2), {
-                    BackgroundTransparency = 0.2,
-                    Size = UDim2.new(0, 30, 0, 30)
-                }):Play()
-                TweenService:Create(MinimizeButtonStroke, TweenInfo.new(0.2), {
-                    Transparency = 0.3
-                }):Play()
-            end)
-            CloseButton.MouseEnter:Connect(function()
-                TweenService:Create(CloseButton, TweenInfo.new(0.2), {
-                    BackgroundTransparency = 0,
-                    Size = UDim2.new(0, 32, 0, 32)
-                }):Play()
-                TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
-                    Transparency = 0.1
-                }):Play()
-            end)
-            CloseButton.MouseLeave:Connect(function()
-                TweenService:Create(CloseButton, TweenInfo.new(0.2), {
-                    BackgroundTransparency = 0.2,
-                    Size = UDim2.new(0, 30, 0, 30)
-                }):Play()
-                TweenService:Create(CloseButtonStroke, TweenInfo.new(0.2), {
-                    Transparency = 0.3
-                }):Play()
-            end)
-        end
 
         if not IS_MOBILE then
             local dragging = false
@@ -2088,9 +2530,7 @@ task.delay(3.6, function()
                 end
             end)
             Header.InputEnded:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                    dragging = false
-                end
+                if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
             end)
             Header.InputChanged:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseMovement and dragging then
@@ -2101,15 +2541,20 @@ task.delay(3.6, function()
         end
 
         CloseButton.MouseButton1Click:Connect(function()
-            TweenService:Create(MainContainer, TweenInfo.new(0.4), {
-                Size = UDim2.new(0, 0, 0, 0),
-                Position = UDim2.new(0.5, 0, 0.5, 0),
-                BackgroundTransparency = 1
-            }):Play()
+            TweenService:Create(MainContainer, TweenInfo.new(0.4), { Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0), BackgroundTransparency = 1 }):Play()
             wait(0.4)
             CrownHub:Destroy()
+            StopThemeAnim()
         end)
 
+        UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.KeyCode == Enum.KeyCode.RightBracket then
+                MainContainer.Visible = not MainContainer.Visible
+            end
+        end)
+
+        -- Initialize UI
         MainContainer.Size = UDim2.new(0, 0, 0, 0)
         MainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
         MainContainer.BackgroundTransparency = 1
@@ -2121,6 +2566,6 @@ task.delay(3.6, function()
         }):Play()
         UpdateContent()
         UpdateTabAppearance()
-        -- ========== END MAIN CROWN HUB ==========
+        StartThemeAnim()
     end)
 end)
