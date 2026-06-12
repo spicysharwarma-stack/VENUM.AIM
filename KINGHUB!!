@@ -369,8 +369,90 @@ task.delay(3.6, function()
     Tween(BG, {BackgroundTransparency = 1}, 0.9, Enum.EasingStyle.Sine, nil, 0.3)
     task.delay(1.5, function()
         if Gui and Gui.Parent then Gui:Destroy() end
-        -- ========== MAIN CROWN HUB (FIXED & ENHANCED) ==========
 
+        -- ========== ASSET DOWNLOADER & MANAGER ==========
+        local function getExecutorFolder()
+            local execPath = nil
+            if syn and syn.get_executordirectory then
+                execPath = syn.get_executordirectory()
+            elseif getexecutordirectory then
+                execPath = getexecutordirectory()
+            elseif fs and fs.getExecutablePath then
+                execPath = fs.getExecutablePath():match("(.+)[\\/]")
+            end
+            if execPath then
+                return execPath .. "/CrownHub/"
+            else
+                return "CrownHub/"
+            end
+        end
+
+        local baseFolder = getExecutorFolder()
+        local themesFolder = baseFolder .. "Themes/"
+        local musicFolder = baseFolder .. "Music/"
+
+        local function httpGet(url)
+            local success, result = pcall(function()
+                if syn and syn.request then
+                    local resp = syn.request({Url = url, Method = "GET"})
+                    return resp.Body
+                elseif http and http.request then
+                    local resp = http.request({Url = url, Method = "GET"})
+                    return resp.Body
+                elseif request then
+                    local resp = request({Url = url, Method = "GET"})
+                    return resp.Body
+                else
+                    return game:HttpGet(url, true)
+                end
+            end)
+            if success then return result else return nil end
+        end
+
+        local function ensureAsset(url, folderPath, fileName, fallbackId)
+            if not getcustomasset then
+                return fallbackId
+            end
+            if not isfolder(folderPath) then
+                makefolder(folderPath)
+            end
+            local fullPath = folderPath .. fileName
+            if not isfile(fullPath) then
+                local data = httpGet(url)
+                if data and #data > 100 then
+                    writefile(fullPath, data)
+                    print(string.format("[CrownHub] Downloaded %s", fileName))
+                else
+                    warn(string.format("[CrownHub] Failed to download %s, using fallback", fileName))
+                    return fallbackId
+                end
+            end
+            return getcustomasset(fullPath)
+        end
+
+        -- Theme assets
+        local themeAssets = {
+            ["Dante's Inferno"] = {
+                icon = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/dante%20icon.jpg",
+                bg = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/dantebg.jpg",
+                music = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/Devil%20May%20Cry%203%20-%20Devils%20Never%20Cry.mp3",
+                fallbackIcon = "rbxassetid://9684557602",
+                fallbackBg = "rbxassetid://123461833496076",
+                soundId = "81995492578361",
+                musicFileName = "devils_never_cry.mp3",
+            },
+            ["Thunder Blue"] = {
+                icon = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/vergilicon.jfif",
+                bg = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/vergilbg.webp",
+                music = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/refs/heads/main/BURY%20THE%20LIGHT%20-%20DEEP%20VERSION%20(Based%20Vergil%20Theme).mp3",
+                fallbackIcon = "rbxassetid://12619446110",
+                fallbackBg = "rbxassetid://117943635061103",
+                soundId = "120298589467816",
+                musicFileName = "bury_the_light.mp3",
+            },
+        }
+
+        -- ========== MAIN CROWN HUB ==========
         local Players = game:GetService("Players")
         local TweenService = game:GetService("TweenService")
         local RunService = game:GetService("RunService")
@@ -387,7 +469,44 @@ task.delay(3.6, function()
         CrownHub.ResetOnSpawn = false
         CrownHub.Parent = CoreGui
 
-        -- THEMES -----------------------------------------------------------------
+        -- Music Player System
+        local currentMusic = nil
+        local isMuted = false
+        local MUTE_BUTTON_TEXT = "🔊"
+
+        local function PlayThemeMusic(themeName)
+            if currentMusic then
+                currentMusic:Stop()
+                currentMusic:Destroy()
+                currentMusic = nil
+            end
+            if isMuted then return end
+            local asset = themeAssets[themeName]
+            if asset and asset.music then
+                local musicPath = ensureAsset(asset.music, musicFolder, asset.musicFileName, nil)
+                if musicPath then
+                    currentMusic = Instance.new("Sound")
+                    currentMusic.SoundId = musicPath
+                    currentMusic.Volume = 0.5
+                    currentMusic.Looped = true
+                    currentMusic.Parent = SoundService
+                    currentMusic:Play()
+                end
+            end
+        end
+
+        local function ToggleMute()
+            isMuted = not isMuted
+            if currentMusic then
+                if isMuted then
+                    currentMusic:Stop()
+                else
+                    currentMusic:Play()
+                end
+            end
+        end
+
+        -- THEMES
         local Themes = {
             ["Default Gold"] = {
                 MainBg         = Color3.fromRGB(15,12,18),
@@ -399,6 +518,9 @@ task.delay(3.6, function()
                 SliderFill     = Color3.fromRGB(212,175,55),
                 Anim           = "pulse",
                 Subtitle       = "Fit for Kings",
+                LogoAsset      = "rbxassetid://6031075938",
+                BgAsset        = nil,
+                SoundId        = nil,
             },
             ["Thunder Blue"] = {
                 MainBg         = Color3.fromRGB(5,10,25),
@@ -410,6 +532,9 @@ task.delay(3.6, function()
                 SliderFill     = Color3.fromRGB(0,180,255),
                 Anim           = "lightning",
                 Subtitle       = "MOTIVATED.",
+                LogoAsset      = ensureAsset(themeAssets["Thunder Blue"].icon, themesFolder .. "Thunder Blue/", "icon.jfif", themeAssets["Thunder Blue"].fallbackIcon),
+                BgAsset        = ensureAsset(themeAssets["Thunder Blue"].bg, themesFolder .. "Thunder Blue/", "bg.webp", themeAssets["Thunder Blue"].fallbackBg),
+                SoundId        = themeAssets["Thunder Blue"].soundId,
             },
             ["Dante's Inferno"] = {
                 MainBg         = Color3.fromRGB(30,5,5),
@@ -421,6 +546,9 @@ task.delay(3.6, function()
                 SliderFill     = Color3.fromRGB(200,60,20),
                 Anim           = "fire",
                 Subtitle       = "pizza",
+                LogoAsset      = ensureAsset(themeAssets["Dante's Inferno"].icon, themesFolder .. "Dante's Inferno/", "icon.jpg", themeAssets["Dante's Inferno"].fallbackIcon),
+                BgAsset        = ensureAsset(themeAssets["Dante's Inferno"].bg, themesFolder .. "Dante's Inferno/", "bg.jpg", themeAssets["Dante's Inferno"].fallbackBg),
+                SoundId        = themeAssets["Dante's Inferno"].soundId,
             },
         }
 
@@ -438,10 +566,19 @@ task.delay(3.6, function()
         MainContainer.Size = UDim2.new(0, UI_WIDTH*UI_SCALE, 0, UI_HEIGHT*UI_SCALE)
         MainContainer.Position = UDim2.new(0.5, -(UI_WIDTH*UI_SCALE)/2, 0.5, -(UI_HEIGHT*UI_SCALE)/2)
         MainContainer.BackgroundColor3 = theme.MainBg
-        MainContainer.BackgroundTransparency = 0.05
+        MainContainer.BackgroundTransparency = 0.85
         MainContainer.BorderSizePixel = 0
-        MainContainer.ClipsDescendants = true
+        MainContainer.ClipsDescendants = false
         MainContainer.Parent = CrownHub
+
+        -- Theme background image (always behind everything)
+        local ThemeBg = Instance.new("ImageLabel")
+        ThemeBg.Name = "ThemeBackground"
+        ThemeBg.Size = UDim2.new(1,0,1,0)
+        ThemeBg.BackgroundTransparency = 1
+        ThemeBg.ImageTransparency = 0
+        ThemeBg.ZIndex = -2
+        ThemeBg.Parent = MainContainer
 
         -- Edge glow (outer)
         local EdgeGlow = Instance.new("Frame")
@@ -450,7 +587,7 @@ task.delay(3.6, function()
         EdgeGlow.BackgroundColor3 = theme.EdgeGlowC1
         EdgeGlow.BackgroundTransparency = 0.7
         EdgeGlow.BorderSizePixel = 0
-        EdgeGlow.ZIndex = -2
+        EdgeGlow.ZIndex = -1
         EdgeGlow.Parent = MainContainer
 
         local EdgeStroke = Instance.new("UIStroke")
@@ -482,10 +619,11 @@ task.delay(3.6, function()
         GoldBorder.Parent = MainContainer
         Instance.new("UICorner", GoldBorder).CornerRadius = UDim.new(0,16)
 
-        -- Gradient background
+        -- Gradient background (semi-transparent, sits above ThemeBg)
         local GradientBG = Instance.new("Frame")
         GradientBG.Size = UDim2.new(1,0,1,0)
         GradientBG.BackgroundColor3 = Color3.fromRGB(25,20,30)
+        GradientBG.BackgroundTransparency = 0.65
         GradientBG.BorderSizePixel = 0
         GradientBG.ZIndex = 0
         GradientBG.Parent = MainContainer
@@ -498,7 +636,7 @@ task.delay(3.6, function()
         MainGrad.Rotation = 45
         MainGrad.Parent = GradientBG
 
-        -- Moving overlay (decorative)
+        -- Moving overlay (decorative, sits above gradient)
         local MovingOverlay = Instance.new("Frame")
         MovingOverlay.Size = UDim2.new(2,0,2,0)
         MovingOverlay.BackgroundColor3 = Color3.fromRGB(255,255,255)
@@ -533,15 +671,54 @@ task.delay(3.6, function()
         HeaderGrad.Rotation = 90
         HeaderGrad.Parent = Header
 
-        -- Crown icon
+        -- Crown icon (main logo, changes per theme)
         local CrownIcon = Instance.new("ImageLabel")
         CrownIcon.Size = UDim2.new(0, IS_MOBILE and 35 or 40, 0, IS_MOBILE and 35 or 40)
         CrownIcon.Position = UDim2.new(0,10,0, IS_MOBILE and 12 or 15)
         CrownIcon.BackgroundTransparency = 1
-        CrownIcon.Image = "rbxassetid://6031075938"
+        CrownIcon.Image = theme.LogoAsset
         CrownIcon.ImageColor3 = theme.EdgeGlowC1
+        CrownIcon.ImageTransparency = 0.5
         CrownIcon.ZIndex = 11
         CrownIcon.Parent = Header
+
+        -- Icon click animation and sound
+        local function AnimateIcon()
+            local originalSize = CrownIcon.Size
+            TweenService:Create(CrownIcon, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, (IS_MOBILE and 35 or 40) * 1.2, 0, (IS_MOBILE and 35 or 40) * 1.2)
+            }):Play()
+            task.delay(0.2, function()
+                TweenService:Create(CrownIcon, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                    Size = UDim2.new(0, IS_MOBILE and 35 or 40, 0, IS_MOBILE and 35 or 40)
+                }):Play()
+            end)
+        end
+
+        CrownIcon.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                AnimateIcon()
+                if theme.SoundId then
+                    PlaySound("rbxassetid://" .. theme.SoundId, 0.8, 1.0)
+                end
+            end
+        end)
+
+        -- Logo animation (rotation + color pulse)
+        task.spawn(function()
+            while CrownHub and CrownHub.Parent do
+                TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                    Rotation = 5,
+                    ImageColor3 = theme.EdgeGlowC2
+                }):Play()
+                task.wait(1.5)
+                TweenService:Create(CrownIcon, TweenInfo.new(1.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {
+                    Rotation = -5,
+                    ImageColor3 = theme.EdgeGlowC1
+                }):Play()
+                task.wait(1.5)
+            end
+        end)
 
         -- Title / Subtitle
         local Title = Instance.new("TextLabel")
@@ -576,7 +753,7 @@ task.delay(3.6, function()
         SubtitleStroke.Transparency = 0.4
         SubtitleStroke.Parent = Subtitle
 
-        -- Control buttons (minimize, close, theme selector)
+        -- Control buttons container
         local ControlContainer = Instance.new("Frame")
         ControlContainer.Size = UDim2.new(0, IS_MOBILE and 150 or 170, 0, 30)
         ControlContainer.Position = UDim2.new(1, -(IS_MOBILE and 155 or 175), 0, IS_MOBILE and 15 or 18)
@@ -605,7 +782,7 @@ task.delay(3.6, function()
         themeListFrame.BackgroundColor3 = Color3.fromRGB(30,25,40)
         themeListFrame.BorderSizePixel = 0
         themeListFrame.Visible = false
-        themeListFrame.ZIndex = 12
+        themeListFrame.ZIndex = 20
         themeListFrame.Parent = ThemeDropdown
         Instance.new("UICorner", themeListFrame).CornerRadius = UDim.new(0,6)
 
@@ -618,7 +795,7 @@ task.delay(3.6, function()
             opt.TextColor3 = Color3.new(1,1,1)
             opt.TextSize = 11
             opt.Font = Enum.Font.Gotham
-            opt.ZIndex = 12
+            opt.ZIndex = 20
             opt.Parent = themeListFrame
             opt.MouseButton1Click:Connect(function()
                 currentTheme = themeName
@@ -626,6 +803,7 @@ task.delay(3.6, function()
                 ThemeDropdown.Text = themeName
                 themeListFrame.Visible = false
                 ApplyFullTheme()
+                PlayThemeMusic(currentTheme)
             end)
         end
 
@@ -633,10 +811,29 @@ task.delay(3.6, function()
             themeListFrame.Visible = not themeListFrame.Visible
         end)
 
-        -- Minimize
+        -- Mute Button
+        local MuteButton = Instance.new("TextButton")
+        MuteButton.Size = UDim2.new(0,25,1,0)
+        MuteButton.Position = UDim2.new(0,80,0,0)
+        MuteButton.BackgroundColor3 = theme.Stroke
+        MuteButton.BackgroundTransparency = 0.2
+        MuteButton.Text = "🔊"
+        MuteButton.TextColor3 = Color3.new(1,1,1)
+        MuteButton.TextSize = 14
+        MuteButton.Font = Enum.Font.GothamBlack
+        MuteButton.ZIndex = 11
+        MuteButton.Parent = ControlContainer
+        Instance.new("UICorner", MuteButton).CornerRadius = UDim.new(0,6)
+
+        MuteButton.MouseButton1Click:Connect(function()
+            ToggleMute()
+            MuteButton.Text = isMuted and "🔇" or "🔊"
+        end)
+
+        -- Minimize Button
         local MinimizeButton = Instance.new("TextButton")
         MinimizeButton.Size = UDim2.new(0,25,1,0)
-        MinimizeButton.Position = UDim2.new(0,80,0,0)
+        MinimizeButton.Position = UDim2.new(0,110,0,0)
         MinimizeButton.BackgroundColor3 = theme.Stroke
         MinimizeButton.BackgroundTransparency = 0.2
         MinimizeButton.Text = "_"
@@ -647,10 +844,10 @@ task.delay(3.6, function()
         MinimizeButton.Parent = ControlContainer
         Instance.new("UICorner", MinimizeButton).CornerRadius = UDim.new(0,6)
 
-        -- Close
+        -- Close Button
         local CloseButton = Instance.new("TextButton")
         CloseButton.Size = UDim2.new(0,25,1,0)
-        CloseButton.Position = UDim2.new(0,110,0,0)
+        CloseButton.Position = UDim2.new(0,140,0,0)
         CloseButton.BackgroundColor3 = Color3.fromRGB(180,60,60)
         CloseButton.BackgroundTransparency = 0.2
         CloseButton.Text = "×"
@@ -687,7 +884,6 @@ task.delay(3.6, function()
         local Tabs = {"Fling","Admin","Movement","Visual","Combat","Hubs","Fun","Vehicle"}
         local CurrentTab = "Fling"
 
-        -- Create tab buttons
         for i, tabName in ipairs(Tabs) do
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(1/#Tabs,-4,1,0)
@@ -702,7 +898,6 @@ task.delay(3.6, function()
             btn.ZIndex = 11
             btn.Parent = TabContainer
             Instance.new("UICorner", btn).CornerRadius = UDim.new(0,6)
-
             btn.MouseButton1Click:Connect(function()
                 CurrentTab = tabName
                 UpdateContent()
@@ -726,7 +921,7 @@ task.delay(3.6, function()
             end
         end
 
-        -- Lightning strike generator (for Thunder Blue theme)
+        -- Lightning generator (improved position & visibility)
         local lightningStrikes = {}
         local function CreateLightningStrike(x, y, angle, length, thickness, color)
             local line = Instance.new("Frame")
@@ -734,56 +929,109 @@ task.delay(3.6, function()
             line.Position = UDim2.new(0, x, 0, y)
             line.Rotation = angle
             line.BackgroundColor3 = color
-            line.BackgroundTransparency = 0.8
+            line.BackgroundTransparency = 0.2
             line.BorderSizePixel = 0
-            line.ZIndex = 20
+            line.ZIndex = 25
             line.Parent = MainContainer
             local grad = Instance.new("UIGradient")
             grad.Color = ColorSequence.new({
                 ColorSequenceKeypoint.new(0, color),
                 ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
             })
-            grad.Transparency = NumberSequence.new(0.2, 0.8)
+            grad.Transparency = NumberSequence.new(0.1, 0.6)
             grad.Parent = line
             table.insert(lightningStrikes, line)
-            TweenService:Create(line, TweenInfo.new(0.1, Enum.EasingStyle.Linear), {BackgroundTransparency = 0.2}):Play()
+            TweenService:Create(line, TweenInfo.new(0.3, Enum.EasingStyle.Linear), {BackgroundTransparency = 1}):Play()
             task.delay(0.4, function()
-                if line and line.Parent then
-                    TweenService:Create(line, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {BackgroundTransparency = 1}):Play()
-                    task.delay(0.8, function() if line and line.Parent then line:Destroy() end end)
-                end
+                if line and line.Parent then line:Destroy() end
+                for i, s in ipairs(lightningStrikes) do if s == line then table.remove(lightningStrikes, i) break end end
             end)
         end
 
         local function GenerateLightningBolt(centerX, centerY)
-            local startX = centerX + math.random(-80, 80)
-            local startY = centerY + math.random(-40, 40)
-            local segments = math.random(4, 8)
+            local containerWidth = MainContainer.AbsoluteSize.X
+            local containerHeight = MainContainer.AbsoluteSize.Y
+            local startX = centerX + math.random(-containerWidth/2 + 20, containerWidth/2 - 20)
+            local startY = centerY + math.random(-containerHeight/3, containerHeight/3)
+            local segments = math.random(6, 12)
             local currentX, currentY = startX, startY
             for i = 1, segments do
-                local nextX = currentX + math.random(-40, 40)
-                local nextY = currentY + math.random(-30, 30)
+                local nextX = math.clamp(currentX + math.random(-40, 40), centerX - containerWidth/2 + 10, centerX + containerWidth/2 - 10)
+                local nextY = math.clamp(currentY + math.random(-30, 30), centerY - containerHeight/2 + 10, centerY + containerHeight/2 - 10)
                 local dx = nextX - currentX
                 local dy = nextY - currentY
                 local length = math.sqrt(dx*dx + dy*dy)
                 local angle = math.deg(math.atan2(dy, dx))
-                local thickness = math.random(2, 4)
+                local thickness = math.random(3, 6)
                 CreateLightningStrike(currentX, currentY, angle, length, thickness, Color3.fromRGB(180,220,255))
-                -- Branch occasionally
                 if math.random() > 0.7 then
-                    local branchAngle = angle + math.random(-40, 40)
-                    local branchLen = length * math.random(30, 70)/100
-                    local branchX = currentX + dx * 0.7
-                    local branchY = currentY + dy * 0.7
+                    local branchAngle = angle + math.random(-50, 50)
+                    local branchLen = length * math.random(40, 80)/100
+                    local branchX = math.clamp(currentX + dx * 0.6, centerX - containerWidth/2 + 10, centerX + containerWidth/2 - 10)
+                    local branchY = math.clamp(currentY + dy * 0.6, centerY - containerHeight/2 + 10, centerY + containerHeight/2 - 10)
                     CreateLightningStrike(branchX, branchY, branchAngle, branchLen, thickness-1, Color3.fromRGB(150,200,255))
                 end
                 currentX, currentY = nextX, nextY
             end
         end
 
-        -- Full theme application (updates everything)
+        -- Rain droplets for Thunder theme
+        local rainDroplets = {}
+        local rainActive = false
+        local function CreateRainDroplet()
+            local droplet = Instance.new("Frame")
+            droplet.Size = UDim2.new(0, math.random(2,5), 0, math.random(6,12))
+            droplet.Position = UDim2.new(math.random(0,100)/100, 0, -0.05, 0)
+            droplet.BackgroundColor3 = Color3.fromRGB(150,220,255)
+            droplet.BackgroundTransparency = 0.4
+            droplet.BorderSizePixel = 0
+            droplet.ZIndex = 15
+            droplet.Parent = MainContainer
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1,0)
+            corner.Parent = droplet
+            table.insert(rainDroplets, droplet)
+            local speed = math.random(50, 150) / 100
+            local life = 1 / speed * 1.2
+            TweenService:Create(droplet, TweenInfo.new(life, Enum.EasingStyle.Linear), {
+                Position = UDim2.new(droplet.Position.X.Scale, 0, 1.05, 0),
+                BackgroundTransparency = 1
+            }):Play()
+            task.delay(life + 0.1, function()
+                if droplet and droplet.Parent then droplet:Destroy() end
+                for i, d in ipairs(rainDroplets) do
+                    if d == droplet then table.remove(rainDroplets, i) break end
+                end
+            end)
+        end
+
+        local rainCoroutine = nil
+        local function StartRain()
+            if rainCoroutine then return end
+            rainCoroutine = task.spawn(function()
+                while rainActive and CrownHub.Parent do
+                    for i = 1, math.random(2, 5) do
+                        CreateRainDroplet()
+                    end
+                    task.wait(0.1)
+                end
+                rainCoroutine = nil
+            end)
+        end
+
+        local function StopRain()
+            rainActive = false
+            if rainCoroutine then task.cancel(rainCoroutine); rainCoroutine = nil end
+            for _, d in ipairs(rainDroplets) do
+                if d and d.Parent then d:Destroy() end
+            end
+            rainDroplets = {}
+        end
+
+        -- Full theme application
         function ApplyFullTheme()
             MainContainer.BackgroundColor3 = theme.MainBg
+            MainContainer.BackgroundTransparency = 0.85
             EdgeGlow.BackgroundColor3 = theme.EdgeGlowC1
             EdgeStroke.Color = theme.Stroke
             InnerGlow.BackgroundColor3 = theme.EdgeGlowC1
@@ -792,15 +1040,23 @@ task.delay(3.6, function()
                 ColorSequenceKeypoint.new(0, theme.MainBg:Lerp(Color3.new(0,0,0), 0.6)),
                 ColorSequenceKeypoint.new(1, theme.MainBg:Lerp(Color3.new(0,0,0), 0.8))
             })
+            CrownIcon.Image = theme.LogoAsset
             CrownIcon.ImageColor3 = theme.EdgeGlowC1
             TitleStroke.Color = theme.Stroke
             SubtitleStroke.Color = theme.Stroke
             Subtitle.Text = theme.Subtitle
             MinimizeButton.BackgroundColor3 = theme.Stroke
+            MuteButton.BackgroundColor3 = theme.Stroke
             ContentFrame.ScrollBarImageColor3 = theme.SliderFill
+            if theme.BgAsset and theme.BgAsset ~= "" then
+                ThemeBg.Image = theme.BgAsset
+                ThemeBg.ImageTransparency = 0
+                ThemeBg.Visible = true
+            else
+                ThemeBg.Visible = false
+            end
             UpdateTabAppearance()
             UpdateContent()
-            -- Update prison hacks frame if open
             local prisonFrame = CoreGui:FindFirstChild("CrownPrisonHacksGUI")
             if prisonFrame and prisonFrame:FindFirstChild("MainFrame") then
                 local main = prisonFrame.MainFrame
@@ -818,6 +1074,7 @@ task.delay(3.6, function()
         -- Theme animation coroutine
         local themeAnimCoroutine = nil
         local fireParticles = {}
+        local MAX_FIRE_PARTICLES = 60
 
         function StopThemeAnim()
             if themeAnimCoroutine then
@@ -828,8 +1085,15 @@ task.delay(3.6, function()
                 if strike and strike.Parent then strike:Destroy() end
             end
             lightningStrikes = {}
-            for _, p in ipairs(fireParticles) do if p and p.Parent then p:Destroy() end end
+            for _, p in ipairs(fireParticles) do
+                if p and p.Parent then p:Destroy() end
+            end
             fireParticles = {}
+            StopRain()
+            if ThemeBg then
+                ThemeBg.ImageTransparency = 0
+                ThemeBg.Size = UDim2.new(1,0,1,0)
+            end
         end
 
         function StartThemeAnim()
@@ -848,6 +1112,12 @@ task.delay(3.6, function()
                         TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                             BackgroundTransparency = 0.9
                         }):Play()
+                        if ThemeBg.Visible then
+                            TweenService:Create(ThemeBg, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                                ImageTransparency = 0,
+                                Size = UDim2.new(1.02,0,1.02,0)
+                            }):Play()
+                        end
                         task.wait(1.5)
                         TweenService:Create(EdgeGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                             BackgroundTransparency = 0.7,
@@ -860,31 +1130,43 @@ task.delay(3.6, function()
                         TweenService:Create(InnerGlow, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
                             BackgroundTransparency = 0.95
                         }):Play()
+                        if ThemeBg.Visible then
+                            TweenService:Create(ThemeBg, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                                ImageTransparency = 0,
+                                Size = UDim2.new(1,0,1,0)
+                            }):Play()
+                        end
                         task.wait(1.5)
                     end
                 end)
             elseif theme.Anim == "lightning" then
+                rainActive = true
+                StartRain()
                 themeAnimCoroutine = task.spawn(function()
                     while CrownHub.Parent do
-                        -- Flash edge glow
                         TweenService:Create(EdgeGlow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                            BackgroundTransparency = 0.2,
+                            BackgroundTransparency = 0.1,
                             BackgroundColor3 = theme.EdgeGlowC2
                         }):Play()
                         TweenService:Create(EdgeStroke, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                            Transparency = 0.1,
+                            Transparency = 0.0,
                             Color = theme.EdgeGlowC2
                         }):Play()
                         TweenService:Create(InnerGlow, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                            BackgroundTransparency = 0.7
+                            BackgroundTransparency = 0.6
                         }):Play()
-                        -- Generate lightning strikes
+                        if ThemeBg.Visible then
+                            TweenService:Create(ThemeBg, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+                                ImageTransparency = 0.2,
+                                Size = UDim2.new(1.03,0,1.03,0)
+                            }):Play()
+                        end
                         local centerX = MainContainer.AbsolutePosition.X + MainContainer.AbsoluteSize.X/2
                         local centerY = MainContainer.AbsolutePosition.Y + MainContainer.AbsoluteSize.Y/2
                         for i = 1, math.random(2, 4) do
                             GenerateLightningBolt(centerX, centerY)
                         end
-                        task.wait(0.12)
+                        task.wait(0.15)
                         TweenService:Create(EdgeGlow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                             BackgroundTransparency = 0.8,
                             BackgroundColor3 = theme.EdgeGlowC1
@@ -896,39 +1178,48 @@ task.delay(3.6, function()
                         TweenService:Create(InnerGlow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                             BackgroundTransparency = 0.95
                         }):Play()
+                        if ThemeBg.Visible then
+                            TweenService:Create(ThemeBg, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+                                ImageTransparency = 0,
+                                Size = UDim2.new(1,0,1,0)
+                            }):Play()
+                        end
                         task.wait(math.random(0.8, 2.0))
                     end
                 end)
             elseif theme.Anim == "fire" then
                 themeAnimCoroutine = task.spawn(function()
                     while CrownHub.Parent do
-                        local ember = Instance.new("Frame")
-                        ember.Size = UDim2.new(0, math.random(4,10), 0, math.random(4,10))
-                        ember.BackgroundColor3 = math.random()>0.5 and Color3.fromRGB(255,100,0) or Color3.fromRGB(255,200,50)
-                        ember.BackgroundTransparency = 0.3
-                        ember.BorderSizePixel = 0
-                        ember.Position = UDim2.new(math.random(0,100)/100, 0, 1, 0)
-                        ember.AnchorPoint = Vector2.new(0.5,1)
-                        ember.ZIndex = 5
-                        ember.Parent = MainContainer
-                        table.insert(fireParticles, ember)
-                        TweenService:Create(ember, TweenInfo.new(math.random(1,3), Enum.EasingStyle.Linear), {
-                            Position = UDim2.new(ember.Position.X.Scale + math.random(-10,10)/100, 0, -0.2, 0),
-                            BackgroundTransparency = 1,
-                            Size = UDim2.new(0, ember.Size.X.Offset*0.5, 0, ember.Size.Y.Offset*0.5)
-                        }):Play()
-                        task.wait(math.random(0.05,0.2))
-                        for i=#fireParticles,1,-1 do
-                            if not fireParticles[i] or not fireParticles[i].Parent then
-                                table.remove(fireParticles, i)
-                            end
+                        if #fireParticles < MAX_FIRE_PARTICLES then
+                            local ember = Instance.new("Frame")
+                            ember.Size = UDim2.new(0, math.random(4,10), 0, math.random(4,10))
+                            ember.BackgroundColor3 = math.random()>0.5 and Color3.fromRGB(255,100,0) or Color3.fromRGB(255,200,50)
+                            ember.BackgroundTransparency = 0.3
+                            ember.BorderSizePixel = 0
+                            ember.Position = UDim2.new(math.random(0,100)/100, 0, 1, 0)
+                            ember.AnchorPoint = Vector2.new(0.5,1)
+                            ember.ZIndex = 5
+                            ember.Parent = MainContainer
+                            table.insert(fireParticles, ember)
+                            TweenService:Create(ember, TweenInfo.new(math.random(1,3), Enum.EasingStyle.Linear), {
+                                Position = UDim2.new(ember.Position.X.Scale + math.random(-10,10)/100, 0, -0.2, 0),
+                                BackgroundTransparency = 1,
+                                Size = UDim2.new(0, ember.Size.X.Offset*0.5, 0, ember.Size.Y.Offset*0.5)
+                            }):Play()
+                            task.delay(3, function()
+                                if ember and ember.Parent then ember:Destroy() end
+                                for i, p in ipairs(fireParticles) do
+                                    if p == ember then table.remove(fireParticles, i) break end
+                                end
+                            end)
                         end
+                        task.wait(math.random(0.15, 0.35))
                     end
                 end)
             end
         end
 
-        -- Button/Slider creators (use theme colors)
+        -- Button/Slider creators (unchanged)
         function CreateButton(text, callback)
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(1,0,0, IS_MOBILE and 38 or 42)
@@ -1066,7 +1357,7 @@ task.delay(3.6, function()
             return {update = updateValue}
         end
 
-        -- Wall modification functions (original)
+        -- Wall modification functions (unchanged)
         local wallsModified = false
         local originalWallProperties = {}
         local rainbowLoops = {}
@@ -1151,7 +1442,6 @@ task.delay(3.6, function()
             return "ON"
         end
 
-        -- Tenna Dance
         local function TennaDance()
             local plr = game.Players.LocalPlayer
             if plr.Character and plr.Character:FindFirstChild("Humanoid") then
@@ -1168,7 +1458,7 @@ task.delay(3.6, function()
             loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
         end
 
-        -- ==================== ORIGINAL WORKING PRISON HACKS ====================
+        -- ==================== PRISON HACKS ====================
         local CrownPrisonHacksLoaded = false
         local CrownPrisonHacksFrame = nil
 
@@ -1181,7 +1471,7 @@ task.delay(3.6, function()
             end
 
             getgenv().crownloaded = true
-            
+
             local welcomeMsg = Instance.new("Message")
             welcomeMsg.Parent = workspace
             welcomeMsg.Text = "CROWN HUB PRISON HACKS"
@@ -1189,7 +1479,7 @@ task.delay(3.6, function()
             welcomeMsg.Text = "Premium Edition"
             task.wait(1.6)
             welcomeMsg:Destroy()
-            
+
             task.spawn(function()
                 while task.wait() do
                     if game.Players.LocalPlayer and game.Players.LocalPlayer.Character then
@@ -1205,7 +1495,7 @@ task.delay(3.6, function()
                     end
                 end
             end)
-            
+
             local Players = game:GetService("Players")
             local RunService = game:GetService("RunService")
             local LocalPlayer = Players.LocalPlayer
@@ -1214,17 +1504,17 @@ task.delay(3.6, function()
             local lastTeleport = 0
             local lastArrestStart = 0
             local ARREST_COOLDOWN = 3
-            
+
             local AUTO_MODIFY_ENABLED = false
             local modifiedWeapons = {}
-            
+
             local function ModifyWeapon(weapon)
                 if not AUTO_MODIFY_ENABLED then return end
                 if not weapon or not weapon:GetAttribute("FireRate") then return end
-                
+
                 local weaponName = weapon.Name
                 if modifiedWeapons[weaponName] then return end
-                
+
                 if BURST_FIRE_ENABLED then
                     weapon:SetAttribute("FireRate", 0.0001)
                     weapon:SetAttribute("AutoFire", true)
@@ -1237,14 +1527,14 @@ task.delay(3.6, function()
                     weapon:SetAttribute("AutoFire", true)
                     weapon:SetAttribute("SpreadRadius", 0)
                 end
-                
+
                 modifiedWeapons[weaponName] = true
                 game.StarterGui:SetCore("SendNotification", {
                     Title = "Crown Hub",
                     Text = "Auto-modified: " .. weaponName
                 })
             end
-            
+
             local function ScanAndModifyGuns(container)
                 for _, v in pairs(container:GetChildren()) do
                     if v:GetAttribute("FireRate") ~= nil then
@@ -1252,30 +1542,30 @@ task.delay(3.6, function()
                     end
                 end
             end
-            
+
             local function ResetModificationTracking()
                 modifiedWeapons = {}
             end
-            
+
             LocalPlayer.CharacterAdded:Connect(function(char)
                 ResetModificationTracking()
                 task.wait(1)
                 ScanAndModifyGuns(char)
             end)
-            
+
             local backpack = LocalPlayer:WaitForChild("Backpack")
             backpack.ChildAdded:Connect(function(child)
                 if child:GetAttribute("FireRate") then
                     ModifyWeapon(child)
                 end
             end)
-            
+
             local function onCharacterChildAdded(child)
                 if child:GetAttribute("FireRate") then
                     ModifyWeapon(child)
                 end
             end
-            
+
             if LocalPlayer.Character then
                 LocalPlayer.Character.ChildAdded:Connect(onCharacterChildAdded)
             end
@@ -1284,7 +1574,7 @@ task.delay(3.6, function()
                 task.wait(0.5)
                 ScanAndModifyGuns(char)
             end)
-            
+
             -- FULL ESP with health bars, emojis, team colors
             local function GetBillboard(targetCharacter)
                 local head = targetCharacter:FindFirstChild("Head")
@@ -1298,7 +1588,7 @@ task.delay(3.6, function()
                     billboard.StudsOffset = Vector3.new(0, 3, 0)
                     billboard.AlwaysOnTop = true
                     billboard.Parent = head
-                    
+
                     local emojiLabel = Instance.new("TextLabel")
                     emojiLabel.Name = "EmojiLabel"
                     emojiLabel.Size = UDim2.new(1, 0, 0.35, 0)
@@ -1314,7 +1604,7 @@ task.delay(3.6, function()
                     emojiStroke.Transparency = 0.3
                     emojiStroke.Parent = emojiLabel
                     emojiLabel.Parent = billboard
-                    
+
                     local nameLabel = Instance.new("TextLabel")
                     nameLabel.Name = "NameLabel"
                     nameLabel.Size = UDim2.new(1, 0, 0.35, 0)
@@ -1330,7 +1620,7 @@ task.delay(3.6, function()
                     nameStroke.Transparency = 0.4
                     nameStroke.Parent = nameLabel
                     nameLabel.Parent = billboard
-                    
+
                     local healthBarBG = Instance.new("Frame")
                     healthBarBG.Name = "HealthBarBG"
                     healthBarBG.Size = UDim2.new(0.8, 0, 0.12, 0)
@@ -1338,14 +1628,14 @@ task.delay(3.6, function()
                     healthBarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
                     healthBarBG.BorderSizePixel = 0
                     healthBarBG.Parent = billboard
-                    
+
                     local healthBarFill = Instance.new("Frame")
                     healthBarFill.Name = "HealthBarFill"
                     healthBarFill.Size = UDim2.new(1, 0, 1, 0)
                     healthBarFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
                     healthBarFill.BorderSizePixel = 0
                     healthBarFill.Parent = healthBarBG
-                    
+
                     local healthBarCorner = Instance.new("UICorner")
                     healthBarCorner.CornerRadius = UDim.new(0, 3)
                     healthBarCorner.Parent = healthBarBG
@@ -1355,7 +1645,7 @@ task.delay(3.6, function()
                 end
                 return billboard
             end
-            
+
             local function GetCham(targetCharacter)
                 local cham = targetCharacter:FindFirstChild("CrownESP_Cham")
                 if not cham then
@@ -1367,7 +1657,7 @@ task.delay(3.6, function()
                 end
                 return cham
             end
-            
+
             local function UpdateESP()
                 for _, player in ipairs(Players:GetPlayers()) do
                     if player ~= LocalPlayer and player.Character then
@@ -1427,7 +1717,7 @@ task.delay(3.6, function()
                     end
                 end
             end
-            
+
             local function CanTeleport()
                 local now = tick()
                 local delta = now - lastTeleport
@@ -1442,13 +1732,13 @@ task.delay(3.6, function()
                 lastTeleport = now
                 return true
             end
-            
+
             -- GUI Creation
             local ScreenGui = Instance.new("ScreenGui")
             ScreenGui.Name = "CrownPrisonHacksGUI"
             ScreenGui.Parent = game:WaitForChild("CoreGui")
             ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-            
+
             CrownPrisonHacksFrame = Instance.new("Frame")
             CrownPrisonHacksFrame.Name = "MainFrame"
             CrownPrisonHacksFrame.Parent = ScreenGui
@@ -1456,16 +1746,16 @@ task.delay(3.6, function()
             CrownPrisonHacksFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
             CrownPrisonHacksFrame.Position = UDim2.new(0.35, 0, 0.25, 0)
             CrownPrisonHacksFrame.Size = UDim2.new(0, 300, 0, 300)
-            
+
             local UIStroke = Instance.new("UIStroke")
             UIStroke.Parent = CrownPrisonHacksFrame
             UIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
             UIStroke.Thickness = 2
             UIStroke.Color = theme.Stroke
-            
+
             local UICorner = Instance.new("UICorner")
             UICorner.Parent = CrownPrisonHacksFrame
-            
+
             local TitleLabel = Instance.new("TextLabel")
             TitleLabel.Name = "TitleLabel"
             TitleLabel.Parent = CrownPrisonHacksFrame
@@ -1475,7 +1765,7 @@ task.delay(3.6, function()
             TitleLabel.Font = Enum.Font.GothamBlack
             TitleLabel.TextSize = 24
             TitleLabel.TextColor3 = theme.SliderFill
-            
+
             local Scrolling = Instance.new("ScrollingFrame")
             Scrolling.Name = "Scrolling"
             Scrolling.Parent = CrownPrisonHacksFrame
@@ -1487,14 +1777,14 @@ task.delay(3.6, function()
             Scrolling.ScrollBarImageColor3 = theme.SliderFill
             Scrolling.AutomaticCanvasSize = Enum.AutomaticSize.Y
             Scrolling.ScrollingDirection = Enum.ScrollingDirection.Y
-            
+
             local UIListLayout = Instance.new("UIListLayout")
             UIListLayout.Parent = Scrolling
             UIListLayout.Padding = UDim.new(0, 10)
             UIListLayout.FillDirection = Enum.FillDirection.Vertical
             UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
             UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-            
+
             local Buttons = {
                 { name="CrimBaseTP", text="TP to Crim Base" },
                 { name="PrisonTP", text="TP to Prison" },
@@ -1511,8 +1801,8 @@ task.delay(3.6, function()
                 { name="ArrestPlayer", text="Arrest Player"},
                 { name="CancelArrest", text="Cancel Arrest"}
             }
-            
-            -- Arrest functions (full original)
+
+            -- Arrest functions (unchanged)
             local arrestGui = nil
             local arrestConnection = nil
             local function CloseArrestGui()
@@ -1521,7 +1811,7 @@ task.delay(3.6, function()
                 arrestGui = nil
                 arrestConnection = nil
             end
-            
+
             local function GetArrestableTargets()
                 local targets = {}
                 for _, player in ipairs(Players:GetPlayers()) do
@@ -1535,7 +1825,7 @@ task.delay(3.6, function()
                 end
                 return targets
             end
-            
+
             local activeArrestConnection = nil
             local originalArrestPosition = nil
             local antiSitConnection = nil
@@ -1543,7 +1833,7 @@ task.delay(3.6, function()
             local currentArrestTarget = nil
             local deathConnection = nil
             local arrestFloor = nil
-            
+
             local function StopArresting()
                 if activeArrestConnection then activeArrestConnection:Disconnect() end
                 if antiSitConnection then antiSitConnection:Disconnect() end
@@ -1562,7 +1852,7 @@ task.delay(3.6, function()
                 end
                 currentArrestTarget = nil
             end
-            
+
             local function StartArresting(targetPlayer)
                 CloseArrestGui()
                 StopArresting()
@@ -1600,12 +1890,12 @@ task.delay(3.6, function()
                 arrestFloor.CanCollide = true
                 arrestFloor.Transparency = 1
                 arrestFloor.Parent = workspace
-                
+
                 local TIMEOUT = 30
                 local startTime = tick()
                 local lastArrestCall = 0
                 local arrested = false
-                
+
                 antiSitConnection = RunService.RenderStepped:Connect(function()
                     local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
                     if hum and hum.Sit then
@@ -1613,7 +1903,7 @@ task.delay(3.6, function()
                         hum:ChangeState(Enum.HumanoidStateType.GettingUp)
                     end
                 end)
-                
+
                 activeArrestConnection = RunService.RenderStepped:Connect(function()
                     if arrested then return end
                     if not targetPlayer or not targetPlayer.Character then
@@ -1664,7 +1954,7 @@ task.delay(3.6, function()
                     end
                 end)
             end
-            
+
             local function ShowArrestGui()
                 CloseArrestGui()
                 local targets = GetArrestableTargets()
@@ -1767,7 +2057,7 @@ task.delay(3.6, function()
                     end
                 end)
             end
-            
+
             -- Button handlers
             for _, info in ipairs(Buttons) do
                 local btn = Instance.new("TextButton")
@@ -1865,7 +2155,7 @@ task.delay(3.6, function()
                     end
                 end)
             end
-            
+
             -- Dragging for prison hacks frame
             local dragStartPos, dragStartMouse
             local function onInputBegan(input)
@@ -1888,8 +2178,7 @@ task.delay(3.6, function()
             CrownPrisonHacksFrame.InputBegan:Connect(onInputBegan)
             UserInputService.InputChanged:Connect(onInputChanged)
             UserInputService.InputEnded:Connect(onInputEnded)
-            
-            -- Visibility toggle for Arrest/Cancel buttons based on team
+
             local arrestButton = Scrolling:FindFirstChild("ArrestPlayer")
             local cancelArrestButton = Scrolling:FindFirstChild("CancelArrest")
             task.spawn(function()
@@ -1900,8 +2189,7 @@ task.delay(3.6, function()
                     task.wait(0.5)
                 end
             end)
-            
-            -- Rainbow border effect
+
             task.spawn(function()
                 while CrownPrisonHacksFrame and CrownPrisonHacksFrame.Parent do
                     for i = 0, 1, 0.01 do
@@ -1913,10 +2201,10 @@ task.delay(3.6, function()
                     if not CrownPrisonHacksFrame then break end
                 end
             end)
-            
+
             game.StarterGui:SetCore("SendNotification", {Text = "Loaded Successfully", Title = "CROWN HUB PRISON HACKS"})
             RunService.RenderStepped:Connect(UpdateESP)
-            
+
             local closeFrameBtn = Instance.new("TextButton")
             closeFrameBtn.Parent = CrownPrisonHacksFrame
             closeFrameBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -2052,7 +2340,7 @@ task.delay(3.6, function()
             end)
         end
 
-        -- ==================== VEHICLE SYSTEM (FULLY INTEGRATED) ====================
+        -- ==================== VEHICLE SYSTEM ====================
         local velocityEnabled = true
         local velocityMult = 0.05
         local qbEnabled = 1.0
@@ -2064,7 +2352,6 @@ task.delay(3.6, function()
         local defaultCharacterParent = nil
         local flightEnabled = false
 
-        -- Vehicle detection (original method)
         local cars = workspace:FindFirstChild("CarContainer") or workspace
 
         local function GetVehicleFromDescendant(descendant)
@@ -2086,7 +2373,6 @@ task.delay(3.6, function()
             return selectedcar
         end
 
-        -- Collision disable
         local originalCollisionStates = {}
         local function ToggleCollision()
             if not selectedcar then return false end
@@ -2116,7 +2402,6 @@ task.delay(3.6, function()
             end
         end
 
-        -- Wheel modification
         local originalFrictions = {}
         local function ModifyRearWheels()
             if not selectedcar then return false end
@@ -2225,7 +2510,6 @@ task.delay(3.6, function()
             return false
         end
 
-        -- Vehicle flight loop
         RunService.Stepped:Connect(function()
             pcall(function()
                 local Character = player.Character
@@ -2260,7 +2544,6 @@ task.delay(3.6, function()
             end)
         end)
 
-        -- Vehicle acceleration/brake input
         local accelerationActive = false
         local brakeActive = false
         UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
@@ -2335,7 +2618,6 @@ task.delay(3.6, function()
             end
 
             if CurrentTab == "Vehicle" then
-                -- Refresh button and car label
                 CreateButton("🔄 Refresh Selected Car", function()
                     RefreshSelectedCar()
                     if carLabel then carLabel.Text = "Car: " .. (selectedcar and selectedcar.Name or "None") end
@@ -2350,22 +2632,15 @@ task.delay(3.6, function()
                 carLabel.TextXAlignment = Enum.TextXAlignment.Center
                 carLabel.Parent = ContentFrame
 
-                -- Keybinds toggle
-                local keybindsToggle = CreateToggleButton("Keybinds Active", velocityEnabled, function(state)
+                CreateToggleButton("Keybinds Active", velocityEnabled, function(state)
                     velocityEnabled = state
                 end)
-
-                -- Accel slider
                 CreateSlider("Accel Multiplier", 0, 0.05, velocityMult, function(value)
                     velocityMult = value
                 end)
-
-                -- Brake slider
                 CreateSlider("Brake Force (Q)", 0, 3.0, qbEnabled, function(value)
                     qbEnabled = value
                 end)
-
-                -- Collision button
                 CreateButton("Disable Body Collision: " .. (collisionDisabled and "ON" or "OFF"), function()
                     local result = ToggleCollision()
                     for _, child in ipairs(ContentFrame:GetChildren()) do
@@ -2375,8 +2650,6 @@ task.delay(3.6, function()
                         end
                     end
                 end)
-
-                -- Stop vehicle
                 CreateButton("Stop Vehicle (P)", function()
                     pcall(function()
                         local Character = player.Character
@@ -2392,13 +2665,9 @@ task.delay(3.6, function()
                         end
                     end)
                 end)
-
-                -- Rear wheel friction toggle
                 CreateToggleButton("Rear Wheel Friction", rearWheelModified, function(state)
                     rearWheelModified = ModifyRearWheels()
                 end)
-
-                -- Springs visibility button
                 CreateButton("Springs Visibility", function()
                     local visible = ToggleSpringsVisibility()
                     for _, child in ipairs(ContentFrame:GetChildren()) do
@@ -2408,23 +2677,15 @@ task.delay(3.6, function()
                         end
                     end
                 end)
-
-                -- Flight toggle
                 CreateToggleButton("Flight Mode", flightEnabled, function(state)
                     flightEnabled = state
                 end)
-
-                -- Flight speed slider
                 CreateSlider("Flight Speed", 0, 800, flightSpeed * 100, function(value)
                     flightSpeed = value / 100
                 end)
-
-                -- Wheel increment slider
                 CreateSlider("Wheel Increment", 0.1, 5.0, wheelIncrement, function(value)
                     wheelIncrement = value
                 end)
-
-                -- Wheel movement buttons
                 CreateButton("Lower All Wheels", function() ModifyAllWheels(1) end)
                 CreateButton("Raise All Wheels", function() ModifyAllWheels(-1) end)
                 CreateButton("Lower Front Wheels", function() ModifyWheelHeight("Front", 1) end)
@@ -2434,7 +2695,6 @@ task.delay(3.6, function()
                 return
             end
 
-            -- Other tabs content (Fling, Admin, etc.)
             local CrownFunctions = {
                 ["Fling"] = {
                     {"🌀 Orbit Nearest", function() OrbitalActive = not OrbitalActive if OrbitalActive then OrbitalFling() end end},
@@ -2543,6 +2803,10 @@ task.delay(3.6, function()
         CloseButton.MouseButton1Click:Connect(function()
             TweenService:Create(MainContainer, TweenInfo.new(0.4), { Size = UDim2.new(0,0,0,0), Position = UDim2.new(0.5,0,0.5,0), BackgroundTransparency = 1 }):Play()
             wait(0.4)
+            if currentMusic then
+                currentMusic:Stop()
+                currentMusic:Destroy()
+            end
             CrownHub:Destroy()
             StopThemeAnim()
         end)
@@ -2562,10 +2826,11 @@ task.delay(3.6, function()
         TweenService:Create(MainContainer, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, UI_WIDTH * UI_SCALE, 0, UI_HEIGHT * UI_SCALE),
             Position = UDim2.new(0.5, -(UI_WIDTH * UI_SCALE) / 2, 0.5, -(UI_HEIGHT * UI_SCALE) / 2),
-            BackgroundTransparency = 0.05
+            BackgroundTransparency = 0.85
         }):Play()
         UpdateContent()
         UpdateTabAppearance()
         StartThemeAnim()
+        PlayThemeMusic(currentTheme)
     end)
 end)
