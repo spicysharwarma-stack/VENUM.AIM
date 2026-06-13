@@ -921,12 +921,12 @@ task.delay(3.6, function()
             end
         end
 
-        -- Lightning generator (improved position & visibility)
+        -- LIGHTNING GENERATOR (FIXED POSITIONING)
         local lightningStrikes = {}
-        local function CreateLightningStrike(x, y, angle, length, thickness, color)
+        local function CreateLightningStrike(relativeX, relativeY, angle, length, thickness, color)
             local line = Instance.new("Frame")
             line.Size = UDim2.new(0, length, 0, thickness)
-            line.Position = UDim2.new(0, x, 0, y)
+            line.Position = UDim2.new(0, relativeX, 0, relativeY)  -- relative to MainContainer
             line.Rotation = angle
             line.BackgroundColor3 = color
             line.BackgroundTransparency = 0.2
@@ -948,27 +948,34 @@ task.delay(3.6, function()
             end)
         end
 
-        local function GenerateLightningBolt(centerX, centerY)
+        local function GenerateLightningBolt()
+            -- Get container dimensions relative to MainContainer
             local containerWidth = MainContainer.AbsoluteSize.X
             local containerHeight = MainContainer.AbsoluteSize.Y
-            local startX = centerX + math.random(-containerWidth/2 + 20, containerWidth/2 - 20)
-            local startY = centerY + math.random(-containerHeight/3, containerHeight/3)
-            local segments = math.random(6, 12)
+            if containerWidth == 0 or containerHeight == 0 then return end
+
+            -- Random start point within container (relative coordinates)
+            local startX = math.random(20, containerWidth - 20)
+            local startY = math.random(20, containerHeight - 20)
+            local segments = math.random(5, 10)
             local currentX, currentY = startX, startY
+
             for i = 1, segments do
-                local nextX = math.clamp(currentX + math.random(-40, 40), centerX - containerWidth/2 + 10, centerX + containerWidth/2 - 10)
-                local nextY = math.clamp(currentY + math.random(-30, 30), centerY - containerHeight/2 + 10, centerY + containerHeight/2 - 10)
+                local nextX = math.clamp(currentX + math.random(-40, 40), 10, containerWidth - 10)
+                local nextY = math.clamp(currentY + math.random(-35, 35), 10, containerHeight - 10)
                 local dx = nextX - currentX
                 local dy = nextY - currentY
                 local length = math.sqrt(dx*dx + dy*dy)
                 local angle = math.deg(math.atan2(dy, dx))
                 local thickness = math.random(3, 6)
                 CreateLightningStrike(currentX, currentY, angle, length, thickness, Color3.fromRGB(180,220,255))
+
+                -- Branch occasionally
                 if math.random() > 0.7 then
                     local branchAngle = angle + math.random(-50, 50)
                     local branchLen = length * math.random(40, 80)/100
-                    local branchX = math.clamp(currentX + dx * 0.6, centerX - containerWidth/2 + 10, centerX + containerWidth/2 - 10)
-                    local branchY = math.clamp(currentY + dy * 0.6, centerY - containerHeight/2 + 10, centerY + containerHeight/2 - 10)
+                    local branchX = math.clamp(currentX + dx * 0.6, 10, containerWidth - 10)
+                    local branchY = math.clamp(currentY + dy * 0.6, 10, containerHeight - 10)
                     CreateLightningStrike(branchX, branchY, branchAngle, branchLen, thickness-1, Color3.fromRGB(150,200,255))
                 end
                 currentX, currentY = nextX, nextY
@@ -1161,11 +1168,7 @@ task.delay(3.6, function()
                                 Size = UDim2.new(1.03,0,1.03,0)
                             }):Play()
                         end
-                        local centerX = MainContainer.AbsolutePosition.X + MainContainer.AbsoluteSize.X/2
-                        local centerY = MainContainer.AbsolutePosition.Y + MainContainer.AbsoluteSize.Y/2
-                        for i = 1, math.random(2, 4) do
-                            GenerateLightningBolt(centerX, centerY)
-                        end
+                        GenerateLightningBolt()   -- now uses relative coordinates
                         task.wait(0.15)
                         TweenService:Create(EdgeGlow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                             BackgroundTransparency = 0.8,
@@ -1458,7 +1461,7 @@ task.delay(3.6, function()
             loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
         end
 
-        -- ==================== PRISON HACKS ====================
+        -- ==================== PRISON HACKS (unchanged) ====================
         local CrownPrisonHacksLoaded = false
         local CrownPrisonHacksFrame = nil
 
