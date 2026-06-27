@@ -1,10 +1,10 @@
 --[[
     ╔══════════════════════════════════════════════════════════╗
-    ║            CROWN HUB — Visual Loading Screen             ║
-    ║         Pure UI Build · No Image Assets Needed           ║
+    ║ CROWN HUB — WE love to win. Made by Slickko, with love.  ║
+    ║        ARE YOU FEELING. MOTIVATED?                       ║
     ╚══════════════════════════════════════════════════════════╝
 --]]
-
+-- hi im slickko :)
 -- SERVICES
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -2821,6 +2821,7 @@ task.delay(3.6, function()
             end
         end)
 
+        -- bye im slickko :)
         -- Initialize UI
         MainContainer.Size = UDim2.new(0, 0, 0, 0)
         MainContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -2837,3 +2838,34 @@ task.delay(3.6, function()
         PlayThemeMusic(currentTheme)
     end)
 end)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- ARE YOU FEELING MOTIVATED YET. Good.
