@@ -450,6 +450,15 @@ task.delay(3.6, function()
                 soundId = "120298589467816",
                 musicFileName = "bury_the_light.mp3",
             },
+            ["Legend"] = {
+                icon = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/KIRYUCHANN.jpg",
+                bg = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/yakuzakiryuchan.jpg",
+                music = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/%E9%BE%8D%E3%81%8C%E5%A6%82%E3%81%8F%20Yakuza-%20Soundtrack-For%20Who%27s%20Sake%20%5B%20Remastered%20HD%20%5D.mp3",
+                fallbackIcon = "rbxassetid://9684557602",
+                fallbackBg = "rbxassetid://123461833496076",
+                soundId = "82225018829809",
+                musicFileName = "kiryu_theme.mp3",
+            },
         }
 
         -- ========== MAIN CROWN HUB ==========
@@ -549,6 +558,21 @@ task.delay(3.6, function()
                 LogoAsset      = ensureAsset(themeAssets["Dante's Inferno"].icon, themesFolder .. "Dante's Inferno/", "icon.jpg", themeAssets["Dante's Inferno"].fallbackIcon),
                 BgAsset        = ensureAsset(themeAssets["Dante's Inferno"].bg, themesFolder .. "Dante's Inferno/", "bg.jpg", themeAssets["Dante's Inferno"].fallbackBg),
                 SoundId        = themeAssets["Dante's Inferno"].soundId,
+            },
+            -- NEW LEGEND THEME
+            ["Legend"] = {
+                MainBg         = Color3.fromRGB(10,8,12),
+                EdgeGlowC1     = Color3.fromRGB(180,50,80),
+                EdgeGlowC2     = Color3.fromRGB(220,120,160),
+                Stroke         = Color3.fromRGB(180,50,80),
+                TabActiveBg    = Color3.fromRGB(180,50,80),
+                TabActiveText  = Color3.fromRGB(240,220,240),
+                SliderFill     = Color3.fromRGB(200,80,120),
+                Anim           = "heat",
+                Subtitle       = "The Dragon of Dojima",
+                LogoAsset      = ensureAsset(themeAssets["Legend"].icon, themesFolder .. "Legend/", "kiryuchan.jpg", themeAssets["Legend"].fallbackIcon),
+                BgAsset        = ensureAsset(themeAssets["Legend"].bg, themesFolder .. "Legend/", "yakuzakiryuchan.jpg", themeAssets["Legend"].fallbackBg),
+                SoundId        = themeAssets["Legend"].soundId,
             },
         }
 
@@ -777,7 +801,7 @@ task.delay(3.6, function()
         Instance.new("UICorner", ThemeDropdown).CornerRadius = UDim.new(0,6)
 
         local themeListFrame = Instance.new("Frame")
-        themeListFrame.Size = UDim2.new(0,70,0,90)
+        themeListFrame.Size = UDim2.new(0,70,0,120)
         themeListFrame.Position = UDim2.new(0,0,1,5)
         themeListFrame.BackgroundColor3 = Color3.fromRGB(30,25,40)
         themeListFrame.BorderSizePixel = 0
@@ -786,10 +810,10 @@ task.delay(3.6, function()
         themeListFrame.Parent = ThemeDropdown
         Instance.new("UICorner", themeListFrame).CornerRadius = UDim.new(0,6)
 
-        for i, themeName in ipairs({"Default Gold","Thunder Blue","Dante's Inferno"}) do
+        for i, themeName in ipairs({"Default Gold","Thunder Blue","Dante's Inferno","Legend"}) do
             local opt = Instance.new("TextButton")
             opt.Size = UDim2.new(1,0,0,30)
-            opt.Position = UDim2.new(0,0,(i-1)/3,0)
+            opt.Position = UDim2.new(0,0,(i-1)/4,0)
             opt.BackgroundTransparency = 1
             opt.Text = themeName
             opt.TextColor3 = Color3.new(1,1,1)
@@ -921,12 +945,180 @@ task.delay(3.6, function()
             end
         end
 
-        -- LIGHTNING GENERATOR (FIXED POSITIONING)
+        -- ==================== HEAT EFFECT SYSTEM (Kiryu Dragon Heat) ====================
+        local heatParticles = {}
+        local heatActive = false
+        local heatCoroutine = nil
+        local MAX_HEAT_PARTICLES = 80
+
+        local function CreateHeatParticle(container)
+            local width = container.AbsoluteSize.X
+            local height = container.AbsoluteSize.Y
+            if width == 0 or height == 0 then return end
+            
+            local size = math.random(3, 12)
+            local x = math.random(10, width - 10)
+            local y = math.random(height * 0.2, height * 0.9)
+            
+            local particle = Instance.new("Frame")
+            particle.Size = UDim2.new(0, size, 0, size)
+            particle.Position = UDim2.new(0, x, 0, y)
+            particle.BackgroundColor3 = Color3.fromRGB(200 + math.random(0, 55), 50 + math.random(0, 100), 100 + math.random(0, 80))
+            particle.BackgroundTransparency = 0.3 + math.random() * 0.3
+            particle.BorderSizePixel = 0
+            particle.ZIndex = 5
+            particle.Parent = container
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = particle
+            
+            local glow = Instance.new("Frame")
+            glow.Size = UDim2.new(1.5, 0, 1.5, 0)
+            glow.Position = UDim2.new(-0.25, 0, -0.25, 0)
+            glow.BackgroundColor3 = Color3.fromRGB(255, 100, 150)
+            glow.BackgroundTransparency = 0.85
+            glow.BorderSizePixel = 0
+            glow.ZIndex = 4
+            glow.Parent = particle
+            local glowCorner = Instance.new("UICorner")
+            glowCorner.CornerRadius = UDim.new(1, 0)
+            glowCorner.Parent = glow
+            
+            table.insert(heatParticles, particle)
+            
+            -- Smooth floating motion with sine wave
+            local startX = x
+            local startY = y
+            local driftX = math.random(-30, 30)
+            local driftY = -math.random(20, 60)
+            local duration = math.random(1.5, 3.5)
+            local phase = math.random() * math.pi * 2
+            local amplitude = math.random(5, 20)
+            
+            -- Fade in
+            TweenService:Create(particle, TweenInfo.new(0.3, Enum.EasingStyle.Sine), {
+                BackgroundTransparency = 0.1
+            }):Play()
+            
+            -- Animate the particle with wave motion
+            local startTime = tick()
+            local endTime = startTime + duration
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if not particle.Parent then
+                    connection:Disconnect()
+                    return
+                end
+                local elapsed = tick() - startTime
+                local progress = elapsed / duration
+                
+                if progress >= 1 then
+                    connection:Disconnect()
+                    TweenService:Create(particle, TweenInfo.new(0.4, Enum.EasingStyle.Sine), {
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(0, size * 0.2, 0, size * 0.2)
+                    }):Play()
+                    task.delay(0.5, function()
+                        if particle and particle.Parent then particle:Destroy() end
+                        for i, p in ipairs(heatParticles) do
+                            if p == particle then table.remove(heatParticles, i) break end
+                        end
+                    end)
+                    return
+                end
+                
+                -- Wave-like motion
+                local waveX = math.sin(progress * math.pi * 2 + phase) * amplitude * (1 - progress)
+                local currentX = startX + driftX * progress + waveX
+                local currentY = startY + driftY * progress - math.sin(progress * math.pi) * 20
+                
+                particle.Position = UDim2.new(0, currentX, 0, currentY)
+                
+                -- Size pulsing
+                local pulseSize = size * (0.8 + 0.4 * math.sin(progress * math.pi * 4))
+                particle.Size = UDim2.new(0, pulseSize, 0, pulseSize)
+                
+                -- Color shift from blue to red to white
+                local hue = 0.9 - progress * 0.3
+                local saturation = 0.8 + 0.2 * math.sin(progress * math.pi)
+                local value = 0.8 + 0.2 * math.sin(progress * math.pi * 0.5)
+                particle.BackgroundColor3 = Color3.fromHSV(hue, saturation, value)
+                
+                -- Transparency
+                local trans = 0.1 + 0.6 * progress * progress
+                particle.BackgroundTransparency = trans
+                glow.BackgroundTransparency = 0.7 + 0.3 * progress
+            end)
+            
+            -- Cleanup if not already handled
+            task.delay(duration + 1, function()
+                if particle and particle.Parent then particle:Destroy() end
+                for i, p in ipairs(heatParticles) do
+                    if p == particle then table.remove(heatParticles, i) break end
+                end
+            end)
+        end
+
+        local function StartHeatEffect()
+            if heatCoroutine then return end
+            heatActive = true
+            
+            -- Add initial burst of particles
+            for i = 1, 20 do
+                task.spawn(function()
+                    task.wait(math.random() * 0.3)
+                    if heatActive and MainContainer.Parent then
+                        CreateHeatParticle(MainContainer)
+                    end
+                end)
+            end
+            
+            heatCoroutine = task.spawn(function()
+                while heatActive and CrownHub.Parent do
+                    if #heatParticles < MAX_HEAT_PARTICLES then
+                        local count = math.random(1, 3)
+                        for i = 1, count do
+                            task.spawn(function()
+                                if heatActive and MainContainer.Parent then
+                                    CreateHeatParticle(MainContainer)
+                                end
+                            end)
+                            task.wait(math.random() * 0.15)
+                        end
+                    end
+                    task.wait(math.random(0.05, 0.15))
+                end
+                heatCoroutine = nil
+            end)
+        end
+
+        local function StopHeatEffect()
+            heatActive = false
+            if heatCoroutine then
+                task.cancel(heatCoroutine)
+                heatCoroutine = nil
+            end
+            for _, p in ipairs(heatParticles) do
+                if p and p.Parent then
+                    TweenService:Create(p, TweenInfo.new(0.3, Enum.EasingStyle.Sine), {
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(0, 0, 0, 0)
+                    }):Play()
+                    task.delay(0.5, function()
+                        if p and p.Parent then p:Destroy() end
+                    end)
+                end
+            end
+            heatParticles = {}
+        end
+
+        -- Lightning generator (for thunder blue, kept same)
         local lightningStrikes = {}
         local function CreateLightningStrike(relativeX, relativeY, angle, length, thickness, color)
             local line = Instance.new("Frame")
             line.Size = UDim2.new(0, length, 0, thickness)
-            line.Position = UDim2.new(0, relativeX, 0, relativeY)  -- relative to MainContainer
+            line.Position = UDim2.new(0, relativeX, 0, relativeY)
             line.Rotation = angle
             line.BackgroundColor3 = color
             line.BackgroundTransparency = 0.2
@@ -949,12 +1141,10 @@ task.delay(3.6, function()
         end
 
         local function GenerateLightningBolt()
-            -- Get container dimensions relative to MainContainer
             local containerWidth = MainContainer.AbsoluteSize.X
             local containerHeight = MainContainer.AbsoluteSize.Y
             if containerWidth == 0 or containerHeight == 0 then return end
 
-            -- Random start point within container (relative coordinates)
             local startX = math.random(20, containerWidth - 20)
             local startY = math.random(20, containerHeight - 20)
             local segments = math.random(5, 10)
@@ -970,7 +1160,6 @@ task.delay(3.6, function()
                 local thickness = math.random(3, 6)
                 CreateLightningStrike(currentX, currentY, angle, length, thickness, Color3.fromRGB(180,220,255))
 
-                -- Branch occasionally
                 if math.random() > 0.7 then
                     local branchAngle = angle + math.random(-50, 50)
                     local branchLen = length * math.random(40, 80)/100
@@ -982,7 +1171,7 @@ task.delay(3.6, function()
             end
         end
 
-        -- Rain droplets for Thunder theme
+        -- Rain droplets (for thunder blue)
         local rainDroplets = {}
         local rainActive = false
         local function CreateRainDroplet()
@@ -1097,6 +1286,7 @@ task.delay(3.6, function()
             end
             fireParticles = {}
             StopRain()
+            StopHeatEffect()
             if ThemeBg then
                 ThemeBg.ImageTransparency = 0
                 ThemeBg.Size = UDim2.new(1,0,1,0)
@@ -1168,7 +1358,7 @@ task.delay(3.6, function()
                                 Size = UDim2.new(1.03,0,1.03,0)
                             }):Play()
                         end
-                        GenerateLightningBolt()   -- now uses relative coordinates
+                        GenerateLightningBolt()
                         task.wait(0.15)
                         TweenService:Create(EdgeGlow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
                             BackgroundTransparency = 0.8,
@@ -1219,10 +1409,58 @@ task.delay(3.6, function()
                         task.wait(math.random(0.15, 0.35))
                     end
                 end)
+            elseif theme.Anim == "heat" then
+                -- Kiryu's Dragon Heat effect - starts immediately
+                StartHeatEffect()
+                
+                -- Also pulse the glow with heat-like intensity
+                themeAnimCoroutine = task.spawn(function()
+                    while CrownHub.Parent do
+                        -- Intense glow pulse
+                        TweenService:Create(EdgeGlow, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.3,
+                            BackgroundColor3 = theme.EdgeGlowC2
+                        }):Play()
+                        TweenService:Create(EdgeStroke, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            Transparency = 0.1,
+                            Color = theme.EdgeGlowC2
+                        }):Play()
+                        TweenService:Create(InnerGlow, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.8
+                        }):Play()
+                        if ThemeBg.Visible then
+                            TweenService:Create(ThemeBg, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                                ImageTransparency = 0.1,
+                                Size = UDim2.new(1.01,0,1.01,0)
+                            }):Play()
+                        end
+                        task.wait(0.6)
+                        
+                        -- Cool down slightly
+                        TweenService:Create(EdgeGlow, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.6,
+                            BackgroundColor3 = theme.EdgeGlowC1
+                        }):Play()
+                        TweenService:Create(EdgeStroke, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            Transparency = 0.3,
+                            Color = theme.Stroke
+                        }):Play()
+                        TweenService:Create(InnerGlow, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                            BackgroundTransparency = 0.93
+                        }):Play()
+                        if ThemeBg.Visible then
+                            TweenService:Create(ThemeBg, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {
+                                ImageTransparency = 0,
+                                Size = UDim2.new(1,0,1,0)
+                            }):Play()
+                        end
+                        task.wait(0.8)
+                    end
+                end)
             end
         end
 
-        -- Button/Slider creators (unchanged)
+        -- Button/Slider creators
         function CreateButton(text, callback)
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(1,0,0, IS_MOBILE and 38 or 42)
@@ -1360,7 +1598,7 @@ task.delay(3.6, function()
             return {update = updateValue}
         end
 
-        -- Wall modification functions (unchanged)
+        -- Wall modification functions
         local wallsModified = false
         local originalWallProperties = {}
         local rainbowLoops = {}
@@ -1461,7 +1699,7 @@ task.delay(3.6, function()
             loadstring(game:HttpGet('https://pastebin.com/raw/KXQE4WDS'))()
         end
 
-        -- ==================== PRISON HACKS (unchanged) ====================
+        -- ==================== PRISON HACKS ====================
         local CrownPrisonHacksLoaded = false
         local CrownPrisonHacksFrame = nil
 
@@ -1805,7 +2043,7 @@ task.delay(3.6, function()
                 { name="CancelArrest", text="Cancel Arrest"}
             }
 
-            -- Arrest functions (unchanged)
+            -- Arrest functions
             local arrestGui = nil
             local arrestConnection = nil
             local function CloseArrestGui()
@@ -2838,34 +3076,5 @@ task.delay(3.6, function()
         PlayThemeMusic(currentTheme)
     end)
 end)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- ARE YOU FEELING MOTIVATED YET. Good.
