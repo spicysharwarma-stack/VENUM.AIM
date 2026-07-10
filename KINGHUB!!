@@ -456,8 +456,9 @@ task.delay(3.6, function()
                 music = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/%E9%BE%8D%E3%81%8C%E5%A6%82%E3%81%8F%20Yakuza-%20Soundtrack-For%20Who%27s%20Sake%20%5B%20Remastered%20HD%20%5D.mp3",
                 fallbackIcon = "rbxassetid://9684557602",
                 fallbackBg = "rbxassetid://123461833496076",
-                soundId = "82225018829809",
+                soundId = "91240097148696",
                 musicFileName = "kiryu_theme.mp3",
+                clickSound = "https://raw.githubusercontent.com/spicysharwarma-stack/VENUM.AIM/main/ten-years-in-the-joint_IsvLfn4.mp3",
             },
         }
 
@@ -515,6 +516,183 @@ task.delay(3.6, function()
             end
         end
 
+        -- ========== KIRYU BLUE FLAME AURA SYSTEM ==========
+        local auraActive = false
+        local auraParticles = {}
+        local auraCoroutine = nil
+        local MAX_AURA_PARTICLES = 50
+
+        local function CreateAuraParticle(torso)
+            if not torso or not torso.Parent then return end
+            
+            local size = math.random(3, 8)
+            local x = (math.random() - 0.5) * 3.5
+            local z = (math.random() - 0.5) * 3.5
+            local y = (math.random() - 0.5) * 1.5
+            
+            local particle = Instance.new("Frame")
+            particle.Size = UDim2.new(0, size, 0, size)
+            particle.Position = UDim2.new(0, 0, 0, 0)
+            particle.BackgroundColor3 = Color3.fromRGB(100 + math.random(0, 80), 150 + math.random(0, 80), 255)
+            particle.BackgroundTransparency = 0.2 + math.random() * 0.3
+            particle.BorderSizePixel = 0
+            particle.ZIndex = 999
+            particle.Parent = torso
+            
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(1, 0)
+            corner.Parent = particle
+            
+            local glow = Instance.new("Frame")
+            glow.Size = UDim2.new(2, 0, 2, 0)
+            glow.Position = UDim2.new(-0.5, 0, -0.5, 0)
+            glow.BackgroundColor3 = Color3.fromRGB(50, 100, 255)
+            glow.BackgroundTransparency = 0.85
+            glow.BorderSizePixel = 0
+            glow.ZIndex = 998
+            glow.Parent = particle
+            local glowCorner = Instance.new("UICorner")
+            glowCorner.CornerRadius = UDim.new(1, 0)
+            glowCorner.Parent = glow
+            
+            table.insert(auraParticles, particle)
+            
+            -- Animate the particle orbiting around torso
+            local startTime = tick()
+            local duration = math.random(1.5, 3.5)
+            local startX = x
+            local startZ = z
+            local startY = y
+            local orbitSpeed = math.random(2, 5)
+            local floatSpeed = math.random(1, 3)
+            local driftY = (math.random() - 0.5) * 2
+            
+            local connection
+            connection = RunService.RenderStepped:Connect(function()
+                if not particle.Parent or not torso.Parent or not auraActive then
+                    connection:Disconnect()
+                    if particle and particle.Parent then particle:Destroy() end
+                    for i, p in ipairs(auraParticles) do
+                        if p == particle then table.remove(auraParticles, i) break end
+                    end
+                    return
+                end
+                
+                local elapsed = tick() - startTime
+                local progress = elapsed / duration
+                
+                if progress >= 1 then
+                    connection:Disconnect()
+                    TweenService:Create(particle, TweenInfo.new(0.4, Enum.EasingStyle.Sine), {
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(0, 0, 0, 0)
+                    }):Play()
+                    task.delay(0.5, function()
+                        if particle and particle.Parent then particle:Destroy() end
+                        for i, p in ipairs(auraParticles) do
+                            if p == particle then table.remove(auraParticles, i) break end
+                        end
+                    end)
+                    return
+                end
+                
+                -- Orbital motion with sine wave floating
+                local angle = elapsed * orbitSpeed + (math.random() - 0.5) * 0.5
+                local radius = 2 + 0.5 * math.sin(elapsed * floatSpeed)
+                local currentX = startX + math.cos(angle) * radius
+                local currentZ = startZ + math.sin(angle) * radius
+                local currentY = startY + math.sin(elapsed * floatSpeed * 0.7) * 1.2 + driftY * progress
+                
+                -- Size pulsing
+                local pulseSize = size * (0.7 + 0.4 * math.sin(elapsed * 3 + angle))
+                particle.Size = UDim2.new(0, pulseSize, 0, pulseSize)
+                
+                -- Color shift: blue to light blue to white
+                local hue = 0.6 + 0.05 * math.sin(elapsed * 0.5)
+                local saturation = 0.7 + 0.3 * math.sin(elapsed * 0.3)
+                local value = 0.8 + 0.2 * math.sin(elapsed * 0.7)
+                particle.BackgroundColor3 = Color3.fromHSV(hue, saturation, value)
+                
+                -- Transparency pulse
+                local trans = 0.1 + 0.5 * math.sin(elapsed * 1.5 + angle) * 0.5 + 0.5
+                particle.BackgroundTransparency = trans * 0.7 + 0.2
+                
+                -- Update position relative to torso
+                local torsoPos = torso.Position
+                particle.Position = UDim2.new(0, torsoPos.X + currentX * 3, 0, torsoPos.Y + currentY * 3)
+                
+                -- Glow effect
+                glow.BackgroundTransparency = 0.6 + 0.3 * math.sin(elapsed * 2)
+            end)
+            
+            -- Cleanup
+            task.delay(duration + 1, function()
+                if particle and particle.Parent then particle:Destroy() end
+                for i, p in ipairs(auraParticles) do
+                    if p == particle then table.remove(auraParticles, i) break end
+                end
+            end)
+        end
+
+        local function StartAuraEffect()
+            if auraCoroutine then return end
+            auraActive = true
+            
+            -- Initial burst
+            for i = 1, 15 do
+                task.spawn(function()
+                    task.wait(math.random() * 0.3)
+                    if auraActive then
+                        local char = player.Character
+                        if char and char:FindFirstChild("Torso") then
+                            CreateAuraParticle(char.Torso)
+                        end
+                    end
+                end)
+            end
+            
+            auraCoroutine = task.spawn(function()
+                while auraActive and CrownHub.Parent do
+                    local char = player.Character
+                    if char and char:FindFirstChild("Torso") then
+                        if #auraParticles < MAX_AURA_PARTICLES then
+                            local count = math.random(1, 2)
+                            for i = 1, count do
+                                task.spawn(function()
+                                    if auraActive then
+                                        CreateAuraParticle(char.Torso)
+                                    end
+                                end)
+                                task.wait(math.random() * 0.05)
+                            end
+                        end
+                    end
+                    task.wait(math.random(0.05, 0.12))
+                end
+                auraCoroutine = nil
+            end)
+        end
+
+        local function StopAuraEffect()
+            auraActive = false
+            if auraCoroutine then
+                task.cancel(auraCoroutine)
+                auraCoroutine = nil
+            end
+            for _, p in ipairs(auraParticles) do
+                if p and p.Parent then
+                    TweenService:Create(p, TweenInfo.new(0.3, Enum.EasingStyle.Sine), {
+                        BackgroundTransparency = 1,
+                        Size = UDim2.new(0, 0, 0, 0)
+                    }):Play()
+                    task.delay(0.4, function()
+                        if p and p.Parent then p:Destroy() end
+                    end)
+                end
+            end
+            auraParticles = {}
+        end
+
         -- THEMES
         local Themes = {
             ["Default Gold"] = {
@@ -530,6 +708,7 @@ task.delay(3.6, function()
                 LogoAsset      = "rbxassetid://6031075938",
                 BgAsset        = nil,
                 SoundId        = nil,
+                HasAura        = false,
             },
             ["Thunder Blue"] = {
                 MainBg         = Color3.fromRGB(5,10,25),
@@ -544,6 +723,7 @@ task.delay(3.6, function()
                 LogoAsset      = ensureAsset(themeAssets["Thunder Blue"].icon, themesFolder .. "Thunder Blue/", "icon.jfif", themeAssets["Thunder Blue"].fallbackIcon),
                 BgAsset        = ensureAsset(themeAssets["Thunder Blue"].bg, themesFolder .. "Thunder Blue/", "bg.webp", themeAssets["Thunder Blue"].fallbackBg),
                 SoundId        = themeAssets["Thunder Blue"].soundId,
+                HasAura        = false,
             },
             ["Dante's Inferno"] = {
                 MainBg         = Color3.fromRGB(30,5,5),
@@ -558,8 +738,9 @@ task.delay(3.6, function()
                 LogoAsset      = ensureAsset(themeAssets["Dante's Inferno"].icon, themesFolder .. "Dante's Inferno/", "icon.jpg", themeAssets["Dante's Inferno"].fallbackIcon),
                 BgAsset        = ensureAsset(themeAssets["Dante's Inferno"].bg, themesFolder .. "Dante's Inferno/", "bg.jpg", themeAssets["Dante's Inferno"].fallbackBg),
                 SoundId        = themeAssets["Dante's Inferno"].soundId,
+                HasAura        = false,
             },
-            -- NEW LEGEND THEME
+            -- LEGEND THEME (Kiryu)
             ["Legend"] = {
                 MainBg         = Color3.fromRGB(10,8,12),
                 EdgeGlowC1     = Color3.fromRGB(180,50,80),
@@ -573,6 +754,7 @@ task.delay(3.6, function()
                 LogoAsset      = ensureAsset(themeAssets["Legend"].icon, themesFolder .. "Legend/", "kiryuchan.jpg", themeAssets["Legend"].fallbackIcon),
                 BgAsset        = ensureAsset(themeAssets["Legend"].bg, themesFolder .. "Legend/", "yakuzakiryuchan.jpg", themeAssets["Legend"].fallbackBg),
                 SoundId        = themeAssets["Legend"].soundId,
+                HasAura        = true,
             },
         }
 
@@ -719,12 +901,28 @@ task.delay(3.6, function()
             end)
         end
 
+        -- Custom sound for Legend theme
+        local function PlayThemeClickSound(themeName)
+            if themeName == "Legend" then
+                local asset = themeAssets["Legend"]
+                if asset and asset.clickSound then
+                    local soundPath = ensureAsset(asset.clickSound, musicFolder, "ten-years-in-the-joint.mp3", nil)
+                    if soundPath then
+                        PlaySound(soundPath, 0.6, 1.0)
+                        return
+                    end
+                end
+            end
+            -- Fallback sound
+            if theme.SoundId then
+                PlaySound("rbxassetid://" .. theme.SoundId, 0.8, 1.0)
+            end
+        end
+
         CrownIcon.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 AnimateIcon()
-                if theme.SoundId then
-                    PlaySound("rbxassetid://" .. theme.SoundId, 0.8, 1.0)
-                end
+                PlayThemeClickSound(currentTheme)
             end
         end)
 
@@ -1173,8 +1371,7 @@ task.delay(3.6, function()
 
         -- Rain droplets (for thunder blue)
         local rainDroplets = {}
-        local rainActive = false
-        local function CreateRainDroplet()
+        local rainActive = false        local function CreateRainDroplet()
             local droplet = Instance.new("Frame")
             droplet.Size = UDim2.new(0, math.random(2,5), 0, math.random(6,12))
             droplet.Position = UDim2.new(math.random(0,100)/100, 0, -0.05, 0)
@@ -1251,6 +1448,14 @@ task.delay(3.6, function()
             else
                 ThemeBg.Visible = false
             end
+            
+            -- Handle aura effect
+            if theme.HasAura then
+                StartAuraEffect()
+            else
+                StopAuraEffect()
+            end
+            
             UpdateTabAppearance()
             UpdateContent()
             local prisonFrame = CoreGui:FindFirstChild("CrownPrisonHacksGUI")
@@ -3050,6 +3255,7 @@ task.delay(3.6, function()
             end
             CrownHub:Destroy()
             StopThemeAnim()
+            StopAuraEffect()
         end)
 
         UserInputService.InputBegan:Connect(function(input, gameProcessed)
